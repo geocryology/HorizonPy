@@ -190,7 +190,7 @@ class LoadImageApp:
     def __init__(self,root,image_file):
 
         self.parent = root
-        self.frame = Frame(root,bg='black')
+        self.frame = Frame(root, bg='black')
         self.imageFile = image_file
 
         
@@ -256,6 +256,7 @@ class LoadImageApp:
         zoommenu = Menu(menubar, tearoff=0)
         zoommenu.add_command(label="Zoom In", command=self.zoomin)
         zoommenu.add_command(label="Zoom Out", command=self.zoomout)
+        zoommenu.add_command(label="Reset Zoom", command=self.zoomoriginal)
         menubar.add_cascade(label="Zoom",menu=zoommenu)
 
         # Attach menu bar to interface
@@ -266,11 +267,13 @@ class LoadImageApp:
         self.status.pack(side=BOTTOM, fill=X)
 
         # Events 
-        self.canvas.bind("<MouseWheel>",self.zoomer)
+        self.canvas.bind("<MouseWheel>", self.zoomer)
         self.canvas.bind("<Motion>", self.motion)
         self.canvas.bind("<ButtonPress-1>", self.b1down)
         self.canvas.bind("<ButtonRelease-1>", self.b1up)
         self.canvas.bind("<Configure>", self.resize_window)
+        self.canvas.bind("a", self.zoomin)
+        self.canvas.bind("<b>", self.zoomout)
 
     ####################################################################
     # Canvas and Image File
@@ -297,7 +300,7 @@ class LoadImageApp:
             if width > 1000 or height > 1000:
                 self.raw_image.thumbnail((800,600),Image.ANTIALIAS)
                 (width, height) = self.raw_image.size
-                print "Downsizing image to ", width, "x", height
+                print "Resizing image to ", width, "x", height
 
             self.zoomed_image = self.raw_image
 
@@ -476,19 +479,17 @@ class LoadImageApp:
 
         # Save the dots to CSV file
         if self.dots:
-            f_name = tkFileDialog.asksaveasfile(mode='wt', defaultextension=".csv")
+            f_name = tkFileDialog.asksaveasfile(mode='wb', defaultextension=".csv")
             if f_name:
                 try:
                     writer = csv.writer(f_name)
-
                     writer.writerow(('X', 'Y', 'Horizon', 'Azimuth'))
-
-                    rows = len(self.dots)
-                    for row in xrange(rows):
-                        writer.writerow(self.dots[row])
+                    for row in self.dots:
+                        writer.writerow(row)
 
                 finally:
                     f_name.close()
+
 
     def exit_app(self):
         sys.exit(0)
@@ -567,15 +568,19 @@ class LoadImageApp:
                 self.display_region(self.canvas)
             else:
                 print "Min zoom reached!"
+    
+    def zoomoriginal(self):
+        if self.raw_image:
+            self.zoomcycle = 0
+            self.scale_image()
+            self.viewport = (0,0)
+            self.display_region(self.canvas)
 
     #######################################################
     # Mouse options
     #######################################################
 
     def zoomer(self,event):
-
-        
-
         
         if self.raw_image:
             (x,y) = self.to_raw((event.x,event.y))
@@ -764,7 +769,7 @@ class LoadImageApp:
         for row in xrange(rows):
             dot = self.dots.pop()
 
-            azimuth = self.find_angle(center, azimuth_coords, (dot[0], dot[1]))
+            azimuth = self.find_angle(center, self.field_azimuth_coords, (dot[0], dot[1]))
 
             # (x-center.x)2 + (y-center.y)2 = r2
             dot_radius = math.sqrt(math.pow(dot[0]-center[0],2)+math.pow(dot[1]-center[1],2))
@@ -795,7 +800,8 @@ class LoadImageApp:
         elev = (camera/2) - ((dot_radius/grid_radius) * (camera/2))
         
         # Calculate Horizon Elevation
-        return ((-0.00003 * (elev * elev)) + (1.0317 * (elev)) - 2.4902)
+        elev = (-0.00003 * (elev * elev)) + (1.0317 * (elev)) - 2.4902
+        return (max([elev,0]))
 
 # Main Program 
 
