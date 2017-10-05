@@ -7,7 +7,7 @@ How to Use:
 1) Import a fisheye image ("file", "open image")
 
 2) Draw azimuth wheel ("azimuth", "show azimuth wheel")
-    -azimuth wheel is used to calculate horizon, so adjust azimuth wheel until it matches the photo circle
+    -The azimuth wheel is used to calculate horizon values, so adjust azimuth wheel dimensions until it matches the photo circle
 
 3) Fit azimuth wheel to fisheye image using x,y corrds of centre and radius
 
