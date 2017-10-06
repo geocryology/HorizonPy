@@ -165,7 +165,7 @@ class AzimuthDialog(tkSimpleDialog.Dialog):
 ####################################################################
 class LoadImageApp:
 
-    button_1 = "up"        
+    #button_1 = "up"        
     tool = "move"          
     xold, yold = None, None
     viewport = (0,0)       # Used for zoom and pan
@@ -242,8 +242,8 @@ class LoadImageApp:
         drawmenu = Menu(menubar,tearoff=0)
         drawmenu.add_command(label="Position", command=self.move)
         drawmenu.add_command(label="Digitize", command=self.dot)
-        drawmenu.add_command(label="Display Info", command=self.show_dots)
         drawmenu.add_command(label="Delete", command=self.select)
+        drawmenu.add_command(label="Delete All Points", command=self.delete_all)
         menubar.add_cascade(label="Tools", menu=drawmenu)
         
 
@@ -258,6 +258,11 @@ class LoadImageApp:
         zoommenu.add_command(label="Zoom Out", command=self.zoomout)
         zoommenu.add_command(label="Reset Zoom", command=self.zoomoriginal)
         menubar.add_cascade(label="Zoom",menu=zoommenu)
+        
+        helpmenu = Menu(menubar, tearoff=0)
+        helpmenu.add_command(label="Show Point Coordinates", command=self.show_dots)
+        helpmenu.add_command(label="About QuickHorizon", command=self.about)
+        menubar.add_cascade(label="Help",menu=helpmenu)
 
         # Attach menu bar to interface
         root.config(menu=menubar)
@@ -271,6 +276,10 @@ class LoadImageApp:
         self.canvas.bind("<Motion>", self.motion)
         self.canvas.bind("<ButtonPress-1>", self.b1down)
         self.canvas.bind("<ButtonRelease-1>", self.b1up)
+        self.canvas.bind("<ButtonPress-2>", self.b2down)
+        self.canvas.bind("<ButtonRelease-2>", self.b2up)
+        self.canvas.bind("<ButtonPress-3>", self.b3down)
+        self.canvas.bind("<ButtonRelease-3>", self.b3up)
         self.canvas.bind("<Configure>", self.resize_window)
         self.canvas.bind("a", self.zoomin)
         self.canvas.bind("<b>", self.zoomout)
@@ -282,6 +291,8 @@ class LoadImageApp:
 
         # Reset when a new image opened
         self.button_1 = "up"
+        self.button_2 = "up"
+        self.button_3 = "up"
         self.tool = "move"
         self.xold, self.yold = None, None
         self.viewport = (0,0)
@@ -332,14 +343,17 @@ class LoadImageApp:
         return (int(x * self.mux[self.zoomcycle]) - vx,int(y * self.mux[self.zoomcycle]) - vy)
 
     def drawDots(self, my_canvas):
-
-        rows = len(self.dots)
-        for row in xrange(rows):
-
-            dot = self.dots[row]
-
-            (x,y) = self.to_window((dot[0],dot[1]))
-            item = my_canvas.create_oval(x-2,y-2,x+2,y+2,fill="blue")
+        for dot in self.dots:
+            
+            (x,y) = self.to_window((dot[0], dot[1]))
+            
+            if dot[2] >= 90:  # if horizon is greater than 90, overhanging pt
+                item = my_canvas.create_rectangle(x-2,y-2,x+2,y+2,fill="yellow")
+            elif 0 <= dot[2] < 90:
+                item = my_canvas.create_oval(x-2,y-2,x+2,y+2,fill="blue", outline='pink')
+            else:
+                item = my_canvas.create_oval(x-2,y-2,x+2,y+2,fill="white")
+            
             my_canvas.itemconfig(item, tags=("dot", str(dot[0]), str(dot[1])))
 
     def drawGrid(self, my_canvas, center, radius):
@@ -368,35 +382,31 @@ class LoadImageApp:
 
         # Find the angle for the anchor point from a standard ciricle (1,0) 0 degrees
         anchor_angle = self.find_angle(center,(center[0]+radius, center[1]),anchor)
-        adjusted_azimuth = anchor_angle + azimuth
+        adjusted_azimuth = (anchor_angle + azimuth) % 360
         #logging.debug('adjusted azimuth = %d, %d, %d', adjusted_azimuth, anchor_angle, azimuth)
 
-        if adjusted_azimuth > 360:
-            adjusted_azimuth = adjusted_azimuth - 360
-
         # Field Azimuth angle is in reference to the anchor point (in orange)
-        if adjusted_azimuth >= 0 and adjusted_azimuth <= 360:
-            my_canvas.delete("azimuth")
+        my_canvas.delete("azimuth")
 
-            old_anchor = my_canvas.find_withtag("anchor")
-            if old_anchor:
-                my_canvas.delete(old_anchor)
+        old_anchor = my_canvas.find_withtag("anchor")
+        if old_anchor:
+            my_canvas.delete(old_anchor)
 
-            ax, ay = self.to_window(anchor)
+        ax, ay = self.to_window(anchor)
 
-            my_canvas.create_oval(ax-2,ay-2,ax+2,ay+2,tag = "anchor", fill="orange")
+        my_canvas.create_oval(ax-2,ay-2,ax+2,ay+2,tag = "anchor", fill="orange")
 
-            (wX,wY) = self.to_window(center)
+        (wX,wY) = self.to_window(center)
 
-            # Draw the field azimuth in reference to the anchor point
-            rX = center[0] + int(radius * math.cos(math.radians(adjusted_azimuth)))
-            rY = center[1] + int(radius * math.sin(math.radians(adjusted_azimuth)))
+        # Draw the field azimuth in reference to the anchor point
+        rX = center[0] + int(radius * math.cos(math.radians(adjusted_azimuth)))
+        rY = center[1] + int(radius * math.sin(math.radians(adjusted_azimuth)))
 
-            # Store the field azimuth coordinates (end point) so that it can be used later to calculate dot azimuth
-            self.field_azimuth_coords = (rX, rY)
+        # Store the field azimuth coordinates (end point) so that it can be used later to calculate dot azimuth
+        self.field_azimuth_coords = (rX, rY)
 
-            pX,pY = self.to_window((rX,rY))
-            my_canvas.create_line(wX,wY,pX,pY, tag="azimuth", fill="green", width=3)
+        pX,pY = self.to_window((rX,rY))
+        my_canvas.create_line(wX,wY,pX,pY, tag="azimuth", fill="green", width=3)
 
 
     def scale_image(self):
@@ -426,7 +436,7 @@ class LoadImageApp:
 
         if self.showGrid:
             self.drawGrid(my_canvas, self.center, self.radius)
-            self.drawAzimuth(my_canvas, self.center, self.radius, self.field_azimuth)
+            self.drawAzimuth(my_canvas, self.center, self.radius, self.field_azimuth, self.anchor)
 
     ########################################################
     # Menu options
@@ -479,17 +489,22 @@ class LoadImageApp:
 
         # Save the dots to CSV file
         if self.dots:
-            f_name = tkFileDialog.asksaveasfile(mode='wb', defaultextension=".csv")
-            if f_name:
-                try:
-                    writer = csv.writer(f_name)
-                    writer.writerow(('X', 'Y', 'Horizon', 'Azimuth'))
-                    for row in self.dots:
-                        writer.writerow(row)
+            try:
+                f_name = tkFileDialog.asksaveasfile(mode='wb', defaultextension=".csv")
+                if f_name:
+                    try:
+                        writer = csv.writer(f_name)
+                        writer.writerow(('X', 'Y', 'Horizon', 'Azimuth'))
+                        for row in self.dots:
+                            writer.writerow(row)
+    
+                    finally:
+                        f_name.close()
+            except:
+                tkMessageBox.showerror("Error!", "Could not access file.  Maybe it is already open?")
 
-                finally:
-                    f_name.close()
-
+        else:
+            tkMessageBox.showerror("Error!", "No points to export!")
 
     def exit_app(self):
         sys.exit(0)
@@ -502,6 +517,24 @@ class LoadImageApp:
 
     def show_dots(self):
        tkMessageBox.showinfo("Dot Info", self.print_dots())
+    
+    def about(self):
+        tkMessageBox.showinfo("About QuickHorizon", 
+        """Contributors:\n
+        Mark Empey
+        Stephan Gruber (stephan.gruber@carleton.ca)
+        Nick Brown
+        
+        """
+        )
+    
+    def delete_all(self, confirm=True):
+        delete = True
+        if confirm:
+            delete =tkMessageBox.askokcancel("Confirm deletion?","Press OK to delete all dots!") 
+        if delete:
+            self.canvas.delete("dot")
+            self.dots = []
 
     def print_dots(self):
 
@@ -604,7 +637,7 @@ class LoadImageApp:
         if self.raw_image:
             if self.tool is "dot":
 
-                item = event.widget.create_oval(event.x-2,event.y-2,event.x+2,event.y+2,fill="blue")
+                item = event.widget.create_oval(event.x-2,event.y-2,event.x+2,event.y+2,fill="blue",outline='pink' )
 
                 
                 raw = self.to_raw((event.x,event.y))
@@ -623,16 +656,15 @@ class LoadImageApp:
                     logging.debug('Dot (%d,%d) has radius %f', raw[0], raw[1], dot_radius)
                     horizon = self.find_horizon(dot_radius, self.radius)
                     logging.info('Dot (%d,%d) has Horizon Elevation = %f, Azimuth = %f', raw[0], raw[1], horizon, azimuth)
-
+                    
                     new_dot = [raw[0], raw[1], round(horizon,5), round(azimuth,5)]
                     self.dots.append(new_dot)
 
                 else:
-                    self.dots.append(raw)
+                    self.dots.append(raw + (-999,-999))
 
             else:   
 
-                
                 self.select_X, self.select_Y = event.x, event.y
                 self.button_1 = "down"       
                                              
@@ -670,54 +702,110 @@ class LoadImageApp:
             rect = event.widget.find_withtag("selection_rectangle")
             if rect:
                 event.widget.delete(rect)
-
-            found_dots = {}     
-
-            for i in items:
-
+            
+            selected = [x for x in items if event.widget.gettags(x)[0] == 'dot']
+            
+            to_delete = {}
+            for i in selected:
+                
                 # Change the color of the selected dots 
                 event.widget.itemconfig(i,fill="red")
-
-                tags = event.widget.gettags(i)
-                logging.debug('Selected Item-> %d with tags %s, %s, %s', i, tags[0], tags[1], tags[2])
-
-                if tags[0] == "dot":
-                    found_dots[i] = (int(tags[1]),int(tags[2]))      
-
-           
-            if found_dots:
-                result = tkMessageBox.askokcancel("Confirm deletion?","Press OK to delete selected dot(s)!")
-
                 
-                if result:
+                tags = event.widget.gettags(i)
+                
+                to_delete[i] = (int(tags[1]),int(tags[2])) 
+                                     
+                logging.debug('Selected Item-> %d with tags %s, %s, %s', i, tags[0], tags[1], tags[2])
+                
+
+            if to_delete:
+                confirm = tkMessageBox.askokcancel("Confirm deletion?","Press OK to delete selected dot(s)!")
+    
+                if confirm:
                     # Delete the selected dots on the canvas, and remove it from list
-                    for i,coords in found_dots.items():
+                    for i,coords in to_delete.items():
                         logging.debug('Removing dot %d with coords: %d, %d', i, coords[0], coords[1])
-
-                        rows = len(self.dots)
-                        for row in xrange(rows):
-                            dot = self.dots[row]
-
-                            if coords[0] == dot[0] and coords[1] == dot[1]:
+                        
+                        for dot in self.dots:
+                            if coords == tuple(dot[0:2]):
                                 self.dots.remove(dot)
-                                break
-
+                                
                         event.widget.delete(i)
 
                 else: 
                     logging.info('Dot deletion cancelled!')
-
-                    
-                    for i in found_dots.keys():
-                        event.widget.itemconfig(i,fill="blue")
+                    self.drawDots(self.canvas)
 
         elif self.tool is "azimuth":
             self.azimuth_calculation(self.center, self.radius, self.field_azimuth_coords)
+    def b2down(self,event):
+        self.button_2 = "down"
 
+    def b2up(self, event):
+        self.button_2 = "up"
+        self.xold = None           
+        self.yold = None
+        
+    def b3down(self,event):
+
+        logging.debug('b3down() at (%d,%d)', event.x, event.y)
+        if self.raw_image:
+            if self.tool is "dot":
+
+                item = event.widget.create_rectangle(event.x-2,event.y-2,event.x+2,event.y+2,fill="yellow")
+          
+                raw = self.to_raw((event.x,event.y))
+                event.widget.itemconfig(item, tags=("dot", str(raw[0]), str(raw[1])))
+
+               
+                if self.showGrid and self.field_azimuth >= 0 and self.field_azimuth <= 360:
+
+                    rX = self.center[0] + int(self.radius * math.cos(math.radians(self.field_azimuth)))
+                    rY = self.center[1] + int(self.radius * math.sin(math.radians(self.field_azimuth)))
+
+                    azimuth = self.find_angle(self.center, self.field_azimuth_coords, (raw[0], raw[1]))
+
+                   
+                    dot_radius = math.sqrt(math.pow(raw[0]-self.center[0],2)+math.pow(raw[1]-self.center[1],2))
+                    logging.debug('Dot (%d,%d) has radius %f', raw[0], raw[1], dot_radius)
+                    horizon = self.find_horizon(dot_radius, self.radius)
+                    logging.info('Dot (%d,%d) has Horizon Elevation = %f, Azimuth = %f', raw[0], raw[1], horizon, azimuth)
+                    
+                    #modify coordinates so that the point is 'overhanging'
+                    azimuth = (azimuth + 180) % 360
+                    horizon = 180 - horizon 
+                    
+                    if horizon == 180: # for "180-obstruction" points, make two: one on either side
+                        twin_x = 2*self.center[0]-raw[0]
+                        twin_y = 2*self.center[1]-raw[1]
+                        twin_az  = self.find_angle(self.center, self.field_azimuth_coords, (twin_x, twin_y))
+                        twin_dot = [twin_x, twin_y, 90, round((twin_az+180)%360,5)]
+                        self.dots.append(twin_dot)
+                        horizon = 90
+                    new_dot = [raw[0], raw[1], round(horizon,5), round(azimuth,5)]
+                    self.dots.append(new_dot)
+
+                else:
+                    self.dots.append(raw + (-998, -999))
+                
+                self.drawDots(self.canvas)
+    
+    def b3up(self,event):
+        logging.debug('b3up()-> tool = %s at (%d, %d)', self.tool, event.x, event.y)
+        pass
+                        
     # Handles mouse 
     def motion(self,event):
+        
+        # Button 2 pans no matter what
+        if self.raw_image and self.button_2 == "down":
+            if self.xold is not None and self.yold is not None:
+                self.viewport = (self.viewport[0] - (event.x - self.xold), self.viewport[1] - (event.y - self.yold))
+                self.display_region(self.canvas)
+            self.xold = event.x
+            self.yold = event.y
 
-        # Only do anything if mouse button (left button) is clicked first.
+        # Conditional on button 1 depressed
         if self.raw_image and self.button_1 == "down":
             if self.xold is not None and self.yold is not None:
 
@@ -765,22 +853,28 @@ class LoadImageApp:
     def azimuth_calculation(self, center, radius, azimuth):
         new_dots = []
 
-        rows = len(self.dots)
-        for row in xrange(rows):
-            dot = self.dots.pop()
-
+        for dot in self.dots:
             azimuth = self.find_angle(center, self.field_azimuth_coords, (dot[0], dot[1]))
 
-            # (x-center.x)2 + (y-center.y)2 = r2
             dot_radius = math.sqrt(math.pow(dot[0]-center[0],2)+math.pow(dot[1]-center[1],2))
             horizon = self.find_horizon(dot_radius, radius)
+            if dot[2] == -998 or dot[2] > 90:
+                horizon = 180 - horizon
+                azimuth = (180 + azimuth) % 360
+                if horizon == 180: # for these points, make two: one on either side
+                    twin_x = 2*self.center[0]-raw[0]
+                    twin_y = 2*self.center[1]-raw[1]
+                    twin_az  = self.find_angle(self.center, self.field_azimuth_coords, (twin_x, twin_y))
+                    twin_dot = [twin_x, twin_y, 90, round((twin_az+180)%360,5)]
+                    new_dots.append(twin_dot)
+                    horizon = 90
+                        
             logging.info('Dot (%d,%d) has Horizon Elevation = %f, Azimuth = %f', dot[0], dot[1], horizon, azimuth)
-
             new_dot = [dot[0], dot[1], round(horizon,5), round(azimuth,5)]
             new_dots.append(new_dot)
 
         self.dots = new_dots
-
+        self.drawDots(self.canvas)
     def find_angle(self, C, P2, P3):
 
         angle = math.atan2(P2[1]-C[1], P2[0]-C[0]) - math.atan2(P3[1]-C[1], P3[0]-C[0])
@@ -802,6 +896,7 @@ class LoadImageApp:
         # Calculate Horizon Elevation
         elev = (-0.00003 * (elev * elev)) + (1.0317 * (elev)) - 2.4902
         return (max([elev,0]))
+        
 
 # Main Program 
 
