@@ -17,6 +17,7 @@ import tkSimpleDialog
 
 import logging
 
+
 ####################################################################
 # AzimuthWheelDialog
 ####################################################################
@@ -94,16 +95,14 @@ class GridDialog(tkSimpleDialog.Dialog):
 ####################################################################
 class AzimuthDialog(tkSimpleDialog.Dialog):
 
-    def __init__(self,parent,title=None,center=(0,0),azimuth=-1):
+    def __init__(self,parent,azimuth=0):
 
         Toplevel.__init__(self, parent)
         self.transient(parent)
 
-        if title:
-            self.title(title)
+        self.title("Field Azimuth")
 
         self.parent = parent
-        self.center = center
         self.azimuth = azimuth
 
         self.result = None
@@ -129,37 +128,29 @@ class AzimuthDialog(tkSimpleDialog.Dialog):
 
     def body(self, master):
 
-        Label(master, text="Grid Center X:").grid(row=0)
-        Label(master, text="Grid Center Y:").grid(row=1)
-        Label(master, text="Field Azimuth:").grid(row=2)
+        Label(master, text="Field Azimuth").grid(row=0)
+        Label(master, text="Enter field azimuth \n AZIMUTH VALUES MUST BE CORRECTED \n WITH RESPECT TO MAGNETIC DECLINATION!!!").grid(row=2)
 
         c1 = StringVar()
-        self.e1 = Entry(master, textvariable=c1, state=DISABLED)
-        c1.set(str(self.center[0]))
-
-        c2 = StringVar()
-        self.e2 = Entry(master, textvariable=c2, state=DISABLED)
-        c2.set(str(self.center[1]))
-
-        r = StringVar()
-        self.e3 = Entry(master, textvariable=r)
-        r.set(str(self.azimuth))
+        self.e1 = Entry(master, textvariable=c1)
+        c1.set(str(self.azimuth))
 
         self.e1.grid(row=0, column=1)
-        self.e2.grid(row=1, column=1)
-        self.e3.grid(row=2, column=1)
 
         return self.e1    
 
     def apply(self):
-
-        X = self.e1.get()
-        Y = self.e2.get()
-        A = self.e3.get()
-
-        self.center = (int(X), int(Y))
-        self.azimuth = int(A)
-        self.result = True
+        try:
+            X = float(self.e1.get())
+            if not 0 <= X <= 360:
+                tkMessageBox.showerror("Error!", "Azimuth value must be between 0 and 360")
+                self.result = False
+            else:
+                self.azimuth = X
+                self.result = True
+        except:
+            tkMessageBox.showerror("Error!", "Numeric values only, please")
+            self.result = False
 
 
 ####################################################################
@@ -177,8 +168,8 @@ class LoadImageApp:
     raw_image = None       
     zoomed_image = None    
     showGrid = False
-    field_azimuth = 0      # Define an angle of field azimuth from anchor (in degrees)
-    field_azimuth_coords = (0,0)   # Store field Azimuth coordinates (end point)
+    image_azimuth = -1      # Define an angle of image azimuth from anchor (in degrees)
+    image_azimuth_coords = (0,0)   # Store image Azimuth coordinates (end point)
     anchor = (0,0)         # Store the orange point coordinate
 
 
@@ -194,7 +185,7 @@ class LoadImageApp:
         self.parent = root
         self.frame = Frame(root, bg='black')
         self.imageFile = image_file
-
+        self.field_azimuth = -1
         
         # zoom
         self.mux = {0 : 1.0}
@@ -242,9 +233,9 @@ class LoadImageApp:
         menubar.add_cascade(label="File", menu=filemenu)
 
         drawmenu = Menu(menubar,tearoff=0)
-        drawmenu.add_command(label="Position", command=self.move)
-        drawmenu.add_command(label="Digitize", command=self.dot)
-        drawmenu.add_command(label="Delete", command=self.select)
+        drawmenu.add_command(label="Pan (Move)", command=self.move)
+        drawmenu.add_command(label="Draw Horizon Points", command=self.dot)
+        drawmenu.add_command(label="Delete Selection", command=self.select)
         drawmenu.add_command(label="Delete All Points", command=self.delete_all)
         drawmenu.add_command(label="Plot Horizon", command=self.plothorizon)
         menubar.add_cascade(label="Tools", menu=drawmenu)
@@ -254,9 +245,10 @@ class LoadImageApp:
         drawgridmenu = Menu(menubar, tearoff=0)
         gridmenu.add_cascade(label="Draw Azimuth Grid",menu=drawgridmenu)
         drawgridmenu.add_command(label="Sunex 5.6mm Fisheye", command=lambda: self.create_grid_based_on_lens((397,268), 251))
-        drawgridmenu.add_command(label="Custom Grid", command=self.show_grid)
-        gridmenu.add_command(label="Hide Azimuth Grid", command=self.hide_grid)
+        drawgridmenu.add_command(label="Custom Grid...", command=self.show_grid)
+        gridmenu.add_command(label="Hide Overlays", command=self.hide_grid)
         gridmenu.add_command(label="Define Image Azimuth", command=self.define_azimuth)
+        gridmenu.add_command(label="Enter Field Azimuth", command=self.define_field_azimuth)
         menubar.add_cascade(label="Azimuth",menu=gridmenu)
 
         zoommenu = Menu(menubar, tearoff=0)
@@ -268,7 +260,6 @@ class LoadImageApp:
         helpmenu = Menu(menubar, tearoff=0)
         helpmenu.add_command(label="Show Point Coordinates", command=self.show_dots)
         helpmenu.add_command(label="About QuickHorizon", command=self.about)
-
         helpmenu.add_command(label="new", command=self.popupimage)
         menubar.add_cascade(label="Help",menu=helpmenu)
 
@@ -336,7 +327,7 @@ class LoadImageApp:
             # Find center of image and radius
             self.center = (int(width/2), int(height/2))
             self.radius = int(math.sqrt(self.center[0] * self.center[0] + self.center[1] * self.center[1]))
-            self.field_azimuth = -1
+            self.image_azimuth = -1
 
     def to_raw(self,(x,y)):
 
@@ -389,7 +380,7 @@ class LoadImageApp:
         logging.debug('drawAzimuth() -> center = %d, %d, radius = %d, azimuth = %d, anchor = %d, %d', center[0], center[1], radius, azimuth, anchor[0], anchor[1])
 
         # Find the angle for the anchor point from a standard ciricle (1,0) 0 degrees
-        anchor_angle = self.find_angle(center,(center[0]+radius, center[1]),anchor)
+        anchor_angle = self.find_angle(center,(center[0]+radius, center[1]), anchor)
         adjusted_azimuth = (anchor_angle + azimuth) % 360
         #logging.debug('adjusted azimuth = %d, %d, %d', adjusted_azimuth, anchor_angle, azimuth)
 
@@ -411,7 +402,7 @@ class LoadImageApp:
         rY = center[1] + int(radius * math.sin(math.radians(adjusted_azimuth)))
 
         # Store the field azimuth coordinates (end point) so that it can be used later to calculate dot azimuth
-        self.field_azimuth_coords = (rX, rY)
+        self.image_azimuth_coords = (rX, rY)
 
         pX,pY = self.to_window((rX,rY))
         my_canvas.create_line(wX,wY,pX,pY, tag="azimuth", fill="green", width=3)
@@ -444,7 +435,8 @@ class LoadImageApp:
 
         if self.showGrid:
             self.drawGrid(my_canvas, self.center, self.radius)
-            self.drawAzimuth(my_canvas, self.center, self.radius, self.field_azimuth, self.anchor)
+            if 0 <= self.image_azimuth <= 360:
+                self.drawAzimuth(my_canvas, self.center, self.radius, self.image_azimuth, self.anchor)
 
     ########################################################
     # Menu options
@@ -532,7 +524,6 @@ class LoadImageApp:
         Mark Empey
         Stephan Gruber (stephan.gruber@carleton.ca)
         Nick Brown
-        
         """
         )
     
@@ -585,12 +576,30 @@ class LoadImageApp:
         if self.raw_image:
             self.showGrid = False
             self.canvas.delete("grid")
+            self.canvas.delete("azimuth")
 
     def define_azimuth(self):
 
         if self.raw_image and self.showGrid:
             self.tool = "azimuth"
-
+            
+    def define_field_azimuth(self):
+        if not self.raw_image:
+            tkMessageBox.showerror("Error!", "Open an image first")
+            return
+        if self.warn_dots:
+            d = AzimuthDialog(self.parent, azimuth=self.field_azimuth)
+            if d:
+                self.field_azimuth = d.azimuth
+            
+    def warn_dots(self):
+        if len(self.dots)>0:
+            dialog = tkMessageBox.askokcancel("Warning!","""Are you sure you want to change this parameter? \n
+            calculated azimuth values will be affected \n click OK to continue""") 
+            return(dialog)
+        else:
+            return(True)   
+     
     def dot(self):
         if self.raw_image:
             self.tool = "dot"
@@ -659,12 +668,12 @@ class LoadImageApp:
                 event.widget.itemconfig(item, tags=("dot", str(raw[0]), str(raw[1])))
 
                
-                if self.showGrid and self.field_azimuth >= 0 and self.field_azimuth <= 360:
+                if self.showGrid and (0 <= self.image_azimuth <= 360):
 
-                    rX = self.center[0] + int(self.radius * math.cos(math.radians(self.field_azimuth)))
-                    rY = self.center[1] + int(self.radius * math.sin(math.radians(self.field_azimuth)))
+                    rX = self.center[0] + int(self.radius * math.cos(math.radians(self.image_azimuth)))
+                    rY = self.center[1] + int(self.radius * math.sin(math.radians(self.image_azimuth)))
 
-                    azimuth = self.find_angle(self.center, self.field_azimuth_coords, (raw[0], raw[1]))
+                    azimuth = self.find_angle(self.center, self.image_azimuth_coords, (raw[0], raw[1]))
 
                    
                     dot_radius = math.sqrt(math.pow(raw[0]-self.center[0],2)+math.pow(raw[1]-self.center[1],2))
@@ -752,7 +761,8 @@ class LoadImageApp:
                     self.drawDots(self.canvas)
 
         elif self.tool is "azimuth":
-            self.azimuth_calculation(self.center, self.radius, self.field_azimuth_coords)
+            self.azimuth_calculation(self.center, self.radius, self.image_azimuth_coords)
+
     def b2down(self,event):
         self.button_2 = "down"
 
@@ -773,12 +783,12 @@ class LoadImageApp:
                 event.widget.itemconfig(item, tags=("dot", str(raw[0]), str(raw[1])))
 
                
-                if self.showGrid and self.field_azimuth >= 0 and self.field_azimuth <= 360:
+                if self.showGrid and (0 <= self.image_azimuth <= 360):
 
-                    rX = self.center[0] + int(self.radius * math.cos(math.radians(self.field_azimuth)))
-                    rY = self.center[1] + int(self.radius * math.sin(math.radians(self.field_azimuth)))
+                    rX = self.center[0] + int(self.radius * math.cos(math.radians(self.image_azimuth)))
+                    rY = self.center[1] + int(self.radius * math.sin(math.radians(self.image_azimuth)))
 
-                    azimuth = self.find_angle(self.center, self.field_azimuth_coords, (raw[0], raw[1]))
+                    azimuth = self.find_angle(self.center, self.image_azimuth_coords, (raw[0], raw[1]))
 
                    
                     dot_radius = math.sqrt(math.pow(raw[0]-self.center[0],2)+math.pow(raw[1]-self.center[1],2))
@@ -793,7 +803,7 @@ class LoadImageApp:
                     if horizon == 180: # for "180-obstruction" points, make two: one on either side
                         twin_x = 2*self.center[0]-raw[0]
                         twin_y = 2*self.center[1]-raw[1]
-                        twin_az  = self.find_angle(self.center, self.field_azimuth_coords, (twin_x, twin_y))
+                        twin_az  = self.find_angle(self.center, self.image_azimuth_coords, (twin_x, twin_y))
                         twin_dot = [twin_x, twin_y, 90, round((twin_az+180)%360,5)]
                         self.dots.append(twin_dot)
                         horizon = 90
@@ -837,8 +847,8 @@ class LoadImageApp:
                         zoomed_center = self.to_window(self.center)
                         zoomed_anchor = self.to_window(self.anchor)
 
-                        self.field_azimuth = self.find_angle(zoomed_center, zoomed_anchor, (event.x,event.y))
-                        self.drawAzimuth(self.canvas, self.center, self.radius, self.field_azimuth, self.anchor)
+                        self.image_azimuth = self.find_angle(zoomed_center, zoomed_anchor, (event.x,event.y))
+                        self.drawAzimuth(self.canvas, self.center, self.radius, self.image_azimuth, self.anchor)
 
                 elif self.tool is "move":     # Panning
                     self.viewport = (self.viewport[0] - (event.x - self.xold), self.viewport[1] - (event.y - self.yold))
@@ -857,8 +867,10 @@ class LoadImageApp:
         # update the status bar with x,y values, status bar always shows "RAW" coordinates
         (rX,rY) = self.to_raw((event.x,event.y))
         output = "Cursor = %d, %d" % (rX,rY)
-        if self.field_azimuth:
-            output += "      Field Azimuth = %d" %(360 - self.field_azimuth)
+        if 0 <= self.image_azimuth <= 360:
+            output += "      Image Azimuth = %d" %(360 - self.image_azimuth)
+        if 0 <= self.field_azimuth <= 360:
+            output += "      Field Azimuth = %d" %(self.field_azimuth)
         self.status.config(text=output)
 
     def resize_window(self, event):
@@ -869,7 +881,7 @@ class LoadImageApp:
         new_dots = []
 
         for dot in self.dots:
-            azimuth = self.find_angle(center, self.field_azimuth_coords, (dot[0], dot[1]))
+            azimuth = self.find_angle(center, self.image_azimuth_coords, (dot[0], dot[1]))
 
             dot_radius = math.sqrt(math.pow(dot[0]-center[0],2)+math.pow(dot[1]-center[1],2))
             horizon = self.find_horizon(dot_radius, radius)
@@ -879,7 +891,7 @@ class LoadImageApp:
                 if horizon == 180: # for these points, make two: one on either side
                     twin_x = 2*self.center[0]-raw[0]
                     twin_y = 2*self.center[1]-raw[1]
-                    twin_az  = self.find_angle(self.center, self.field_azimuth_coords, (twin_x, twin_y))
+                    twin_az  = self.find_angle(self.center, self.image_azimuth_coords, (twin_x, twin_y))
                     twin_dot = [twin_x, twin_y, 90, round((twin_az+180)%360,5)]
                     new_dots.append(twin_dot)
                     horizon = 90
