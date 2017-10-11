@@ -915,22 +915,32 @@ class LoadImageApp:
 
     def plothorizon(self, show=True):
         fig, ax = plt.subplots(1,1, sharex=True)
-        self.dots.sort(key=lambda x: x[3])  # sort dots using image azimuth
-        image_azim = [x[3] for x in self.dots]
+        plot_dots = self.dots
+        plot_dots.sort(key=lambda x: x[3])  # sort dots using image azimuth
+        image_azim = [x[3] for x in plot_dots]
         image_azim.insert(0,(image_azim[-1] - 360))
         image_azim.append(image_azim[1] + 360)
-        horiz = [x[2] for x in self.dots]
+        horiz = [x[2] for x in plot_dots]
         horiz.insert(0,horiz[-1])
         horiz.append(horiz[1])
+        plot_dots.sort(key=lambda x: (x[3]+180) % 360)
+        ia_over = [(x[3]+180) % 360 for x in plot_dots]
+        ia_over.insert(0,(ia_over[-1] - 360))
+        ia_over.append(ia_over[1] + 360)
+        h_over = [180-x[2] for x in plot_dots]
+        h_over.insert(0,h_over[-1])
+        h_over.append(h_over[1])
+        h_over = [x if x!=90 else 0 for x in h_over ]
         ax.set_xlabel('Image Azimuth')
         ax.set_ylabel('Horizon Angle')
         ax.set_axis_bgcolor('blue')
         ax.set_xlim((0,360))
-        ax.set_ylim((0,max(90, max(horiz))))   
+        ax.set_ylim((0,90))   
         horiz = np.array(horiz)
         image_azim = np.array(image_azim) 
-        ax.plot(image_azim, horiz, image_azim, horiz, 'ko')
-        ax.fill_between(image_azim, np.zeros(len(horiz)), horiz, color='brown')
+        ax.plot(image_azim, horiz, 'ko')
+        ax.fill_between(image_azim, np.zeros(len(horiz)), np.minimum(horiz,90), color='brown')
+        ax.fill_between(ia_over, h_over,  np.zeros(len(horiz))+180, color='brown') #where=horiz >= 90,
         if show:
             plt.show()
         return(fig)
