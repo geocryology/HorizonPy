@@ -10,7 +10,9 @@ import math
 import csv
 import tkFileDialog
 import tkMessageBox
-
+from matplotlib import pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import numpy as np
 import tkSimpleDialog
 
 import logging
@@ -244,13 +246,17 @@ class LoadImageApp:
         drawmenu.add_command(label="Digitize", command=self.dot)
         drawmenu.add_command(label="Delete", command=self.select)
         drawmenu.add_command(label="Delete All Points", command=self.delete_all)
+        drawmenu.add_command(label="Plot Horizon", command=self.plothorizon)
         menubar.add_cascade(label="Tools", menu=drawmenu)
         
 
         gridmenu = Menu(menubar, tearoff=0)
-        gridmenu.add_command(label="Show Azimuth Wheel", command=self.show_grid)
-        gridmenu.add_command(label="Hide Azimuth Wheel", command=self.hide_grid)
-        gridmenu.add_command(label="Enter Field Azimuth", command=self.define_azimuth)
+        drawgridmenu = Menu(menubar, tearoff=0)
+        gridmenu.add_cascade(label="Draw Azimuth Grid",menu=drawgridmenu)
+        drawgridmenu.add_command(label="Sunex 5.6mm Fisheye", command=lambda: self.create_grid_based_on_lens((397,268), 251))
+        drawgridmenu.add_command(label="Custom Grid", command=self.show_grid)
+        gridmenu.add_command(label="Hide Azimuth Grid", command=self.hide_grid)
+        gridmenu.add_command(label="Define Image Azimuth", command=self.define_azimuth)
         menubar.add_cascade(label="Azimuth",menu=gridmenu)
 
         zoommenu = Menu(menubar, tearoff=0)
@@ -262,6 +268,8 @@ class LoadImageApp:
         helpmenu = Menu(menubar, tearoff=0)
         helpmenu.add_command(label="Show Point Coordinates", command=self.show_dots)
         helpmenu.add_command(label="About QuickHorizon", command=self.about)
+
+        helpmenu.add_command(label="new", command=self.popupimage)
         menubar.add_cascade(label="Help",menu=helpmenu)
 
         # Attach menu bar to interface
@@ -565,6 +573,13 @@ class LoadImageApp:
 
                 if self.showGrid:
                     self.drawGrid(self.canvas, d.center, d.radius)
+   
+    def create_grid_based_on_lens(self, center, radius):
+        if self.raw_image:
+            self.showGrid = True
+            self.center = center
+            self.radius = radius
+            self.drawGrid(self.canvas, self.center, self.radius)
 
     def hide_grid(self):
         if self.raw_image:
@@ -896,7 +911,37 @@ class LoadImageApp:
         # Calculate Horizon Elevation
         elev = (-0.00003 * (elev * elev)) + (1.0317 * (elev)) - 2.4902
         return (max([elev,0]))
+    
+
+    def plothorizon(self, show=True):
+        fig, ax = plt.subplots(1,1, sharex=True)
+        self.dots.sort(key=lambda x: x[3])  # sort dots using image azimuth
+        image_azim = [x[3] for x in self.dots]
+        image_azim.insert(0,(image_azim[-1] - 360))
+        image_azim.append(image_azim[1] + 360)
+        horiz = [x[2] for x in self.dots]
+        horiz.insert(0,horiz[-1])
+        horiz.append(horiz[1])
+        ax.set_xlabel('Image Azimuth')
+        ax.set_ylabel('Horizon Angle')
+        ax.set_axis_bgcolor('blue')
+        ax.set_xlim((0,360))
+        ax.set_ylim((0,max(90, max(horiz))))   
+        horiz = np.array(horiz)
+        image_azim = np.array(image_azim) 
+        ax.plot(image_azim, horiz, image_azim, horiz, 'ko')
+        ax.fill_between(image_azim, np.zeros(len(horiz)), horiz, color='brown')
+        if show:
+            plt.show()
+        return(fig)
         
+    def popupimage(self):
+        self.root2 = Tk()
+        fig = self.plothorizon(show=False)
+        canvas2 = FigureCanvasTkAgg(fig, master=self.root2)     
+        canvas2.show()
+        canvas2.get_tk_widget().pack(side=TOP, fill=BOTH, expand=1.0)      
+        canvas2.draw()
 
 # Main Program 
 
