@@ -1,20 +1,7 @@
 '''
-# added 'delete all' tool
+# changed variable field_azimuth to image_azimuth, as that more accurately reflects what it is.
 
-# added panning with middle mouse button
+# added dialog to input field azimuth.
 
-# added functionality for 'overhanging' points:
-when digitizing, a right-click will generate a yellow square, this indicates
-an overhanging point.  For these points, the azimuth is flipped by 180 degrees
-and the horizon will be greater than 90 degrees.
-
-# changed colours: 
-overhanging points will be yellow
-regular points will be blue 
-points 
-
-# simplified point deletion code
-
-# added error handling for case where csv file can't be saved because its 
-already open
+# simplified image azimuth selection so that it just selects the point that you click on 
 '''

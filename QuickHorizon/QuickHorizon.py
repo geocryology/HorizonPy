@@ -170,7 +170,7 @@ class LoadImageApp:
     showGrid = False
     image_azimuth = -1      # Define an angle of image azimuth from anchor (in degrees)
     image_azimuth_coords = (0,0)   # Store image Azimuth coordinates (end point)
-    anchor = (0,0)         # Store the orange point coordinate
+    anchor = (-999,-999)         # Store the anchor coordinate
 
 
     # list of digitized dots.  Columns contain X, Y, Elevation, Az
@@ -240,22 +240,22 @@ class LoadImageApp:
         drawmenu.add_command(label="Plot Horizon", command=self.plothorizon)
         menubar.add_cascade(label="Tools", menu=drawmenu)
         
-
         gridmenu = Menu(menubar, tearoff=0)
         drawgridmenu = Menu(menubar, tearoff=0)
         gridmenu.add_cascade(label="Draw Azimuth Grid",menu=drawgridmenu)
         drawgridmenu.add_command(label="Sunex 5.6mm Fisheye", command=lambda: self.create_grid_based_on_lens((397,268), 251))
         drawgridmenu.add_command(label="Custom Grid...", command=self.show_grid)
-        gridmenu.add_command(label="Hide Overlays", command=self.hide_grid)
+        
         gridmenu.add_command(label="Define Image Azimuth", command=self.define_azimuth)
         gridmenu.add_command(label="Enter Field Azimuth", command=self.define_field_azimuth)
         menubar.add_cascade(label="Azimuth",menu=gridmenu)
 
-        zoommenu = Menu(menubar, tearoff=0)
-        zoommenu.add_command(label="Zoom In", command=self.zoomin)
-        zoommenu.add_command(label="Zoom Out", command=self.zoomout)
-        zoommenu.add_command(label="Reset Zoom", command=self.zoomoriginal)
-        menubar.add_cascade(label="Zoom",menu=zoommenu)
+        viewmenu = Menu(menubar, tearoff=0)
+        viewmenu.add_command(label="Toggle Overlays", command=self.toggle_grid)
+        viewmenu.add_command(label="Zoom In", command=self.zoomin)
+        viewmenu.add_command(label="Zoom Out", command=self.zoomout)
+        viewmenu.add_command(label="Reset Zoom", command=self.zoomoriginal)
+        menubar.add_cascade(label="View",menu=viewmenu)
         
         helpmenu = Menu(menubar, tearoff=0)
         helpmenu.add_command(label="Show Point Coordinates", command=self.show_dots)
@@ -305,6 +305,8 @@ class LoadImageApp:
             self.imageFile = image_file
             self.raw_image = Image.open(image_file)
             (width, height) = self.raw_image.size
+            self.field_azimuth = -1
+            self.image_azimuth = -1
 
             # Image larger than 1000 pixels, resize to 800 x 600
             if width > 1000 or height > 1000:
@@ -375,16 +377,13 @@ class LoadImageApp:
             pX,pY = self.to_window((rX,rY))
             my_canvas.create_line(wX,wY,pX,pY,fill="red",tag="grid")
 
-    def drawAzimuth(self, my_canvas, center, radius, azimuth, anchor):
+    def drawAzimuth(self, my_canvas, center, radius, anchor):
 
-        logging.debug('drawAzimuth() -> center = %d, %d, radius = %d, azimuth = %d, anchor = %d, %d', center[0], center[1], radius, azimuth, anchor[0], anchor[1])
+        logging.debug('drawAzimuth() -> center = %d, %d, radius = %d, azimuth = %d, anchor = %d, %d', center[0], center[1], radius,  anchor[0], anchor[1])
 
         # Find the angle for the anchor point from a standard ciricle (1,0) 0 degrees
-        anchor_angle = self.find_angle(center,(center[0]+radius, center[1]), anchor)
-        adjusted_azimuth = (anchor_angle + azimuth) % 360
-        #logging.debug('adjusted azimuth = %d, %d, %d', adjusted_azimuth, anchor_angle, azimuth)
-
-        # Field Azimuth angle is in reference to the anchor point (in orange)
+        azimuth = self.find_angle(center, anchor, (center[0]+radius, center[1])) % 360
+       
         my_canvas.delete("azimuth")
 
         old_anchor = my_canvas.find_withtag("anchor")
@@ -393,20 +392,20 @@ class LoadImageApp:
 
         ax, ay = self.to_window(anchor)
 
-        my_canvas.create_oval(ax-2,ay-2,ax+2,ay+2,tag = "anchor", fill="orange")
+        #my_canvas.create_oval(ax-2,ay-2,ax+2,ay+2,tag = "anchor", fill="orange")
 
         (wX,wY) = self.to_window(center)
 
         # Draw the field azimuth in reference to the anchor point
-        rX = center[0] + int(radius * math.cos(math.radians(adjusted_azimuth)))
-        rY = center[1] + int(radius * math.sin(math.radians(adjusted_azimuth)))
+        rX = center[0] + int(radius * math.cos(math.radians(azimuth)))
+        rY = center[1] + int(radius * math.sin(math.radians(azimuth)))
 
         # Store the field azimuth coordinates (end point) so that it can be used later to calculate dot azimuth
         self.image_azimuth_coords = (rX, rY)
 
         pX,pY = self.to_window((rX,rY))
         my_canvas.create_line(wX,wY,pX,pY, tag="azimuth", fill="green", width=3)
-
+        self.image_azimuth = azimuth
 
     def scale_image(self):
 
@@ -436,7 +435,7 @@ class LoadImageApp:
         if self.showGrid:
             self.drawGrid(my_canvas, self.center, self.radius)
             if 0 <= self.image_azimuth <= 360:
-                self.drawAzimuth(my_canvas, self.center, self.radius, self.image_azimuth, self.anchor)
+                self.drawAzimuth(my_canvas, self.center, self.radius, self.anchor)
 
     ########################################################
     # Menu options
@@ -563,7 +562,7 @@ class LoadImageApp:
                     self.showGrid = d.result
 
                 if self.showGrid:
-                    self.drawGrid(self.canvas, d.center, d.radius)
+                    self.drawGrid(self.canvas, self.center, self.radius)
    
     def create_grid_based_on_lens(self, center, radius):
         if self.raw_image:
@@ -572,11 +571,20 @@ class LoadImageApp:
             self.radius = radius
             self.drawGrid(self.canvas, self.center, self.radius)
 
-    def hide_grid(self):
+    def toggle_grid(self):
         if self.raw_image:
-            self.showGrid = False
-            self.canvas.delete("grid")
-            self.canvas.delete("azimuth")
+            if self.showGrid:
+                self.showGrid = False
+                self.canvas.delete("grid")
+                self.canvas.delete("azimuth")
+            else:
+                if self.canvas and self.center and 0<=self.radius<=360:
+                    self.showGrid = True
+                    self.drawGrid(self.canvas, self.center, self.radius)
+                    if self.anchor[0] != -999:
+                        self.drawAzimuth(self.canvas, self.center, self.radius, self.anchor)
+                else:
+                    tkMessageBox.showerror("Error!", "No overlay parameters have been set!")
 
     def define_azimuth(self):
 
@@ -699,14 +707,14 @@ class LoadImageApp:
                     if old_anchor:
                         event.widget.delete(old_anchor)
 
-                    item = event.widget.create_oval(event.x-2,event.y-2,event.x+2,event.y+2,fill="orange")
+                 #   item = event.widget.create_oval(event.x-2,event.y-2,event.x+2,event.y+2,fill="orange")
 
                     # save the anchor 
                     self.anchor = self.to_raw((event.x,event.y))
-                    event.widget.itemconfig(item, tags=("anchor"))
+                #    event.widget.itemconfig(item, tags=("anchor"))
 
                     logging.debug('Button down, drawing azimuth line with 0 degree')
-                    self.drawAzimuth(self.canvas, self.center, self.radius, 0, self.anchor)
+                    self.drawAzimuth(self.canvas, self.center, self.radius, self.anchor)
 
     def b1up(self,event):
 
@@ -833,22 +841,10 @@ class LoadImageApp:
         # Conditional on button 1 depressed
         if self.raw_image and self.button_1 == "down":
             if self.xold is not None and self.yold is not None:
-
                 
                 if self.tool is "line":
                     
                     event.widget.create_line(self.xold,self.yold,event.x,event.y,smooth=TRUE,fill="blue",width=5)
-
-                elif self.tool is "azimuth":   # Defining Field Azimuth
-
-                    
-                    if self.showGrid:
-                        
-                        zoomed_center = self.to_window(self.center)
-                        zoomed_anchor = self.to_window(self.anchor)
-
-                        self.image_azimuth = self.find_angle(zoomed_center, zoomed_anchor, (event.x,event.y))
-                        self.drawAzimuth(self.canvas, self.center, self.radius, self.image_azimuth, self.anchor)
 
                 elif self.tool is "move":     # Panning
                     self.viewport = (self.viewport[0] - (event.x - self.xold), self.viewport[1] - (event.y - self.yold))
