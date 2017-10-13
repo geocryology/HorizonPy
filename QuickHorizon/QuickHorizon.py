@@ -805,16 +805,12 @@ class LoadImageApp:
                     logging.info('Dot (%d,%d) has Horizon Elevation = %f, Azimuth = %f', raw[0], raw[1], horizon, azimuth)
                     
                     #modify coordinates so that the point is 'overhanging'
-                    azimuth = (azimuth + 180) % 360
-                    horizon = 180 - horizon 
-                    
-                    if horizon == 180: # for "180-obstruction" points, make two: one on either side
-                        twin_x = 2*self.center[0]-raw[0]
-                        twin_y = 2*self.center[1]-raw[1]
-                        twin_az  = self.find_angle(self.center, self.image_azimuth_coords, (twin_x, twin_y))
-                        twin_dot = [twin_x, twin_y, 90, round((twin_az+180)%360,5)]
-                        self.dots.append(twin_dot)
+                    if horizon == 0: # if horizon is exactly 0, make it a 90 deg point
                         horizon = 90
+                    else:
+                        horizon = 180 - horizon
+                        azimuth = (180 + azimuth) % 360    
+
                     new_dot = [raw[0], raw[1], round(horizon,5), round(azimuth,5)]
                     self.dots.append(new_dot)
 
@@ -882,16 +878,12 @@ class LoadImageApp:
             dot_radius = math.sqrt(math.pow(dot[0]-center[0],2)+math.pow(dot[1]-center[1],2))
             horizon = self.find_horizon(dot_radius, radius)
             if dot[2] == -998 or dot[2] > 90:
-                horizon = 180 - horizon
-                azimuth = (180 + azimuth) % 360
-                if horizon == 180: # for these points, make two: one on either side
-                    twin_x = 2*self.center[0]-raw[0]
-                    twin_y = 2*self.center[1]-raw[1]
-                    twin_az  = self.find_angle(self.center, self.image_azimuth_coords, (twin_x, twin_y))
-                    twin_dot = [twin_x, twin_y, 90, round((twin_az+180)%360,5)]
-                    new_dots.append(twin_dot)
+                if horizon == 0: # if horizon is exactly 0, make it a 90 deg point
                     horizon = 90
-                        
+                else:
+                    horizon = 180 - horizon
+                    azimuth = (180 + azimuth) % 360    
+                    
             logging.info('Dot (%d,%d) has Horizon Elevation = %f, Azimuth = %f', dot[0], dot[1], horizon, azimuth)
             new_dot = [dot[0], dot[1], round(horizon,5), round(azimuth,5)]
             new_dots.append(new_dot)
@@ -938,7 +930,7 @@ class LoadImageApp:
         h_over = [180-x[2] for x in plot_dots]
         h_over.insert(0,h_over[-1])
         h_over.append(h_over[1])
-        h_over = [x if x!=90 else 0 for x in h_over ]
+       # h_over = [x if x!=90 else 0 for x in h_over ]
         ax.set_xlabel('Image Azimuth')
         ax.set_ylabel('Horizon Angle')
         ax.set_axis_bgcolor('blue')
@@ -946,9 +938,12 @@ class LoadImageApp:
         ax.set_ylim((0,90))   
         horiz = np.array(horiz)
         image_azim = np.array(image_azim) 
+        h_over = np.array(h_over)
+        ia_over = np.array(ia_over) 
         ax.plot(image_azim, horiz, 'ko')
         ax.fill_between(image_azim, np.zeros(len(horiz)), np.minimum(horiz,90), color='brown')
-        ax.fill_between(ia_over, h_over,  np.zeros(len(horiz))+180, color='brown') #where=horiz >= 90,
+        if any(h_over > 90):
+            ax.fill_between(ia_over, h_over,  np.zeros(len(horiz))+180,where=h_over < 90, color='brown') #
         if show:
             plt.show()
         return(fig)
