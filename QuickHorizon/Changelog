@@ -1,7 +1,6 @@
 '''
-# changed variable field_azimuth to image_azimuth, as that more accurately reflects what it is.
+# Added functionality to adjust contrast of image
 
-# added dialog to input field azimuth.
-
-# simplified image azimuth selection so that it just selects the point that you click on 
+# got keybindings to work by using the focus_set() on the main frame when it initializes.  
+# Before, the focus was not on the frame, so the keybindings didn't go anywhere.
 '''

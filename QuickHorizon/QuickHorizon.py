@@ -3,7 +3,7 @@ try:
 except ImportError:
     from tkinter import *
 
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageEnhance
 import sys
 import os
 import math
@@ -163,8 +163,8 @@ class LoadImageApp:
     xold, yold = None, None
     viewport = (0,0)       # Used for zoom and pan
     zoomcycle = 0          
-    MIN_ZOOM = -10
-    MAX_ZOOM = 30
+    MIN_ZOOM = 0
+    MAX_ZOOM = 100
     raw_image = None       
     zoomed_image = None    
     showGrid = False
@@ -186,6 +186,7 @@ class LoadImageApp:
         self.frame = Frame(root, bg='black')
         self.imageFile = image_file
         self.field_azimuth = -1
+        self.contrast_value = 1
         
         # zoom
         self.mux = {0 : 1.0}
@@ -197,6 +198,7 @@ class LoadImageApp:
 
         # Create canvas 
         self.canvas = Canvas(self.frame,width=800,height=600,bg='gray')
+        self.canvas.focus_set() 
 
         # Create the image on canvas
         if image_file:
@@ -255,6 +257,9 @@ class LoadImageApp:
         viewmenu.add_command(label="Zoom In", command=self.zoomin)
         viewmenu.add_command(label="Zoom Out", command=self.zoomout)
         viewmenu.add_command(label="Reset Zoom", command=self.zoomoriginal)
+        viewmenu.add_command(label="Increase Contrast", command = lambda: self.adjust_contrast( 0.1))
+        viewmenu.add_command(label="Decrease Contrast", command = lambda: self.adjust_contrast( -0.1))
+
         menubar.add_cascade(label="View",menu=viewmenu)
         
         helpmenu = Menu(menubar, tearoff=0)
@@ -280,8 +285,10 @@ class LoadImageApp:
         self.canvas.bind("<ButtonPress-3>", self.b3down)
         self.canvas.bind("<ButtonRelease-3>", self.b3up)
         self.canvas.bind("<Configure>", self.resize_window)
-        self.canvas.bind("a", self.zoomin)
-        self.canvas.bind("<b>", self.zoomout)
+        self.canvas.bind("1", self.zoomin)
+        self.canvas.bind("2", self.zoomout)
+        self.canvas.bind("o", lambda event, x = 0.1 : self.adjust_contrast(x))
+        self.canvas.bind("p", lambda event, x = -0.1: self.adjust_contrast(x))
 
     ####################################################################
     # Canvas and Image File
@@ -301,35 +308,44 @@ class LoadImageApp:
         del self.dots[:]
 
         if image_file:
+            self.load_image(canvas, image_file)
+    
+    def adjust_contrast(self, increment, *args):
+        self.zoomoriginal()
+        self.contrast_value = self.contrast_value + increment
+        self.raw_image = self.contrast.enhance(self.contrast_value)
+        self.p_img = ImageTk.PhotoImage(self.raw_image)
+        self.canvas.create_image(0,0,image=self.p_img, anchor="nw")
+    
+    def load_image(self, canvas, image_file):
+        self.imageFile = image_file
+        self.raw_image = Image.open(image_file)
+        (width, height) = self.raw_image.size
+        self.field_azimuth = -1
+        self.image_azimuth = -1
 
-            self.imageFile = image_file
-            self.raw_image = Image.open(image_file)
+        # Image larger than 1000 pixels, resize to 800 x 600
+        if width > 1000 or height > 1000:
+            self.raw_image.thumbnail((800,600),Image.ANTIALIAS)
             (width, height) = self.raw_image.size
-            self.field_azimuth = -1
-            self.image_azimuth = -1
+            print "Resizing image to ", width, "x", height
 
-            # Image larger than 1000 pixels, resize to 800 x 600
-            if width > 1000 or height > 1000:
-                self.raw_image.thumbnail((800,600),Image.ANTIALIAS)
-                (width, height) = self.raw_image.size
-                print "Resizing image to ", width, "x", height
+        self.zoomed_image = self.raw_image
 
-            self.zoomed_image = self.raw_image
+        # Save reference to the image object in order to show it
+        self.p_img = ImageTk.PhotoImage(self.raw_image)
+        self.contrast = ImageEnhance.Contrast(self.raw_image)
+        # Change size of canvas to new width and height 
+        canvas.config(width=width, height=height)
 
-            # Save reference to the image object in order to show it
-            self.p_img = ImageTk.PhotoImage(self.raw_image)
+        # Remove all canvas items
+        canvas.delete("all")
+        canvas.create_image(0,0,image=self.p_img, anchor="nw")
 
-            # Change size of canvas to new width and height 
-            canvas.config(width=width, height=height)
-
-            # Remove all canvas items
-            canvas.delete("all")
-            canvas.create_image(0,0,image=self.p_img, anchor="nw")
-
-            # Find center of image and radius
-            self.center = (int(width/2), int(height/2))
-            self.radius = int(math.sqrt(self.center[0] * self.center[0] + self.center[1] * self.center[1]))
-            self.image_azimuth = -1
+        # Find center of image and radius
+        self.center = (int(width/2), int(height/2))
+        self.radius = int(math.sqrt(self.center[0] * self.center[0] + self.center[1] * self.center[1]))
+        self.image_azimuth = -1
 
     def to_raw(self,(x,y)):
 
@@ -488,12 +504,14 @@ class LoadImageApp:
 
         # Save the dots to CSV file
         if self.dots:
+            self.dots = [x + [self.calculate_true_azimuth(x[3])] for x in self.dots]
+            
             try:
                 f_name = tkFileDialog.asksaveasfile(mode='wb', defaultextension=".csv")
                 if f_name:
                     try:
                         writer = csv.writer(f_name)
-                        writer.writerow(('X', 'Y', 'Horizon', 'Azimuth'))
+                        writer.writerow(('X', 'Y', 'Horizon', 'Image Azimuth', 'True Azimuth'))
                         for row in self.dots:
                             writer.writerow(row)
     
@@ -552,7 +570,7 @@ class LoadImageApp:
         if self.raw_image:
 
             d = GridDialog(self.parent, title="Wheel Preferences", center=self.center, radius=self.radius)
-
+            self.canvas.focus_set()
             print "D = ", d, self.showGrid, d.result
 
             if d:
@@ -597,6 +615,7 @@ class LoadImageApp:
             return
         if self.warn_dots:
             d = AzimuthDialog(self.parent, azimuth=self.field_azimuth)
+            self.frame.focus_set()
             if d:
                 self.field_azimuth = d.azimuth
             
@@ -616,7 +635,7 @@ class LoadImageApp:
         if self.raw_image:
             self.tool = "line"
 
-    def zoomin(self):
+    def zoomin(self, *args):
         if self.raw_image:
             if self.zoomcycle < self.MAX_ZOOM:
                 self.zoomcycle += 1
@@ -625,7 +644,7 @@ class LoadImageApp:
             else:
                 print "Max zoom reached!"
 
-    def zoomout(self):
+    def zoomout(self, *args):
         if self.raw_image:
             if self.zoomcycle > self.MIN_ZOOM:
                 self.zoomcycle -= 1
@@ -899,6 +918,12 @@ class LoadImageApp:
             angle_in_degree += 360
 
         return angle_in_degree
+    
+    def calculate_true_azimuth(self, azimuth):
+        if self.field_azimuth == -1:
+            return(-1)
+        else:
+            return((image_azimuth + self.field_azimuth) % 360)
 
     def find_horizon(self, dot_radius, grid_radius):
         
@@ -909,11 +934,14 @@ class LoadImageApp:
         elev = (camera/2) - ((dot_radius/grid_radius) * (camera/2))
         
         # Calculate Horizon Elevation
-        elev = (-0.00003 * (elev * elev)) + (1.0317 * (elev)) - 2.4902
+        elev = (-0.00003 * (elev * elev)) + (1.0317 * (elev)) - 2.4902 # From Empey (2015)
         return (max([elev,0]))
     
 
     def plothorizon(self, show=True):
+        if not self.dots:
+            tkMessageBox.showerror("Error!", "No horizon points have been specified.")
+            return
         fig, ax = plt.subplots(1,1, sharex=True)
         plot_dots = self.dots
         plot_dots.sort(key=lambda x: x[3])  # sort dots using image azimuth
