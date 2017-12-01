@@ -1,6 +1,6 @@
 '''
-# Added functionality to adjust contrast of image
 
-# got keybindings to work by using the focus_set() on the main frame when it initializes.  
-# Before, the focus was not on the frame, so the keybindings didn't go anywhere.
+# Added new keybinding
+# Added brightness enhancement and modified contrast enhancement so that both
+can be activated.
 '''

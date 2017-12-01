@@ -187,6 +187,7 @@ class LoadImageApp:
         self.imageFile = image_file
         self.field_azimuth = -1
         self.contrast_value = 1
+        self.brightness_value = 1
         
         # zoom
         self.mux = {0 : 1.0}
@@ -229,7 +230,10 @@ class LoadImageApp:
         menubar = Menu(root)
         filemenu = Menu(menubar,tearoff=0)
         filemenu.add_command(label="Open Image", command=self.open_file)
-        filemenu.add_command(label="Export CSV", command=self.save_csv)
+        exportmenu = Menu(menubar, tearoff=0)
+        filemenu.add_cascade(label="Export", menu=exportmenu)
+        exportmenu.add_command(label="Export CSV", command=self.save_csv)
+        exportmenu.add_command(label="Export GEOtop horizon file", command=self.save_geotop_hrzn)
         filemenu.add_command(label="Import CSV", command=self.open_csv)
         filemenu.add_command(label="Exit", command=self.exit_app)
         menubar.add_cascade(label="File", menu=filemenu)
@@ -253,14 +257,19 @@ class LoadImageApp:
         menubar.add_cascade(label="Azimuth",menu=gridmenu)
 
         viewmenu = Menu(menubar, tearoff=0)
-        viewmenu.add_command(label="Toggle Overlays", command=self.toggle_grid)
+        viewmenu.add_command(label="Toggle Overlays (t)", command=self.toggle_grid)
         viewmenu.add_command(label="Zoom In", command=self.zoomin)
         viewmenu.add_command(label="Zoom Out", command=self.zoomout)
         viewmenu.add_command(label="Reset Zoom", command=self.zoomoriginal)
-        viewmenu.add_command(label="Increase Contrast", command = lambda: self.adjust_contrast( 0.1))
-        viewmenu.add_command(label="Decrease Contrast", command = lambda: self.adjust_contrast( -0.1))
-
         menubar.add_cascade(label="View",menu=viewmenu)
+        
+        imagemenu = Menu(menubar, tearoff=0)
+        imagemenu.add_command(label="Increase Contrast  <o>", command = lambda: self.adjust_contrast( 0.1))
+        imagemenu.add_command(label="Decrease Contrast <p>", command = lambda: self.adjust_contrast( -0.1))
+        imagemenu.add_command(label="Increase Brightness <q>", command = lambda: self.adjust_brightness( 0.1))
+        imagemenu.add_command(label="Decrease Brightness <w>", command = lambda: self.adjust_brightness( -0.1))
+        menubar.add_cascade(label="Image",menu=imagemenu)
+        
         
         helpmenu = Menu(menubar, tearoff=0)
         helpmenu.add_command(label="Show Point Coordinates", command=self.show_dots)
@@ -289,6 +298,9 @@ class LoadImageApp:
         self.canvas.bind("2", self.zoomout)
         self.canvas.bind("o", lambda event, x = 0.1 : self.adjust_contrast(x))
         self.canvas.bind("p", lambda event, x = -0.1: self.adjust_contrast(x))
+        self.canvas.bind("q", lambda event, x = 0.1 : self.adjust_brightness(x))
+        self.canvas.bind("w", lambda event, x = -0.1: self.adjust_brightness(x))
+        self.canvas.bind("t", self.toggle_grid)
 
     ####################################################################
     # Canvas and Image File
@@ -310,13 +322,30 @@ class LoadImageApp:
         if image_file:
             self.load_image(canvas, image_file)
     
-    def adjust_contrast(self, increment, *args):
-        self.zoomoriginal()
-        self.contrast_value = self.contrast_value + increment
-        self.raw_image = self.contrast.enhance(self.contrast_value)
+    def reload_image(self):
+        # Create objects to adjust brightness and contrast
+        contrast = ImageEnhance.Contrast(self.orig_img)
+        c_enhanced = contrast.enhance(self.contrast_value)
+        brightness = ImageEnhance.Brightness(c_enhanced)
+        self.raw_image = brightness.enhance(self.brightness_value)
         self.p_img = ImageTk.PhotoImage(self.raw_image)
         self.canvas.create_image(0,0,image=self.p_img, anchor="nw")
+        self.display_region(self.canvas)
+        
+    def adjust_contrast(self, increment, *args):
+        logging.info('Image contrast changed by %d. Contrast now %d)', 
+        increment, self.contrast_value)
+        self.zoomoriginal()
+        self.contrast_value = self.contrast_value + increment
+        self.reload_image()
     
+    def adjust_brightness(self, increment, *args):
+        logging.info('Image brightness changed by %d. Brightness now %d)', 
+        increment, self.brightness_value)
+        self.zoomoriginal()
+        self.brightness_value = self.brightness_value + increment
+        self.reload_image()
+        
     def load_image(self, canvas, image_file):
         self.imageFile = image_file
         self.raw_image = Image.open(image_file)
@@ -332,9 +361,10 @@ class LoadImageApp:
 
         self.zoomed_image = self.raw_image
 
-        # Save reference to the image object in order to show it
+        # Save reference to the image object in order to show it. Also save backup
         self.p_img = ImageTk.PhotoImage(self.raw_image)
-        self.contrast = ImageEnhance.Contrast(self.raw_image)
+        self.orig_img = ImageEnhance.Contrast(self.raw_image).enhance(1)
+        
         # Change size of canvas to new width and height 
         canvas.config(width=width, height=height)
 
@@ -522,7 +552,10 @@ class LoadImageApp:
 
         else:
             tkMessageBox.showerror("Error!", "No points to export!")
-
+        
+    def save_geotop_hrzn(self):
+        pass
+        
     def exit_app(self):
         sys.exit(0)
 
@@ -589,7 +622,7 @@ class LoadImageApp:
             self.radius = radius
             self.drawGrid(self.canvas, self.center, self.radius)
 
-    def toggle_grid(self):
+    def toggle_grid(self, *args):
         if self.raw_image:
             if self.showGrid:
                 self.showGrid = False
