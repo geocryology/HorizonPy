@@ -3,27 +3,31 @@ try:
 except ImportError:
     from tkinter import *
 
-from PIL import Image, ImageTk, ImageEnhance
 import sys
 import os
 import math
 import csv
 import tkFileDialog
 import tkMessageBox
-from matplotlib import pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import numpy as np
 import tkSimpleDialog
-
 import logging
 
+from PIL import Image, ImageTk, ImageEnhance
+from scipy.interpolate import interp1d
+from matplotlib import pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from itertools import izip
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "..")) # include module in python path
+from SkyView import SVF_discretized
 
 ####################################################################
 # AzimuthWheelDialog
 ####################################################################
 class GridDialog(tkSimpleDialog.Dialog):
 
-    def __init__(self,parent,title=None,center=(0,0),radius=0):
+    def __init__(self,parent,title=None,center=(0,0),radius=0, spacing=15):
 
         Toplevel.__init__(self, parent)
         self.transient(parent)
@@ -34,16 +38,14 @@ class GridDialog(tkSimpleDialog.Dialog):
         self.parent = parent
         self.center = center
         self.radius = radius
-
+        self.spoke_spacing = spacing
         self.result = None
-
+        
+        self.buttonbox()
+        self.grab_set()
         body = Frame(self)
         self.initial_focus = self.body(body)
         body.pack(padx=5, pady=5)
-
-        self.buttonbox()
-
-        self.grab_set()
 
         if not self.initial_focus:
             self.initial_focus = self
@@ -61,6 +63,7 @@ class GridDialog(tkSimpleDialog.Dialog):
         Label(master, text="X:").grid(row=0)
         Label(master, text="Y:").grid(row=1)
         Label(master, text="Radius:").grid(row=2)
+        Label(master, text="Spoke spacing:").grid(row=3)
 
         c1 = StringVar()
         self.e1 = Entry(master, textvariable=c1)
@@ -73,11 +76,16 @@ class GridDialog(tkSimpleDialog.Dialog):
         r = StringVar()
         self.e3 = Entry(master, textvariable=r)
         r.set(str(self.radius))
+        
+        ss = StringVar()
+        self.e4 = Entry(master, textvariable=ss)
+        ss.set(str(self.spoke_spacing))
 
         self.e1.grid(row=0, column=1)
         self.e2.grid(row=1, column=1)
         self.e3.grid(row=2, column=1)
-
+        self.e4.grid(row=3, column=1)
+        
         return self.e1    
 
     def apply(self):
@@ -85,9 +93,11 @@ class GridDialog(tkSimpleDialog.Dialog):
         X = self.e1.get()
         Y = self.e2.get()
         R = self.e3.get()
-
+        S = self.e4.get()
+        
         self.center = (int(X), int(Y))
         self.radius = int(R)
+        self.spoke_spacing = int(S)
         self.result = True
 
 ####################################################################
@@ -151,7 +161,104 @@ class AzimuthDialog(tkSimpleDialog.Dialog):
         except:
             tkMessageBox.showerror("Error!", "Numeric values only, please")
             self.result = False
+            
+####################################################################
+# Skyview factor popup
+####################################################################
+class SVFDialog(Toplevel):
+#http://www-acc.kek.jp/kekb/control/Activity/Python/TkIntro/introduction/intro09.htm
+    def __init__(self, parent, azimuth, horizon):
+        
+        Toplevel.__init__(self, parent)
+        self.transient(parent)
+        
+        self.title("Sky View Calculator")
+        self.parent = parent
+        self.pts_az = azimuth
+        self.pts_hor = horizon
+        self.surface_dip = 0
+        self.surface_az = 0     
+        body = Frame(self)
+        self.initial_focus = self.body(body) 
+        body.pack(padx=10, pady=10)
+        self.buttonbox()
+        self.grab_set()
+        
+        if not self.initial_focus:
+            self.initial_focus = self
+            
+        self.protocol("WM_DELETE_WINDOW", self.cancel)
 
+        self.geometry("+%d+%d" % (parent.winfo_rootx() + 150,
+                                  parent.winfo_rooty() + 150))
+        
+        self.initial_focus.focus_set()
+        self.wait_window(self)
+
+    def buttonbox(self):
+        # add standard button box. override if you don't want the
+        # standard buttons
+        box = Frame(self)
+
+        w = Button(box, text="Calculate", width=10, command=self.ok, default=ACTIVE)
+        w.pack(side=LEFT, padx=5, pady=5)
+        w = Button(box, text="Exit", width=10, command=self.cancel)
+        w.pack(side=LEFT, padx=5, pady=5)
+
+        self.bind("<Return>", self.ok)
+        self.bind("<Escape>", self.cancel)
+        box.pack()
+        
+    # standard button semantics 
+    def ok(self, event=None):
+        if self.apply():
+           SVF = SVF_discretized(self.pts_az, self.pts_hor, self.surface_az, self.surface_dip, 1)
+           tkMessageBox.showinfo(title="SkyView", message="here's the SVF: %s" % SVF)    
+        else:
+            return        
+
+    def cancel(self, event=None):
+        # put focus back to the parent window
+        self.parent.focus_set()
+        self.destroy()
+        
+    def body(self, master):
+        Label(master, text="Surface aspect").grid(row=0)
+        Label(master, text="Surface dip").grid(row=1)
+
+        c1 = StringVar()
+        self.e1 = Entry(master, textvariable=c1)
+        c1.set(str(0))
+
+        c2 = StringVar()
+        self.e2 = Entry(master, textvariable=c2)
+        c2.set(str(0))
+        
+        self.e1.grid(row=0, column=1)
+        self.e2.grid(row=1, column=1)
+        
+        return self.e1    
+
+    def apply(self):
+        try:
+            AZ = float(self.e1.get())
+            DIP = float(self.e2.get())
+            
+            if not 0 <= AZ <= 360:
+                tkMessageBox.showerror("Error!", "Azimuth value must be between 0 and 360")
+                return False
+                
+            if not 0 <= DIP <= 180:
+                tkMessageBox.showerror("Error!", "Dip value must be between 0 and 180")
+                return False
+                   
+            else:
+                self.surface_dip = DIP
+                self.surface_az = AZ
+                return True
+        except:
+            tkMessageBox.showerror("Error!", "Numeric values only, please")
+            return False
 
 ####################################################################
 # Main 
@@ -244,12 +351,13 @@ class LoadImageApp:
         drawmenu.add_command(label="Delete Selection", command=self.select)
         drawmenu.add_command(label="Delete All Points", command=self.delete_all)
         drawmenu.add_command(label="Plot Horizon", command=self.plothorizon)
+        drawmenu.add_command(label="Compute SVF", command=self.svf)
         menubar.add_cascade(label="Tools", menu=drawmenu)
         
         gridmenu = Menu(menubar, tearoff=0)
         drawgridmenu = Menu(menubar, tearoff=0)
         gridmenu.add_cascade(label="Draw Azimuth Grid",menu=drawgridmenu)
-        drawgridmenu.add_command(label="Sunex 5.6mm Fisheye", command=lambda: self.create_grid_based_on_lens((397,268), 251))
+        drawgridmenu.add_command(label="Sunex 5.6mm Fisheye", command=lambda: self.create_grid_based_on_lens((397,268), 251, 15))
         drawgridmenu.add_command(label="Custom Grid...", command=self.show_grid)
         
         gridmenu.add_command(label="Define Image Azimuth", command=self.define_azimuth)
@@ -269,7 +377,6 @@ class LoadImageApp:
         imagemenu.add_command(label="Increase Brightness <q>", command = lambda: self.adjust_brightness( 0.1))
         imagemenu.add_command(label="Decrease Brightness <w>", command = lambda: self.adjust_brightness( -0.1))
         menubar.add_cascade(label="Image",menu=imagemenu)
-        
         
         helpmenu = Menu(menubar, tearoff=0)
         helpmenu.add_command(label="Show Point Coordinates", command=self.show_dots)
@@ -316,7 +423,8 @@ class LoadImageApp:
         self.viewport = (0,0)
         self.zoomcycle = 0
         self.showGrid = False
-
+        self.grid_set = False
+        
         del self.dots[:]
 
         if image_file:
@@ -375,6 +483,7 @@ class LoadImageApp:
         # Find center of image and radius
         self.center = (int(width/2), int(height/2))
         self.radius = int(math.sqrt(self.center[0] * self.center[0] + self.center[1] * self.center[1]))
+        self.spoke_spacing = 15
         self.image_azimuth = -1
 
     def to_raw(self,(x,y)):
@@ -403,7 +512,7 @@ class LoadImageApp:
             
             my_canvas.itemconfig(item, tags=("dot", str(dot[0]), str(dot[1])))
 
-    def drawGrid(self, my_canvas, center, radius):
+    def drawGrid(self, my_canvas, center, radius, spoke_spacing=15):
 
         # Remove old grid before drawing new one
         my_canvas.delete("grid")
@@ -417,7 +526,7 @@ class LoadImageApp:
         my_canvas.create_oval(x,y,x+(2*wR),y+(2*wR),outline="red",tag="grid")
 
         # Draw spokes on Az wheel 
-        for n in range(15,365,15):
+        for n in range(0,360,spoke_spacing):
             rX = center[0] + int(radius * math.cos(math.radians(n)))
             rY = center[1] + int(radius * math.sin(math.radians(n)))
             pX,pY = self.to_window((rX,rY))
@@ -479,7 +588,7 @@ class LoadImageApp:
             self.drawDots(my_canvas)
 
         if self.showGrid:
-            self.drawGrid(my_canvas, self.center, self.radius)
+            self.drawGrid(my_canvas, self.center, self.radius, self.spoke_spacing)
             if 0 <= self.image_azimuth <= 360:
                 self.drawAzimuth(my_canvas, self.center, self.radius, self.anchor)
 
@@ -498,8 +607,8 @@ class LoadImageApp:
             logging.info('No file selected')
 
     def open_csv(self):
-
         # Open a CSV file with previous XY coordinates
+        
         file = tkFileDialog.askopenfilename(**self.csv_opt)
 
         if file:
@@ -531,9 +640,16 @@ class LoadImageApp:
             logging.info('No file selected')
 
     def save_csv(self):
-
+        if self.field_azimuth == -1: 
+            tkMessageBox.showerror("Error!", "Cannot save points without field " 
+            "azimuth. Please set field azimuth before saving.")
+            return
         # Save the dots to CSV file
         if self.dots:
+            for x in self.dots:
+                print(x)
+                print(x[3])
+                print(self.calculate_true_azimuth(x[3]))
             self.dots = [x + [self.calculate_true_azimuth(x[3])] for x in self.dots]
             
             try:
@@ -554,15 +670,56 @@ class LoadImageApp:
             tkMessageBox.showerror("Error!", "No points to export!")
         
     def save_geotop_hrzn(self):
-        pass
+        delta = 3 # discretization interval for azimuth
+        
+        if self.field_azimuth == -1: 
+            tkMessageBox.showerror("Error!", "Cannot save points without field " 
+            "azimuth. Please set field azimuth before saving.")
+            return
+        
+        # Save the dots to CSV file
+        if self.dots:
+            azi = np.array([self.calculate_true_azimuth(x[3]) for x in self.dots]) 
+            hor = np.array([x[2] for x in self.dots]) 
+            azi = azi[np.argsort(azi)]
+            hor = hor[np.argsort(azi)] # sorting to order by azimuth
+            
+            # Create spline equation to obtain hor(az) for any azimuth
+            # add endpoints on either side of sequence so interpolation is good          
+            x = np.concatenate((azi[-2:]-360, azi, azi[:2]+360)) 
+            y = np.concatenate((hor[-2:], hor, hor[:2]))
+            f_hor = interp1d(x, y, kind = 'linear')
+    
+            # Interpolate horizon at evenly spaced interval using spline
+            phi = np.array(range(0, 360, delta))
+            theta_h = f_hor(phi)
+
+            try:
+                f_name = tkFileDialog.asksaveasfile(mode='wb', defaultextension=".txt")
+                if f_name:
+                    try:
+                        writer = csv.writer(f_name)
+                        writer.writerow(('azimuth_deg', 'horizon_ele_deg'))
+                        for row in izip(phi, theta_h):
+                            writer.writerow(row)
+    
+                    finally:
+                        f_name.close()
+            except:
+                tkMessageBox.showerror("Error!", "Could not access file.  Maybe it is already open?")
+
+        else:
+            tkMessageBox.showerror("Error!", "No points to export!")
         
     def exit_app(self):
         sys.exit(0)
 
     def move(self):
+        # Set mouse behaviour to move canvas on click
         self.tool = "move"
 
     def select(self):
+         # Set mouse behaviour to select points on click
         self.tool = "select"
 
     def show_dots(self):
@@ -573,14 +730,15 @@ class LoadImageApp:
         """Contributors:\n
         Mark Empey
         Stephan Gruber (stephan.gruber@carleton.ca)
-        Nick Brown
+        Nick Brown (nick.brown@carleton.ca)
         """
         )
     
     def delete_all(self, confirm=True):
+         # Delete all selected points
         delete = True
         if confirm:
-            delete =tkMessageBox.askokcancel("Confirm deletion?","Press OK to delete all dots!") 
+            delete = tkMessageBox.askokcancel("Confirm deletion?","Press OK to delete all dots!") 
         if delete:
             self.canvas.delete("dot")
             self.dots = []
@@ -602,25 +760,31 @@ class LoadImageApp:
         # Get x,y coords and radius for of wheel 
         if self.raw_image:
 
-            d = GridDialog(self.parent, title="Wheel Preferences", center=self.center, radius=self.radius)
+            d = GridDialog(self.parent, title="Wheel Preferences", 
+            center=self.center, radius=self.radius, spacing=self.spoke_spacing)
+            
             self.canvas.focus_set()
             print "D = ", d, self.showGrid, d.result
 
             if d:
                 self.center = d.center
                 self.radius = d.radius
+                self.spoke_spacing = d.spoke_spacing
                 if not self.showGrid:
                     self.showGrid = d.result
 
                 if self.showGrid:
-                    self.drawGrid(self.canvas, self.center, self.radius)
+                    self.drawGrid(self.canvas, self.center, self.radius, self.spoke_spacing)
+                    self.grid_set = True
    
-    def create_grid_based_on_lens(self, center, radius):
+    def create_grid_based_on_lens(self, center, radius, spoke_spacing):
         if self.raw_image:
-            self.showGrid = True
+            self.spoke_spacing = spoke_spacing
             self.center = center
             self.radius = radius
-            self.drawGrid(self.canvas, self.center, self.radius)
+            self.grid_set = True
+            self.showGrid = True
+            self.drawGrid(self.canvas, self.center, self.radius, self.spoke_spacing)
 
     def toggle_grid(self, *args):
         if self.raw_image:
@@ -631,15 +795,19 @@ class LoadImageApp:
             else:
                 if self.canvas and self.center and 0<=self.radius<=360:
                     self.showGrid = True
-                    self.drawGrid(self.canvas, self.center, self.radius)
+                    self.drawGrid(self.canvas, self.center, self.radius, self.spoke_spacing)
                     if self.anchor[0] != -999:
                         self.drawAzimuth(self.canvas, self.center, self.radius, self.anchor)
                 else:
                     tkMessageBox.showerror("Error!", "No overlay parameters have been set!")
 
     def define_azimuth(self):
-
-        if self.raw_image and self.showGrid:
+      # Enter azimuth definition mode
+        if not self.grid_set:
+            tkMessageBox.showerror("Error!", "No grid parameters have been "
+            "set! Please define azimuth grid first")
+            return
+        if self.raw_image:
             self.tool = "azimuth"
             
     def define_field_azimuth(self):
@@ -653,7 +821,7 @@ class LoadImageApp:
                 self.field_azimuth = d.azimuth
             
     def warn_dots(self):
-        if len(self.dots)>0:
+        if len(self.dots) > 0:
             dialog = tkMessageBox.askokcancel("Warning!","""Are you sure you want to change this parameter? \n
             calculated azimuth values will be affected \n click OK to continue""") 
             return(dialog)
@@ -753,13 +921,13 @@ class LoadImageApp:
                 self.button_1 = "down"       
                                              
 
-                if self.showGrid and self.tool is "azimuth":
-
+                if self.tool is "azimuth":
+                    if not self.showGrid:
+                        self.showGrid = True
+                        self.drawGrid(self.canvas, self.center, self.radius, self.spoke_spacing)
                     old_anchor = event.widget.find_withtag("anchor")
                     if old_anchor:
                         event.widget.delete(old_anchor)
-
-                 #   item = event.widget.create_oval(event.x-2,event.y-2,event.x+2,event.y+2,fill="orange")
 
                     # save the anchor 
                     self.anchor = self.to_raw((event.x,event.y))
@@ -822,6 +990,9 @@ class LoadImageApp:
 
         elif self.tool is "azimuth":
             self.azimuth_calculation(self.center, self.radius, self.image_azimuth_coords)
+            if self.field_azimuth == -1:
+                self.define_field_azimuth()
+
 
     def b2down(self,event):
         self.button_2 = "down"
@@ -942,6 +1113,7 @@ class LoadImageApp:
 
         self.dots = new_dots
         self.drawDots(self.canvas)
+    
     def find_angle(self, C, P2, P3):
 
         angle = math.atan2(P2[1]-C[1], P2[0]-C[0]) - math.atan2(P3[1]-C[1], P3[0]-C[0])
@@ -956,7 +1128,7 @@ class LoadImageApp:
         if self.field_azimuth == -1:
             return(-1)
         else:
-            return((image_azimuth + self.field_azimuth) % 360)
+            return((azimuth + self.field_azimuth) % 360)
 
     def find_horizon(self, dot_radius, grid_radius):
         
@@ -1016,14 +1188,18 @@ class LoadImageApp:
         canvas2.show()
         canvas2.get_tk_widget().pack(side=TOP, fill=BOTH, expand=1.0)      
         canvas2.draw()
-
+    
+    def svf(self):
+        pts_az = np.array([self.calculate_true_azimuth(x[3]) for x in self.dots])
+        pts_hor = np.array([x[2] for x in self.dots])
+        SVFDialog(self.parent, pts_az, pts_hor)
+        
 # Main Program 
 
 if __name__ == '__main__':
     root = Tk()
     root.title("QuickHorizon")
     image_file = None
-
 
     logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)-8s %(message)s',
