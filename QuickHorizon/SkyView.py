@@ -143,20 +143,27 @@ def sphr_to_carte(theta, phi, r):
     """
     theta: angle from x axis in XY plane
     phi: angle from z axis (note that horizon = 90 - phi)
+    q = sphr_to_carte([0,30], [10,10], [1,1])
     """
+    theta = np.asarray(theta)
+    phi = np.asarray(phi)
+    r = np.asarray(r)
+    
     theta = theta % 360
-    if not 0 <= phi < 180:
+    if not all((0 <= phi) * (phi < 180)):
         raise ValueError("phi must be between 0 and 180 degrees")
 
     x = r*np.sin(ra(phi))*np.cos(ra(theta))
     y = r*np.sin(ra(phi))*np.sin(ra(theta))
     z = r*np.cos(ra(phi))
-    return(np.array((x,y,z)))
+    coords = np.array((x,y,z))
+    return(coords)
     
 def carte_to_sphr(x, y, z, deg=True):
     """
     theta: angle from x axis in XY plane (increasing from positive X to positive Y)
     phi: angle from z axis (note that horizon = 90 - phi)
+    
     """
     r = np.sqrt(np.power(x,2) + np.power(y,2) + np.power(z,2))
     theta = np.arctan2(y, x)  # this is fishy - only works when variables are in opposite order
@@ -166,30 +173,39 @@ def carte_to_sphr(x, y, z, deg=True):
     #phi = np.arctan2(z, np.sqrt(np.power(x, 2) + np.power(y, 2)))
     if deg:
         theta = np.degrees(theta)
+        theta = theta % 360
         phi = np.degrees(phi)
-    return(np.array((theta % 360, phi, r)))
+    coords = np.array((theta, phi, r))
+    return(coords)
 
 def horiz_to_carte(az, hor):
     """
     returns cartesian coordinates from a horizon angle and azimuth
+    q=horiz_to_carte([0,30], [10,10], [1,1])
     """
-    if hor > 90:
-        az = (az + 180) 
-        hor =  180 - hor
+    az = np.asarray(az)
+    hor = np.asarray(hor)
+    az[hor > 90] = az[hor > 90] + 180
+    hor[hor > 90] = 180 - hor[hor > 90]
     az = az % 360
     r = az * 0 + 1  # assume unit radius
     theta = 90 - az 
     phi = 90 - hor
-    return(sphr_to_carte(theta, phi, r))  
+    coords = sphr_to_carte(theta, phi, r)
+    return(coords)  
 
 def carte_to_horiz(x, y, z):
     """
     returns horizon angle and azimuth from cartesian coordinates
+    q=horiz_to_carte([0,30], [10,10], [1,1])
+    
     """
     sph = carte_to_sphr(x,y,z)
     az = 90 - sph[0]  #sph[0] = theta
+    az = az % 360
     hor = 90 - sph[1] # sph[1] = phi
-    return(np.array((az % 360, hor)))
+    coords = np.array(az, hor)
+    return(coords)
     
 def dip_towards(azimuth, dip):
     """
@@ -207,13 +223,13 @@ def dip_towards(azimuth, dip):
 ## putting in larger values screws things up
 # rotate 90, 30 by 
 
-carte_to_sphr(.5, -.5, -sqrt(2)/2)
-carte_to_sphr(0.35355339,  0.35355339,  0.8660254)
+carte_to_sphr([.5], [-.5], [-sqrt(2)/2])
+carte_to_sphr([0.35355339],  [0.35355339],  [0.8660254])
 
 carte_to_sphr(0.5, 0, sqrt(3)/2)
 
-s = [0, 91, 1]
-a = sphr_to_carte(s[0], s[1], s[2])
+s = np.array([0, 91, 1])
+a = sphr_to_carte([s[0]], [s[1]], [s[2]])
 carte_to_sphr(a[0], a[1], a[2])
 
 s = [45, 45, 1]
