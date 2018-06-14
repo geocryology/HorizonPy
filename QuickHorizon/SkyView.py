@@ -2,13 +2,15 @@ import numpy as np
 from scipy.interpolate import interp1d
 from itertools import izip
 from pandas import DataFrame, read_csv
+from shapely.geometry import LineString, Polygon, LinearRing, Point
+from warnings import warn
 
 from numpy import radians as ra
-#
+
 import matplotlib.pyplot as plt
 
 def SVF_discretized(azi, hor, plane_az, plane_dip, delta_phi, 
-                    interpolation='linear',allow_negative_horizon=False):
+                    interpolation='linear'):
     """
     Calculates sky view factors using the discretized form of the continuum equation 
     for sky view factor (eq 9.3 from Helbig, 2009).  The integral form of the
@@ -55,8 +57,9 @@ def SVF_discretized(azi, hor, plane_az, plane_dip, delta_phi,
     theta_h_r = theta_h + angl_rotate(plane_dip, (phi - plane_az))
     
     #don't allow negative horizon angles
-    if not allow_negative_horizon:
-        theta_h_r = np.max(np.row_stack((theta_h_r, theta_h_r * 0)), axis=0)
+    theta_h_r = np.max(np.row_stack((theta_h_r, theta_h_r * 0)), axis=0)
+    
+    # calculate cos2(theta)
     cos2theta = np.power(np.cos(ra(theta_h_r)), 2)
     
     # To deal with overhanging terrain, take negative cos2() if the horizon
@@ -75,7 +78,39 @@ def SVF_discretized(azi, hor, plane_az, plane_dip, delta_phi,
     plt.show()
     return(round(F_sky, 3))
 
-
+def sky_view_factor(f, delta_phi):
+    """
+    Calculates sky view factors using the discretized form of the continuum equation 
+    for sky view factor (eq 9.3 from Helbig, 2009).  The integral form of the
+    sky view equation is given in equation 4.41 of the same thesis.
+    
+    args:
+        F a function that relates azimuth to horizon angle
+        delta phi: discretized azimuth width
+    """
+    # Measure horizon at evenly spaced interval using spline
+    phi = np.array(range(0, 360, delta_phi))
+    theta_h = f(phi)
+    
+    # Check: don't allow horizons > 90 degrees that are opposite each other
+    # This might not be a problem.
+    theta_h = np.array([90 if y > 90 and f((x + 180) % 360) > 90 else y 
+                                          for (x, y) in izip(phi, theta_h)])
+    
+    #don't allow negative horizon angles
+    theta_h = np.max(np.row_stack((theta_h, theta_h * 0)), axis=0)
+    
+    # calculate cos2(theta)
+    cos2theta = np.power(np.cos(ra(theta_h)), 2)
+    
+    # To deal with overhanging terrain, take negative cos2() if the horizon
+    # is greater than 90. This might be wrong... But otherwise overhanging 
+    # terrain increases the skyview factor
+    S = [y if x <= 90 else -y for (x, y) in izip(theta_h, cos2theta)] 
+    
+    print(DataFrame(zip(phi, theta_h, cos2theta, S)))
+    F_sky = (delta_phi / 360.) * np.sum(S)
+    return(F_sky)
     
 def angl_rotate(dip, rot):
     """
@@ -114,8 +149,10 @@ def angl_rotate(dip, rot):
     
     return(rotated_dip)  
     
-def SVF_from_geotop():
-    pass
+def SVF_from_geotop(horizon_file, plot=False):
+    horizon = read_csv(horizon_file)
+    
+    return
 
 def rotation_matrix(axis, theta):
         """
@@ -200,14 +237,17 @@ def carte_to_horiz(x, y, z):
     q=horiz_to_carte([0,30], [10,10], [1,1])
     
     """
-    sph = carte_to_sphr(x,y,z)
+    x = np.asarray(x)
+    y = np.asarray(y)
+    z = np.asarray(z)
+    sph = carte_to_sphr(x, y, z)
     az = 90 - sph[0]  #sph[0] = theta
     az = az % 360
     hor = 90 - sph[1] # sph[1] = phi
-    coords = np.array(az, hor)
+    coords = np.array((az, hor))
     return(coords)
     
-def dip_towards(azimuth, dip):
+def rotate_towards(azimuth, rot_angle):
     """
     returns cartesian axis of rotation for azimuthal dip direction
     np.dot(rotmatrix, vector)
@@ -217,159 +257,270 @@ def dip_towards(azimuth, dip):
     y = np.sin(phi)
     ax = np.array([x,y,0])
    #return(ax)
-    rotmat = rotation_matrix(ax, ra(dip))
+    rotmat = rotation_matrix(ax, ra(rot_angle))
     return(rotmat)
     
+def overhang_pts(theta, horiz):
+    """
+    for a set of horizon points, detects which ones are overhanging and returns 
+    a list of True/False for whether the point is overhanging or not
+    
+    Args:
+        theta: array or list of azimuthal directions
+        horiz: array or list of horizon angles for each theta
+    
+    Returns:
+        numpy array of logical values 
+    """
+    theta = np.asarray(theta)
+    horiz = np.asarray(horiz)
+    #project the horizon and azimuth onto the x-y plane
+    xp = [np.cos(ra(h)) * np.cos(ra(90 - t)) for (t, h) in zip(theta, horiz)]
+    yp = [np.cos(ra(h)) * np.sin(ra(90 - t)) for (t, h) in zip(theta, horiz)]
+    
+    # Draw out the horizon line object (we will test for intersections later)
+    xy = np.array([[x,y] for (x,y) in zip(xp, yp)])
+    L = LinearRing(xy)  # horizon line
+    
+    # Make on object for the origin
+    O = Point([0,0])
+    
+    # Test each point: does a ray extending from the origin through the point 
+    # intersect the horizon line once? twice?  If twice, is the point the nearest
+    # or the farthest intersection?  This tells us whether or not its overhyng
+    ohang = []
+    for (x,y) in zip(xp, yp):
+        pt_dist =  O.distance(Point([x,y])) # get length of segment  
+        
+        # make line in direction of point that has length 2 (so its sure to hit all other pts)
+        l = LineString([[0,0], [x*(2/R),y*(2/R)]])
+        
+        # get intersection with horizon
+        pts = l.intersection(L)
+        if hasattr(pts, '__len__'): # for directions with more than one horizon value
+            if len(pts) > 2:
+                warn("A single azimuth has 3 or more horizon intersections, This"+ 
+                "could be due to an overly complex horizon geometry and may lead"+
+                "to unexpected behaviour", RuntimeWarning)
+                
+            # if there is another horizon line at a lower angle
+            intersect_distances = [O.distance(x) for x in pts] #(distance ~ 1/angle)
+            
+            if not max([pt_dist] + intersect_distances) == pt_dist:
+                ohang.append(True)
+            else:
+                ohang.append(False)
+        
+    # if only 1 intersection then not overhanging
+        else: 
+            ohang.append(False)
+
+    return(np.array(ohang))
+
+def total_obscura(theta, horiz, increment):
+    """
+    for a set of horizon points, detects which azimuth directions are completely
+    overhung (i.e. x and 180-x both have 90 degree horizon angles)
+    
+    Args:
+        theta: array or list of azimuthal directions
+        horiz: array or list of horizon angles for each theta
+    
+    Returns:
+        numpy array of logical values 
+    """
+    theta = np.asarray(theta)
+    horiz = np.asarray(horiz)
+    
+    #project the horizon and azimuth onto the x-y plane
+    xp = [np.cos(ra(h)) * np.cos(ra(90 - t)) for (t, h) in zip(theta, horiz)]
+    yp = [np.cos(ra(h)) * np.sin(ra(90 - t)) for (t, h) in zip(theta, horiz)]
+    
+    # Draw out the horizon line object (we will test for intersections later)
+    xy = np.array([[x,y] for (x,y) in zip(xp, yp)])
+    L = LinearRing(xy)  # horizon line
+    
+    # Test each point: does a ray extending from the origin through the point 
+    # intersect the horizon line once? twice?  If twice, is the point the nearest
+    # or the farthest intersection?  This tells us whether or not its overhyng
+    obscura = []
+
+    # make test points halfway around the circle ( 
+    for angle in range(0,180, increment):
+
+        # make line across horizon 
+        x_test = 2*cos(ra(90 - angle)) 
+        y_test = 2*sin(ra(90 - angle))
+        l = LineString([[x_test,y_test], [-x_test,-y_test]])
+        
+        # get intersection with horizon
+        pts = l.intersection(L)
+        
+        if pts:
+            pass # intersects horizon at least once
+        else:
+            obscura.append(angle) # no intersection
+            obscura.append((180 + angle) % 360)
+
+    return(np.array(obscura))
+
+def rotate_horizon(az, hor, aspect, dip):
+    """
+    Calculates rotated horizon angles relative to a plane 
+    
+    args:
+        aspect: azimuth of plane
+        dip: inclination of plane in direction of aspect
+        
+    Example:
+        import numpy as np
+        az1 = np.array(range(0,360,10))
+        hor1 = az1 * 0 + 30
+        rotated = rotate_horizon(az1, hor1, 135, 30)
+    """
+    # ensure things are arrays
+    az = np.asarray(az)
+    hor = np.asarray(hor)
+    
+    # change to cartesian coordinates and rotate
+    cart_coords = horiz_to_carte(az, hor)
+    rot_matrix = rotate_towards(aspect, -dip)
+    rot = np.dot(rot_matrix, cart_coords)
+    
+    # put back in spherical coordinates
+    coords = carte_to_horiz(rot[0], rot[1], rot[2])
+    
+    # put negative horizons at 0 degrees
+    coords[1] = [x if x>=0 else 0 for x in coords[1]] 
+
+    # deal with overhanging points
+    overhanging = overhang_pts(coords[0], coords[1])
+
+    coords[0][overhanging] = (180 + coords[0][overhanging]) % 360
+    coords[1][overhanging] = 180 - coords[1][overhanging]
+    
+    return(coords)
+
+
+
+ax1 = plt.figure(1)
+plt.subplot(1,1,1)
+
 ## putting in larger values screws things up
 # rotate 90, 30 by 
 
-carte_to_sphr([.5], [-.5], [-sqrt(2)/2])
-carte_to_sphr([0.35355339],  [0.35355339],  [0.8660254])
+az1 = np.array(range(0,360,10))
+hor1 = az1 * 0 + 50
 
-carte_to_sphr(0.5, 0, sqrt(3)/2)
+rt = rotate_horizon(az1, hor1, 135, 15)
 
-s = np.array([0, 91, 1])
-a = sphr_to_carte([s[0]], [s[1]], [s[2]])
-carte_to_sphr(a[0], a[1], a[2])
+#hor1 = [0 if 90 <= x <= 270 else 90 for x in az1]
+c1 = horiz_to_carte(az1, hor1)
+b = rotate_towards(135, 80)
+rotat = np.dot(b, c1)
+C = carte_to_horiz(rotat[0], rotat[1], rotat[2])
+C[1] = [x if x >= 0 else 0 for x in C[1]]  # no negative horizons
 
-s = [45, 45, 1]
-a = sphr_to_carte(s[0], s[1], s[2])
-carte_to_sphr(a[0], a[1], a[2])
+# get rid of doubles
 
-s = [-30, 120, 1]
-a = sphr_to_carte(s[0], s[1], s[2])
-carte_to_sphr(a[0], a[1], a[2])
 
-s = [120, 120, 1]
-a = sphr_to_carte(s[0], s[1], s[2])
-carte_to_sphr(a[0], a[1], a[2])
-
-def getsame(theta, phi, verbose=False):
-    C = sphr_to_carte(theta, phi, 1)
-    if verbose:
-        print(C)
-    S = carte_to_sphr(C[0], C[1], C[2])
-    return(S)
-    
-def getsame(theta, phi, verbose=False):
-    C = horiz_to_carte(theta, phi)
-    if verbose:
-        print(C)
-    S = carte_to_horiz(C[0], C[1], C[2])
-    return(S)
-
-def check_conversion():
-    for i in range(0,360,20):
-        for j in range(0,180,20):
-            S = getsame(i,j)
-            if not all((S - np.array([i,j,1])) <.001 ):
-                print(np.array([i,j,1]))
-                print(S)
-                print(S - np.array([i,j,1]))
-
-check_conversion()
-        
-carte_to_sphr(a[0], a[1], a[2])
-carte_to_horiz(a[0], a[1], a[2])
-
-a = sphr_to_carte(0, 90, 1)
-b = rotation_matrix([0,1,0], -ra(30))
-c = np.dot(b,a)
-carte_to_sphr(c[0], c[1], c[2])
+plt.clf()
+fig = plt.figure()
+ax = fig.add_subplot(1, 1, 1, projection='northpolar')
+ax.yaxis.set_visible(False)
+ax.set_ylim(0, 1)
+ax.plot(ra(az1), np.cos(ra(hor1)))
+ax.plot(ra(C[0]), np.cos(ra(C[1])))
+ax.plot(ra(C[0]), np.cos(ra(C[1])), 'g.')
 
 
 
-a = horiz_to_carte(30, 30)
-b = dip_towards(30, 100)
-c = np.dot(a,b)
-carte_to_horiz(c[0], c[1], c[2])
+
+###
+c1 = horiz_to_carte(0, 80)
+b = rotate_towards(0, 45)
+rotat = np.dot(b, c1)
+C = carte_to_horiz(rotat[0], rotat[1], rotat[2])
 
 
-az1 = np.array(range(0,360,60))
-hor1 = az * 0 + 30
+##############################################
+## Workin#g Demo
+az1 = np.array(range(0,360,10))
+hor1 = az1 * 0 + 40
+rt = rotate_horizon(az1, hor1, 120, 45)
+obs= total_obscura(rt[0], rt[1], 5)
 
-a = [horiz_to_carte(x, y) for (x,y) in izip(az1, hor1)]
-plt.plot(
-def rotate_horizon(az, hor, aspect, dip):
-    a = horiz_to_carte(90, 60)
-
-sphr_to_carte(0,60,1) == horiz_to_carte(90,60)
-
-
-sphr_to_carte(0,30,1) == horiz_to_carte(90,60)
-#     
-# import matplotlib.pyplot as plt
-# h=[80,0,160,240,320]
-# az=[20,20,20,20,20]
-# a=SVF_discretized(h, az, 80,30,1, 'linear')
-# plt.plot(a['a'][0],a['a'][1])
-# plt.plot(a['b'][0],a['b'][1])
-# plt.plot(a['c'][0],a['c'][1])
-# plt.plot(a['c'][0],a['c'][2])
-# 
-# b=SVF_discretized(h, az, 90,20,1, 'linear')
-# plt.plot(b['c'][0],b['c'][2])
-# 
-# c=SVF_discretized(h, az, 190,20,1, 'linear')
-# plt.plot(c['c'][0],c['c'][2])
-# # plt.plot(b[0],b[1])
-# # plt.plot(b[0],b[2])
-# # 
-# # n=1
-# # a=SVF_discretized(range(0,360,n), [50]*(360/n), 0,60,1, 'cubic')
-# # plt.plot(a[0],a[1])
-# # plt.plot(a[0],a[2])
-# # b=SVF_discretized(range(0,360,n), [50]*(360/n), 90,60,1, 'cubic')
-# # plt.plot(b[0],b[1])
-# # plt.plot(b[0],b[2])
-# # from pandas import DataFrame as df
-# # #q = df(a['z'])
-# # angl_rotate(30, [80,0,160,240,320])
-# # 
-# SVF_discretized([80,0,160,240,320], [50,50,50,50,50], 20,0,1, 'cubic')
-# SVF_discretized([80,0,160,240,320], [50,50,50,50,50], 40,0,1, 'cubic')
-# SVF_discretized([80,0,160,240,320], [50,50,50,50,50], 80,0,1, 'cubic')
-# # 
-# # # same dip different azimuth should give same but doesnt'
-# SVF_discretized([80,0,160,240,320], [50,50,50,50,50], 20,40,1, 'cubic')
-# SVF_discretized([80,0,160,240,320], [50,50,50,50,50], 40,40,1, 'cubic')
-# SVF_discretized([80,0,160,240,320], [50,50,50,50,50], 340,40,1, 'cubic')
-# 
-# SVF_discretized([80,0,160,240,320], [50,40,30,30,40], 20,40,1, 'cubic')
-# SVF_discretized([80,0,160,240,320], [50,40,30,30,40], 40,40,1, 'cubic')
-# SVF_discretized([80,0,160,240,320], [50,40,30,30,40], 340,40,1, 'cubic')
-# 
-# # should decrease with tilt
-az1 = np.array(range(0, 360, 2))
-hor1 = np.array([0 if 90 <= x <= 270 else 60 for x in az1])
-SVF_discretized(az1, hor1, 0,0,1, 'linear')
-SVF_discretized(az1, hor1, 90,60,1, 'linear')
-SVF_discretized(az1, hor1, 90,30,1, 'linear')
-SVF_discretized(az1, hor1, 55,30,1, 'linear')
-SVF_discretized(az1, hor1, 0,90,1, 'linear')
-# # 
-# # 
-# 
-hor2 = az1 * 0 + 40
-hor2 = [0 if 0 <= az < 90 else 90 for az in az1]
-# 
-# 
-SVF_discretized(az1, hor2, 0,0,1, 'cubic')
-SVF_discretized(az1, hor2, 0,45,1, 'cubic')
- SVF_discretized(az1, hor2, 0,60,1, 'cubic')
-# SVF_discretized(az1, hor2, 0,95,1, 'cubic')
+plt.clf()
+ ## Plot cartesian
+xx = np.append(rt[0], obs)
+yy = np.append(rt[1], (obs * 0 + 90))
+yy = yy[np.argsort(xx)]
+xx = xx[np.argsort(xx)]
+plt.plot(xx,yy)
 
 
-# ## SVF calculation now performs the interpolation first, and then rotates the 
-# ## interpolated coordinates so that the rotated vectors don't change depending 
-# ## the surface azimuth.  For very sparse discretization ponts, this is still 
-# ## a problem.
-# 
-# ## where are these negative horizon angles coming from?
-# ## - usually, the minimum horizon in a direction would be the horizon
-# ## of the plane, in the fake example it doesn't work that way.
-# ## In any case, negative horizon angles (open sky below 0 degrees) has been 
-# ## prohibited (can toggle on/off though)
-# 
-# # when the angl_rotate dip is greater than 90
-# # dip = 90-dip & angle is 90 - result
+# Plot sky
+
+fig = plt.figure()
+ax = fig.add_subplot(1,1,1, projection='northpolar')
+ax.yaxis.set_visible(False)
+ax.set_ylim(0, 1)
+ax.plot(ra(az1), np.cos(ra(hor1)))
+ax.plot(ra(rt[0]), np.cos(ra(rt[1])))
+
+# all pts
+ax.plot(ra(rt[0]), np.cos(ra(rt[1])), 'g.')
+
+# overhanging pts
+ax.plot(ra(rt[0][rt[1] > 90]), np.cos(ra(rt[1][rt[1] > 90])), 'rx')
+
+# skyview: 
+    # Create spline equation to obtain hor(az) for any azimuth
+    # add endpoints on either side of sequence so interpolation is good 
+xx = np.concatenate((xx[-2:] - 360, xx, xx[:2] + 360)) 
+yy = np.concatenate((yy[-2:], yy, yy[:2]))
+FF = interp1d(x=xx, y=yy)
+sky_view_factor(FF, 2)
+
+#
+
+############################################################v
+## experimental Demo
+az1 = np.array(range(0,360,10))
+hor1 = az1 * 0 + 70
+rt = rotate_horizon(az1, hor1, 120, 120)
+obs= total_obscura(rt[0], rt[1], 5)
+
+plt.clf()
+ ## Plot cartesian
+xx = np.append(rt[0], obs)
+yy = np.append(rt[1], (obs * 0 + 90))
+yy = yy[np.argsort(xx)]
+xx = xx[np.argsort(xx)]
+plt.plot(xx,yy)
+
+
+# Plot sky
+
+fig = plt.figure()
+ax = fig.add_subplot(1,1,1, projection='northpolar')
+ax.yaxis.set_visible(False)
+ax.set_ylim(0, 1)
+ax.plot(ra(az1), np.cos(ra(hor1)))
+ax.plot(ra(rt[0]), np.cos(ra(rt[1])))
+
+# all pts
+ax.plot(ra(rt[0]), np.cos(ra(rt[1])), 'g.')
+
+# overhanging pts
+ax.plot(ra(rt[0][rt[1] > 90]), np.cos(ra(rt[1][rt[1] > 90])), 'rx')
+
+# skyview: 
+    # Create spline equation to obtain hor(az) for any azimuth
+    # add endpoints on either side of sequence so interpolation is good 
+xx = np.concatenate((xx[-2:] - 360, xx, xx[:2] + 360)) 
+yy = np.concatenate((yy[-2:], yy, yy[:2]))
+FF = interp1d(x=xx, y=yy)
+sky_view_factor(FF, 2)
+
+#
