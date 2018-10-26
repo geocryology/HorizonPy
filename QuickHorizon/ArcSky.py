@@ -140,8 +140,10 @@ class ArcSky(object):
         
     def get_angle(self, r, Rmax):
         """returns a horizon angle given a distance fom the centroid"""
-        # I'm assuming that this is the projection in the ArcGIS skyview file 
-        theta_h = np.degrees(np.arccos(r / Rmax))
+        # According to ESRI, R = (N/2) * (zenith / 90)
+        # here,  N = (2 * Rmax) and (phi = 90 - zenith)
+        
+        theta_h = 90 * (1 - r / Rmax)
         
         return(theta_h)
         
@@ -152,7 +154,7 @@ class ArcSky(object):
                 exit(1)
         
         # get coordinate values
-        Rmax = self.centroid[0]
+        Rmax = self.centroid[0] # equal to N/2 because centroid is halfway to other side 
         x0   = self.centroid[0]
         y0   = self.centroid[1]
         
@@ -190,7 +192,7 @@ class ArcSky(object):
 
         return(DataFrame(list(zip(phi, theta_h)), columns=['azimuth_deg', 'horizon_ele_deg']))
 
-    def write_geotop(self, output_file, delta_phi=2):
+    def write_horizon_file(self, output_file, delta_phi=2):
         """ write interpolated horizon data to a geotop horizon file """
         
         if not any(self.horizon):
@@ -225,4 +227,4 @@ if __name__ == "__main__":
     AS = ArcSky()
     AS.setSkyClassValue(args.id)
     AS.open_new_file(in_file)
-    AS.write_geotop(out_file)
+    AS.write_horizon_file(out_file)
