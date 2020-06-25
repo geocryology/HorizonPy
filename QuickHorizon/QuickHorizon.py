@@ -465,7 +465,7 @@ class LoadImageApp:
         if width > 1000 or height > 1000:
             self.raw_image.thumbnail((800,600),Image.ANTIALIAS)
             (width, height) = self.raw_image.size
-            print "Resizing image to ", width, "x", height
+            print("Resizing image to ", width, "x", height)
 
         self.zoomed_image = self.raw_image
 
@@ -486,14 +486,14 @@ class LoadImageApp:
         self.spoke_spacing = 15
         self.image_azimuth = -1
 
-    def to_raw(self,(x,y)):
-
+    def to_raw(self, p):
+        x, y = p
         # Translate the x,y coordinate from window to raw image coordinate
         (vx, vy) = self.viewport
         return (int((x + vx)/ self.mux[self.zoomcycle]),int((y + vy)/ self.mux[self.zoomcycle]))
 
-    def to_window(self, (x,y)):
-        
+    def to_window(self, p):
+        x,y = p
         # Translate the x,y coordinate from raw image coordinate to window coordinate
         (vx, vy) = self.viewport
         return (int(x * self.mux[self.zoomcycle]) - vx,int(y * self.mux[self.zoomcycle]) - vy)
@@ -502,7 +502,6 @@ class LoadImageApp:
         for dot in self.dots:
             
             (x,y) = self.to_window((dot[0], dot[1]))
-            
             if dot[2] >= 90:  # if horizon is greater than 90, overhanging pt
                 item = my_canvas.create_rectangle(x-2,y-2,x+2,y+2,fill="yellow")
             elif 0 <= dot[2] < 90:
@@ -517,20 +516,20 @@ class LoadImageApp:
         # Remove old grid before drawing new one
         my_canvas.delete("grid")
 
-        (wX,wY) = self.to_window(center)
+        (wX, wY) = self.to_window(center)
         wR = radius * self.mux[self.zoomcycle]
 
         x = wX - wR
         y = wY - wR
 
-        my_canvas.create_oval(x,y,x+(2*wR),y+(2*wR),outline="red",tag="grid")
+        my_canvas.create_oval(x, y, x+(2*wR), y+(2*wR), outline="red", tag="grid")
 
         # Draw spokes on Az wheel 
-        for n in range(0,360,spoke_spacing):
+        for n in range(0, 360,spoke_spacing):
             rX = center[0] + int(radius * math.cos(math.radians(n)))
             rY = center[1] + int(radius * math.sin(math.radians(n)))
-            pX,pY = self.to_window((rX,rY))
-            my_canvas.create_line(wX,wY,pX,pY,fill="red",tag="grid")
+            pX,pY = self.to_window((rX, rY))
+            my_canvas.create_line(wX, wY, pX, pY, fill="red", tag="grid")
 
     def drawAzimuth(self, my_canvas, center, radius, anchor):
 
@@ -621,17 +620,19 @@ class LoadImageApp:
             f = open(file,'rt')
             try:
                 reader = csv.reader(f)
-                rownum = 0
+                next(reader) # skip header row
 
                 for row in reader:
-
                     
-                    if rownum == 0:
-                        header = row
-                        
-                    else:
-                        self.dots.append((int(row[0]),int(row[1])))
-                    rownum += 1
+                    # Make sure azimuth / horizon data are present
+                    if not row[2]:
+                        tkMessageBox.showerror("Error!", "No associated azimuth / horizon data " 
+                                "Please save csv files only after setting overlay parameters")
+                    
+                    raw = (int(row[0]), int(row[1]))
+                    overhang = float(row[2]) > 90
+                    self._define_new_dot(raw, overhanging=overhang)
+
             finally:
                 f.close()
 
@@ -686,12 +687,12 @@ class LoadImageApp:
             
             # Create spline equation to obtain hor(az) for any azimuth
             # add endpoints on either side of sequence so interpolation is good          
-            x = np.concatenate((azi[-2:]-360, azi, azi[:2]+360)) 
+            x = np.concatenate((azi[-2:] - 360, azi, azi[:2] + 360)) 
             y = np.concatenate((hor[-2:], hor, hor[:2]))
             f_hor = interp1d(x, y, kind = 'linear')
     
             # Interpolate horizon at evenly spaced interval using spline
-            phi = np.array(range(0, 360, delta))
+            phi     = np.array(range(0, 360, delta))
             theta_h = f_hor(phi)
 
             try:
@@ -700,7 +701,7 @@ class LoadImageApp:
                     try:
                         writer = csv.writer(f_name)
                         writer.writerow(('azimuth_deg', 'horizon_ele_deg'))
-                        for row in izip(phi, theta_h):
+                        for row in izip(phi, "{:.2f}".format(theta_h)):
                             writer.writerow(row)
     
                     finally:
@@ -712,7 +713,7 @@ class LoadImageApp:
             tkMessageBox.showerror("Error!", "No points to export!")
         
     def exit_app(self):
-        sys.exit(0)
+        root.destroy()
 
     def move(self):
         # Set mouse behaviour to move canvas on click
@@ -764,7 +765,7 @@ class LoadImageApp:
             center=self.center, radius=self.radius, spacing=self.spoke_spacing)
             
             self.canvas.focus_set()
-            print "D = ", d, self.showGrid, d.result
+            print("D = ", d, self.showGrid, d.result)
 
             if d:
                 self.center = d.center
@@ -832,9 +833,6 @@ class LoadImageApp:
         if self.raw_image:
             self.tool = "dot"
 
-    def line(self):
-        if self.raw_image:
-            self.tool = "line"
 
     def zoomin(self, *args):
         if self.raw_image:
@@ -843,7 +841,7 @@ class LoadImageApp:
                 self.scale_image()
                 self.display_region(self.canvas)
             else:
-                print "Max zoom reached!"
+                print("Max zoom reached!")
 
     def zoomout(self, *args):
         if self.raw_image:
@@ -852,7 +850,7 @@ class LoadImageApp:
                 self.scale_image()
                 self.display_region(self.canvas)
             else:
-                print "Min zoom reached!"
+                print("Min zoom reached!")
     
     def zoomoriginal(self):
         if self.raw_image:
@@ -895,26 +893,8 @@ class LoadImageApp:
                 raw = self.to_raw((event.x,event.y))
                 event.widget.itemconfig(item, tags=("dot", str(raw[0]), str(raw[1])))
 
-               
-                if self.showGrid and (0 <= self.image_azimuth <= 360):
-
-                    rX = self.center[0] + int(self.radius * math.cos(math.radians(self.image_azimuth)))
-                    rY = self.center[1] + int(self.radius * math.sin(math.radians(self.image_azimuth)))
-
-                    azimuth = self.find_angle(self.center, self.image_azimuth_coords, (raw[0], raw[1]))
-
-                   
-                    dot_radius = math.sqrt(math.pow(raw[0]-self.center[0],2)+math.pow(raw[1]-self.center[1],2))
-                    logging.debug('Dot (%d,%d) has radius %f', raw[0], raw[1], dot_radius)
-                    horizon = self.find_horizon(dot_radius, self.radius)
-                    logging.info('Dot (%d,%d) has Horizon Elevation = %f, Azimuth = %f', raw[0], raw[1], horizon, azimuth)
-                    
-                    new_dot = [raw[0], raw[1], round(horizon,5), round(azimuth,5)]
-                    self.dots.append(new_dot)
-
-                else:
-                    self.dots.append(raw + (-999,-999))
-
+                self._define_new_dot(raw, overhanging=False)
+                
             else:   
 
                 self.select_X, self.select_Y = event.x, event.y
@@ -1013,35 +993,34 @@ class LoadImageApp:
                 raw = self.to_raw((event.x,event.y))
                 event.widget.itemconfig(item, tags=("dot", str(raw[0]), str(raw[1])))
 
-               
-                if self.showGrid and (0 <= self.image_azimuth <= 360):
-
-                    rX = self.center[0] + int(self.radius * math.cos(math.radians(self.image_azimuth)))
-                    rY = self.center[1] + int(self.radius * math.sin(math.radians(self.image_azimuth)))
-
-                    azimuth = self.find_angle(self.center, self.image_azimuth_coords, (raw[0], raw[1]))
-
-                   
-                    dot_radius = math.sqrt(math.pow(raw[0]-self.center[0],2)+math.pow(raw[1]-self.center[1],2))
-                    logging.debug('Dot (%d,%d) has radius %f', raw[0], raw[1], dot_radius)
-                    horizon = self.find_horizon(dot_radius, self.radius)
-                    logging.info('Dot (%d,%d) has Horizon Elevation = %f, Azimuth = %f', raw[0], raw[1], horizon, azimuth)
-                    
-                    #modify coordinates so that the point is 'overhanging'
-                    if horizon == 0: # if horizon is exactly 0, make it a 90 deg point
-                        horizon = 90
-                    else:
-                        horizon = 180 - horizon
-                        azimuth = (180 + azimuth) % 360    
-
-                    new_dot = [raw[0], raw[1], round(horizon,5), round(azimuth,5)]
-                    self.dots.append(new_dot)
-
-                else:
-                    self.dots.append(raw + (-998, -999))
+                self._define_new_dot(raw, overhanging=True)
                 
                 self.drawDots(self.canvas)
     
+    def _define_new_dot(self, raw, overhanging=False):
+        if self.showGrid and (0 <= self.image_azimuth <= 360):
+
+            azimuth = self.find_angle(self.center, self.image_azimuth_coords, (raw[0], raw[1]))
+
+            dot_radius = math.sqrt(math.pow(raw[0]-self.center[0],2)+math.pow(raw[1]-self.center[1],2))
+            logging.debug('Dot (%d,%d) has radius %f', raw[0], raw[1], dot_radius)
+            horizon = self.find_horizon(dot_radius, self.radius)
+            logging.info('Dot (%d,%d) has Horizon Elevation = %f, Azimuth = %f', raw[0], raw[1], horizon, azimuth)
+            
+            if overhanging:
+                #modify coordinates so that the point is 'overhanging'
+                if horizon == 0: # if horizon is exactly 0, make it a 90 deg point
+                    horizon = 90
+                else:
+                    horizon = 180 - horizon
+                    azimuth = (180 + azimuth) % 360    
+
+            new_dot = [raw[0], raw[1], round(horizon,5), round(azimuth,5)]
+            self.dots.append(new_dot)
+
+        else:
+            self.dots.append(raw + (-998, -999))
+
     def b3up(self,event):
         logging.debug('b3up()-> tool = %s at (%d, %d)', self.tool, event.x, event.y)
         pass
@@ -1060,12 +1039,8 @@ class LoadImageApp:
         # Conditional on button 1 depressed
         if self.raw_image and self.button_1 == "down":
             if self.xold is not None and self.yold is not None:
-                
-                if self.tool is "line":
-                    
-                    event.widget.create_line(self.xold,self.yold,event.x,event.y,smooth=TRUE,fill="blue",width=5)
 
-                elif self.tool is "move":     # Panning
+                if self.tool is "move":     # Panning
                     self.viewport = (self.viewport[0] - (event.x - self.xold), self.viewport[1] - (event.y - self.yold))
                     self.display_region(self.canvas)
 
@@ -1100,6 +1075,7 @@ class LoadImageApp:
 
             dot_radius = math.sqrt(math.pow(dot[0]-center[0],2)+math.pow(dot[1]-center[1],2))
             horizon = self.find_horizon(dot_radius, radius)
+
             if dot[2] == -998 or dot[2] > 90:
                 if horizon == 0: # if horizon is exactly 0, make it a 90 deg point
                     horizon = 90
