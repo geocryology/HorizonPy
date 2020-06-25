@@ -701,9 +701,9 @@ class LoadImageApp:
                     try:
                         writer = csv.writer(f_name)
                         writer.writerow(('azimuth_deg', 'horizon_ele_deg'))
-                        for row in izip(phi, "{:.2f}".format(theta_h)):
+                        for row in izip(phi, ["{:.2f}".format(t) for t in theta_h]):
                             writer.writerow(row)
-    
+
                     finally:
                         f_name.close()
             except:
@@ -1145,7 +1145,7 @@ class LoadImageApp:
        # h_over = [x if x!=90 else 0 for x in h_over ]
         ax.set_xlabel('Image Azimuth')
         ax.set_ylabel('Horizon Angle')
-        ax.set_axis_bgcolor('blue')
+        ax.set_facecolor('blue')
         ax.set_xlim((0, 360))
         ax.set_ylim((0, 90))   
         horiz = np.array(horiz)
