@@ -5,6 +5,7 @@ Tools for generating and manipulating horizon lines and sky view factors
 
 ## Installation
 Only works for python 2.7
+
 Requirements:
 numpy
 Pillow

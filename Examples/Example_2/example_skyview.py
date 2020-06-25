@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from SkyView import rotate_horizon, horiz_to_carte, rotate_towards, carte_to_horiz, test_obscured, sky_view_factor, total_obscura
+from horizonpy.skyview import rotate_horizon, horiz_to_carte, rotate_towards, carte_to_horiz, test_obscured, sky_view_factor, total_obscura
 from numpy import radians as ra
 from scipy.interpolate import interp1d
 ax1 = plt.figure(1)

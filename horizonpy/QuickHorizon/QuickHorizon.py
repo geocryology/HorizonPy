@@ -20,7 +20,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from itertools import izip
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..")) # include module in python path
-from SkyView import SVF_discretized
+from horizonpy.skyview import SVF_discretized
 
 ####################################################################
 # AzimuthWheelDialog

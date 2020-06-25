@@ -1,8 +1,10 @@
 #hemisample py
+# For even sampling over a hemisphere
 from math import pi
 from numpy import sin, cos, exp, sqrt, histogram, random, zeros_like
 import numpy as np
 import scipy.stats as st
+
 
 class my_pdf(st.rv_continuous):
     

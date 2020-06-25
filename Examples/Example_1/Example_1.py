@@ -8,7 +8,7 @@
 # 0. Import packages
 ####
 
-from Horizonpy import ArcSky
+from horizonpy import arcsky
 from os        import path
 
 #####
