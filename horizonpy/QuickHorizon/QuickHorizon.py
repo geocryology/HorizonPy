@@ -7,17 +7,18 @@ import sys
 import os
 import math
 import csv
-import tkFileDialog
-import tkMessageBox
+import tkinter.filedialog as tkFileDialog
+import tkinter.messagebox as tkMessageBox
 import numpy as np
-import tkSimpleDialog
+import tkinter.simpledialog as tkSimpleDialog
 import logging
 
 from PIL import Image, ImageTk, ImageEnhance
 from scipy.interpolate import interp1d
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from itertools import izip
+izip = zip
+
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..")) # include module in python path
 from horizonpy.skyview import SVF_discretized

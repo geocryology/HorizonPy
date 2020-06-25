@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.interpolate import interp1d
-from itertools import izip
 from pandas import DataFrame, read_csv
 from shapely.geometry import LineString, Polygon, LinearRing, Point
 from warnings import warn
@@ -8,6 +7,7 @@ from warnings import warn
 from numpy import radians as ra
 
 import matplotlib.pyplot as plt
+izip = zip
 
 def SVF_discretized(az, hor, aspect, dip, increment=2, plot=False):
     """ 
