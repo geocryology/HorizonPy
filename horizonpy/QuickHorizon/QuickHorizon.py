@@ -3,22 +3,29 @@ try:
 except ImportError:
     from tkinter import *
 
+try: # python 3 
+    import tkinter.filedialog as tkFileDialog
+    import tkinter.messagebox as tkMessageBox
+    import tkinter.simpledialog as tkSimpleDialog
+    izip = zip
+except:  # python 2 
+    import tkFileDialog
+    import tkMessageBox
+    import tkSimpleDialog
+    from itertools import izip
+
 import sys
 import os
 import math
 import csv
-import tkinter.filedialog as tkFileDialog
-import tkinter.messagebox as tkMessageBox
-import numpy as np
-import tkinter.simpledialog as tkSimpleDialog
+
 import logging
+import numpy as np
 
 from PIL import Image, ImageTk, ImageEnhance
 from scipy.interpolate import interp1d
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-izip = zip
-
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..")) # include module in python path
 from horizonpy.skyview import SVF_discretized
@@ -818,7 +825,7 @@ class LoadImageApp:
             return
         if self.warn_dots:
             d = AzimuthDialog(self.parent, azimuth=self.field_azimuth)
-            self.frame.focus_set()
+            self.canvas.focus_set()
             if d:
                 self.field_azimuth = d.azimuth
             
