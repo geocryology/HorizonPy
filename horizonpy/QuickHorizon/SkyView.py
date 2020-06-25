@@ -4,7 +4,6 @@ from itertools import izip
 from pandas import DataFrame, read_csv
 from shapely.geometry import LineString, Polygon, LinearRing, Point
 from warnings import warn
-from skyplotting import NorthPolarAxes 
 
 from numpy import radians as ra
 
@@ -40,7 +39,9 @@ def SVF_discretized(az, hor, aspect, dip, increment=2, plot=False):
         ax1.plot(xx,yy)
         
         # Plot sky
-        ax = fig.add_subplot(2,1,2, projection='northpolar')
+        ax = fig.add_subplot(2,1,2, projection='polar')
+        ax.set_theta_direction(-1)
+        ax.set_theta_zero_location('N')
         ax.yaxis.set_visible(False)
         ax.set_ylim(0, 1)
         ax.plot(ra(az), np.cos(ra(hor)))
