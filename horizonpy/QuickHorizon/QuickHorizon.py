@@ -1,8 +1,10 @@
 try:
-    from Tkinter import *
+    #from Tkinter import *
+    import Tkinter as tk
 except ImportError:
-    from tkinter import *
-
+   # from tkinter import *
+    import tkinter as tk
+    
 try: # python 3 
     import tkinter.filedialog as tkFileDialog
     import tkinter.messagebox as tkMessageBox
@@ -26,6 +28,7 @@ from PIL import Image, ImageTk, ImageEnhance
 from scipy.interpolate import interp1d
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib as mpl
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..")) # include module in python path
 from horizonpy.skyview import SVF_discretized
@@ -37,7 +40,7 @@ class GridDialog(tkSimpleDialog.Dialog):
 
     def __init__(self,parent,title=None,center=(0,0),radius=0, spacing=15):
 
-        Toplevel.__init__(self, parent)
+        tk.Toplevel.__init__(self, parent)
         self.transient(parent)
 
         if title:
@@ -51,7 +54,7 @@ class GridDialog(tkSimpleDialog.Dialog):
         
         self.buttonbox()
         self.grab_set()
-        body = Frame(self)
+        body = tk.Frame(self)
         self.initial_focus = self.body(body)
         body.pack(padx=5, pady=5)
 
@@ -68,25 +71,25 @@ class GridDialog(tkSimpleDialog.Dialog):
 
     def body(self, master):
 
-        Label(master, text="X:").grid(row=0)
-        Label(master, text="Y:").grid(row=1)
-        Label(master, text="Radius:").grid(row=2)
-        Label(master, text="Spoke spacing:").grid(row=3)
+        tk.Label(master, text="X:").grid(row=0)
+        tk.Label(master, text="Y:").grid(row=1)
+        tk.Label(master, text="Radius:").grid(row=2)
+        tk.Label(master, text="Spoke spacing:").grid(row=3)
 
-        c1 = StringVar()
-        self.e1 = Entry(master, textvariable=c1)
+        c1 = tk.StringVar()
+        self.e1 = tk.Entry(master, textvariable=c1)
         c1.set(str(self.center[0]))
 
-        c2 = StringVar()
-        self.e2 = Entry(master, textvariable=c2)
+        c2 = tk.StringVar()
+        self.e2 = tk.Entry(master, textvariable=c2)
         c2.set(str(self.center[1]))
 
-        r = StringVar()
-        self.e3 = Entry(master, textvariable=r)
+        r = tk.StringVar()
+        self.e3 = tk.Entry(master, textvariable=r)
         r.set(str(self.radius))
         
-        ss = StringVar()
-        self.e4 = Entry(master, textvariable=ss)
+        ss = tk.StringVar()
+        self.e4 = tk.Entry(master, textvariable=ss)
         ss.set(str(self.spoke_spacing))
 
         self.e1.grid(row=0, column=1)
@@ -115,7 +118,7 @@ class AzimuthDialog(tkSimpleDialog.Dialog):
 
     def __init__(self,parent,azimuth=0):
 
-        Toplevel.__init__(self, parent)
+        tk.Toplevel.__init__(self, parent)
         self.transient(parent)
 
         self.title("Field Azimuth")
@@ -125,7 +128,7 @@ class AzimuthDialog(tkSimpleDialog.Dialog):
 
         self.result = None
 
-        body = Frame(self)
+        body = tk.Frame(self)
         self.initial_focus = self.body(body)
         body.pack(padx=5, pady=5)
 
@@ -146,11 +149,11 @@ class AzimuthDialog(tkSimpleDialog.Dialog):
 
     def body(self, master):
 
-        Label(master, text="Field Azimuth").grid(row=0)
-        Label(master, text="Enter field azimuth \n AZIMUTH VALUES MUST BE CORRECTED \n WITH RESPECT TO MAGNETIC DECLINATION!!!").grid(row=2)
+        tk.Label(master, text="Field Azimuth").grid(row=0)
+        tk.Label(master, text="Enter field azimuth \n AZIMUTH VALUES MUST BE CORRECTED \n WITH RESPECT TO MAGNETIC DECLINATION!!!").grid(row=2)
 
-        c1 = StringVar()
-        self.e1 = Entry(master, textvariable=c1)
+        c1 = tk.StringVar()
+        self.e1 = tk.Entry(master, textvariable=c1)
         c1.set(str(self.azimuth))
 
         self.e1.grid(row=0, column=1)
@@ -173,11 +176,11 @@ class AzimuthDialog(tkSimpleDialog.Dialog):
 ####################################################################
 # Skyview factor popup
 ####################################################################
-class SVFDialog(Toplevel):
+class SVFDialog(tk.Toplevel):
 #http://www-acc.kek.jp/kekb/control/Activity/Python/TkIntro/introduction/intro09.htm
     def __init__(self, parent, azimuth, horizon):
         
-        Toplevel.__init__(self, parent)
+        tk.Toplevel.__init__(self, parent)
         self.transient(parent)
         
         self.title("Sky View Calculator")
@@ -186,7 +189,7 @@ class SVFDialog(Toplevel):
         self.pts_hor = horizon
         self.surface_dip = 0
         self.surface_az = 0     
-        body = Frame(self)
+        body = tk.Frame(self)
         self.initial_focus = self.body(body) 
         body.pack(padx=10, pady=10)
         self.buttonbox()
@@ -206,12 +209,12 @@ class SVFDialog(Toplevel):
     def buttonbox(self):
         # add standard button box. override if you don't want the
         # standard buttons
-        box = Frame(self)
+        box = tk.Frame(self)
 
-        w = Button(box, text="Calculate", width=10, command=self.ok, default=ACTIVE)
-        w.pack(side=LEFT, padx=5, pady=5)
-        w = Button(box, text="Exit", width=10, command=self.cancel)
-        w.pack(side=LEFT, padx=5, pady=5)
+        w = tk.Button(box, text="Calculate", width=10, command=self.ok, default=tk.ACTIVE)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        w = tk.Button(box, text="Exit", width=10, command=self.cancel)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
 
         self.bind("<Return>", self.ok)
         self.bind("<Escape>", self.cancel)
@@ -231,15 +234,15 @@ class SVFDialog(Toplevel):
         self.destroy()
         
     def body(self, master):
-        Label(master, text="Surface aspect").grid(row=0)
-        Label(master, text="Surface dip").grid(row=1)
+        tk.Label(master, text="Surface aspect").grid(row=0)
+        tk.Label(master, text="Surface dip").grid(row=1)
 
-        c1 = StringVar()
-        self.e1 = Entry(master, textvariable=c1)
+        c1 = tk.StringVar()
+        self.e1 = tk.Entry(master, textvariable=c1)
         c1.set(str(0))
 
-        c2 = StringVar()
-        self.e2 = Entry(master, textvariable=c2)
+        c2 = tk.StringVar()
+        self.e2 = tk.Entry(master, textvariable=c2)
         c2.set(str(0))
         
         self.e1.grid(row=0, column=1)
@@ -298,7 +301,7 @@ class LoadImageApp:
     def __init__(self,root,image_file):
 
         self.parent = root
-        self.frame = Frame(root, bg='black')
+        self.frame = tk.Frame(root, bg='black')
         self.imageFile = image_file
         self.field_azimuth = -1
         self.contrast_value = 1
@@ -313,7 +316,7 @@ class LoadImageApp:
             self.mux[n] = round(self.mux[n+1] * 1.5, 5)
 
         # Create canvas 
-        self.canvas = Canvas(self.frame,width=800,height=600,bg='gray')
+        self.canvas = tk.Canvas(self.frame,width=800,height=600,bg='gray')
         self.canvas.focus_set() 
 
         # Create the image on canvas
@@ -342,10 +345,10 @@ class LoadImageApp:
         csv_options['initialdir'] = '.'
 
         # Menu items
-        menubar = Menu(root)
-        filemenu = Menu(menubar,tearoff=0)
+        menubar = tk.Menu(root)
+        filemenu = tk.Menu(menubar,tearoff=0)
         filemenu.add_command(label="Open Image", command=self.open_file)
-        exportmenu = Menu(menubar, tearoff=0)
+        exportmenu = tk.Menu(menubar, tearoff=0)
         filemenu.add_cascade(label="Export", menu=exportmenu)
         exportmenu.add_command(label="Export CSV", command=self.save_csv)
         exportmenu.add_command(label="Export GEOtop horizon file", command=self.save_geotop_hrzn)
@@ -353,7 +356,7 @@ class LoadImageApp:
         filemenu.add_command(label="Exit", command=self.exit_app)
         menubar.add_cascade(label="File", menu=filemenu)
 
-        drawmenu = Menu(menubar,tearoff=0)
+        drawmenu = tk.Menu(menubar,tearoff=0)
         drawmenu.add_command(label="Pan (Move)", command=self.move)
         drawmenu.add_command(label="Draw Horizon Points", command=self.dot)
         drawmenu.add_command(label="Delete Selection", command=self.select)
@@ -362,8 +365,8 @@ class LoadImageApp:
         drawmenu.add_command(label="Compute SVF", command=self.svf)
         menubar.add_cascade(label="Tools", menu=drawmenu)
         
-        gridmenu = Menu(menubar, tearoff=0)
-        drawgridmenu = Menu(menubar, tearoff=0)
+        gridmenu = tk.Menu(menubar, tearoff=0)
+        drawgridmenu = tk.Menu(menubar, tearoff=0)
         gridmenu.add_cascade(label="Draw Azimuth Grid",menu=drawgridmenu)
         drawgridmenu.add_command(label="Sunex 5.6mm Fisheye", command=lambda: self.create_grid_based_on_lens((397,268), 251, 15))
         drawgridmenu.add_command(label="Custom Grid...", command=self.show_grid)
@@ -372,32 +375,32 @@ class LoadImageApp:
         gridmenu.add_command(label="Enter Field Azimuth", command=self.define_field_azimuth)
         menubar.add_cascade(label="Azimuth",menu=gridmenu)
 
-        viewmenu = Menu(menubar, tearoff=0)
+        viewmenu = tk.Menu(menubar, tearoff=0)
         viewmenu.add_command(label="Toggle Overlays (t)", command=self.toggle_grid)
         viewmenu.add_command(label="Zoom In", command=self.zoomin)
         viewmenu.add_command(label="Zoom Out", command=self.zoomout)
         viewmenu.add_command(label="Reset Zoom", command=self.zoomoriginal)
         menubar.add_cascade(label="View",menu=viewmenu)
         
-        imagemenu = Menu(menubar, tearoff=0)
+        imagemenu = tk.Menu(menubar, tearoff=0)
         imagemenu.add_command(label="Increase Contrast  <o>", command = lambda: self.adjust_contrast( 0.1))
         imagemenu.add_command(label="Decrease Contrast <p>", command = lambda: self.adjust_contrast( -0.1))
         imagemenu.add_command(label="Increase Brightness <q>", command = lambda: self.adjust_brightness( 0.1))
         imagemenu.add_command(label="Decrease Brightness <w>", command = lambda: self.adjust_brightness( -0.1))
         menubar.add_cascade(label="Image",menu=imagemenu)
         
-        helpmenu = Menu(menubar, tearoff=0)
+        helpmenu = tk.Menu(menubar, tearoff=0)
         helpmenu.add_command(label="Show Point Coordinates", command=self.show_dots)
         helpmenu.add_command(label="About QuickHorizon", command=self.about)
-        helpmenu.add_command(label="new", command=self.popupimage)
+        helpmenu.add_command(label="new", command=self.create_window)
         menubar.add_cascade(label="Help",menu=helpmenu)
 
         # Attach menu bar to interface
         root.config(menu=menubar)
 
         # Show XY coords in in bottom left 
-        self.status = Label(root, text="X,Y", bd=1, relief=SUNKEN, anchor=W)
-        self.status.pack(side=BOTTOM, fill=X)
+        self.status = tk.Label(root, text="X,Y", bd=1, relief=tk.SUNKEN, anchor=tk.W)  
+        self.status.pack(side=tk.BOTTOM, fill=tk.X)
 
         # Events 
         self.canvas.bind("<MouseWheel>", self.zoomer)
@@ -757,7 +760,7 @@ class LoadImageApp:
         text = "X , Y = "
 
         rows = len(self.dots)
-        for row in xrange(rows):
+        for row in range(rows):
             i = self.dots[row]
 
             text = text + "(" + str(i[0]) + " , " + str(i[1]) + "), "
@@ -1169,7 +1172,7 @@ class LoadImageApp:
         return(fig)
         
     def popupimage(self):
-        self.root2 = Tk()
+        self.root2 = tk.Tk()
         fig = self.plothorizon(show=False)
         canvas2 = FigureCanvasTkAgg(fig, master=self.root2)     
         canvas2.show()
@@ -1182,10 +1185,130 @@ class LoadImageApp:
         print(self.dots)
         SVFDialog(self.parent, pts_az, pts_hor)
         
+    def create_window(self):
+        t = ChildDialog(self.frame)
+        
+
+class ChildDialog(tk.Toplevel):
+    def __init__(self, parent):
+        
+        tk.Toplevel.__init__(self, parent)
+        self.transient(parent)
+        
+        self.title("Sky View Calculator")
+        self.parent = parent
+        self.pts_az = 0
+        self.pts_hor = 0
+        self.surface_dip = 0
+        self.surface_az = 0     
+        body = tk.Frame(self)
+        self.initial_focus = self.body(body) 
+        body.pack(padx=10, pady=10)
+        self.plotcanvas()
+        self.buttonbox()
+        self.buttonbox2()
+        self.grab_set()
+        
+        if not self.initial_focus:
+            self.initial_focus = self
+            
+        self.protocol("WM_DELETE_WINDOW", self.cancel)
+
+        self.geometry("+%d+%d" % (parent.winfo_rootx() + 150,
+                                  parent.winfo_rooty() + 150))
+        
+        self.initial_focus.focus_set()
+        self.wait_window(self)
+
+    def plotcanvas(self):
+        f = mpl.figure.Figure(figsize=(5,5), dpi=100) 
+        ax = f.add_subplot(111, projection='polar')
+        ax.set_theta_direction(-1)
+        ax.set_theta_zero_location('N')
+        canvas = FigureCanvasTkAgg(f, self)
+        self.drawcanvas(ax, canvas)
+        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+        canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+    
+    def drawcanvas(self, ax, canvas):
+        ax.plot([1,2,3,4,5,6,7,8],[5,6,1,3,8,9,3,5])
+        
+        canvas.draw()
+        
+    def buttonbox(self):
+        # add standard button box. override if you don't want the
+        # standard buttons
+        box = tk.Frame(self)
+
+        w = tk.Button(box, text="Calculate", width=10, command=self.ok, default=tk.ACTIVE)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        w = tk.Button(box, text="Exit", width=10, command=self.cancel)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+
+        self.bind("<Return>", self.ok)
+        self.bind("<Escape>", self.cancel)
+        box.pack()
+    
+    def buttonbox2(self):
+        box = tk.Frame(self)
+        w = tk.Button(box, text="new", width=10, command=self.drawcanvas)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        box.pack()
+    # standard button semantics 
+    def ok(self, event=None):
+        if self.apply():
+           SVF = SVF_discretized(self.pts_az, self.pts_hor, self.surface_az, self.surface_dip, 1)
+           tkMessageBox.showinfo(title="SkyView", message="here's the SVF: %s" % SVF)    
+        else:
+            return        
+
+    def cancel(self, event=None):
+        # put focus back to the parent window
+        self.parent.focus_set()
+        self.destroy()
+        
+    def body(self, master):
+        tk.Label(master, text="Surface aspect").grid(row=0)
+        tk.Label(master, text="Surface dip").grid(row=1)
+
+        c1 = tk.StringVar()
+        self.e1 = tk.Entry(master, textvariable=c1)
+        c1.set(str(0))
+
+        c2 = tk.StringVar()
+        self.e2 = tk.Entry(master, textvariable=c2)
+        c2.set(str(0))
+        
+        self.e1.grid(row=0, column=1)
+        self.e2.grid(row=1, column=1)
+        
+        return self.e1    
+
+    def apply(self):
+        try:
+            AZ = float(self.e1.get())
+            DIP = float(self.e2.get())
+            
+            if not 0 <= AZ <= 360:
+                tkMessageBox.showerror("Error!", "Azimuth value must be between 0 and 360")
+                return False
+                
+            if not 0 <= DIP <= 180:
+                tkMessageBox.showerror("Error!", "Dip value must be between 0 and 180")
+                return False
+                   
+            else:
+                self.surface_dip = DIP
+                self.surface_az = AZ
+                return True
+        except:
+            tkMessageBox.showerror("Error!", "Numeric values only, please")
+            return False
+          
 # Main Program 
 
 if __name__ == '__main__':
-    root = Tk()
+    root = tk.Tk()
     root.title("QuickHorizon")
     image_file = None
 
@@ -1193,13 +1316,13 @@ if __name__ == '__main__':
                     format='%(asctime)s %(levelname)-8s %(message)s',
                     datefmt='%a, %d %b %Y %H:%M:%S')
 
-    if len(sys.argv) > 1:
-        if os.path.isfile(sys.argv[1]):
-            image_file = sys.argv[1]
-            
-        else:
-            exit_string = "Image File " + sys.argv[1] + " doesn't exist!"
-            sys.exit(exit_string)
+#    if len(sys.argv) > 1:
+#        if os.path.isfile(sys.argv[1]):
+#            image_file = sys.argv[1]
+#            
+#        else:
+#            exit_string = "Image File " + sys.argv[1] + " doesn't exist!"
+#            sys.exit(exit_string)
 
     
     App = LoadImageApp(root,image_file)
