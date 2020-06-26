@@ -176,22 +176,30 @@ class AzimuthDialog(tkSimpleDialog.Dialog):
 ####################################################################
 # Skyview factor popup
 ####################################################################
-class SVFDialog(tk.Toplevel):
 #http://www-acc.kek.jp/kekb/control/Activity/Python/TkIntro/introduction/intro09.htm
-    def __init__(self, parent, azimuth, horizon):
+class SVFDialog(tk.Toplevel):
+    def __init__(self, parent):
         
-        tk.Toplevel.__init__(self, parent)
-        self.transient(parent)
+        tk.Toplevel.__init__(self, parent.frame)
+        self.transient(parent.frame)
         
         self.title("Sky View Calculator")
-        self.parent = parent
-        self.pts_az = azimuth
-        self.pts_hor = horizon
-        self.surface_dip = 0
-        self.surface_az = 0     
+        self.parent = parent.frame
+
+        self.pts_az = np.array([parent.calculate_true_azimuth(x[3]) for x in parent.dots])
+        self.pts_hor = np.array([x[2] for x in parent.dots])
+        
+        self.pts_az = np.append(self.pts_az, self.pts_az[0])
+        self.pts_hor = np.append(self.pts_hor, self.pts_hor[0])
+
+        self.surface_dip = 15
+        self.surface_asp = 30   
+        self.createcanvas()
+          
         body = tk.Frame(self)
         self.initial_focus = self.body(body) 
         body.pack(padx=10, pady=10)
+    
         self.buttonbox()
         self.grab_set()
         
@@ -206,6 +214,29 @@ class SVFDialog(tk.Toplevel):
         self.initial_focus.focus_set()
         self.wait_window(self)
 
+    def createcanvas(self):
+        f = mpl.figure.Figure(figsize=(5,5), dpi=100) 
+        self.ax = add_sky_plot(f, 111) 
+        self.canvas = FigureCanvasTkAgg(f, self)
+        self.canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+        self.canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        self.draw_unrotated()
+
+        
+    def draw_unrotated(self):
+        self.ax.plot(np.radians(self.pts_az), np.cos(np.radians(self.pts_hor)))
+        self.canvas.draw()
+    
+    def redraw(self):
+        
+        if hasattr(self, 'rot'):
+            self.rot.remove()
+        self.apply()
+        #self.ax.plot(np.arange(0,360,30), np.random.random(12))
+        self.rot, = plot_rotated_points(self.pts_az, self.pts_hor, self.surface_asp, self.surface_dip, self.ax)
+        
+        self.canvas.draw()
+        
     def buttonbox(self):
         # add standard button box. override if you don't want the
         # standard buttons
@@ -213,17 +244,21 @@ class SVFDialog(tk.Toplevel):
 
         w = tk.Button(box, text="Calculate", width=10, command=self.ok, default=tk.ACTIVE)
         w.pack(side=tk.LEFT, padx=5, pady=5)
+        w = tk.Button(box, text="Redraw", width=10, command=self.redraw)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
         w = tk.Button(box, text="Exit", width=10, command=self.cancel)
         w.pack(side=tk.LEFT, padx=5, pady=5)
 
+        
         self.bind("<Return>", self.ok)
         self.bind("<Escape>", self.cancel)
         box.pack()
-        
+
     # standard button semantics 
     def ok(self, event=None):
         if self.apply():
-           SVF = SVF_discretized(self.pts_az, self.pts_hor, self.surface_az, self.surface_dip, 1)
+           SVF = SVF_discretized(self.pts_az, self.pts_hor, self.surface_asp, self.surface_dip, 1)
+           self.redraw()
            tkMessageBox.showinfo(title="SkyView", message="here's the SVF: %s" % SVF)    
         else:
             return        
@@ -239,11 +274,11 @@ class SVFDialog(tk.Toplevel):
 
         c1 = tk.StringVar()
         self.e1 = tk.Entry(master, textvariable=c1)
-        c1.set(str(0))
+        c1.set(str(self.surface_asp))
 
         c2 = tk.StringVar()
         self.e2 = tk.Entry(master, textvariable=c2)
-        c2.set(str(0))
+        c2.set(str(self.surface_dip))
         
         self.e1.grid(row=0, column=1)
         self.e2.grid(row=1, column=1)
@@ -265,7 +300,7 @@ class SVFDialog(tk.Toplevel):
                    
             else:
                 self.surface_dip = DIP
-                self.surface_az = AZ
+                self.surface_asp = AZ
                 return True
         except:
             tkMessageBox.showerror("Error!", "Numeric values only, please")
@@ -274,7 +309,7 @@ class SVFDialog(tk.Toplevel):
 ####################################################################
 # Main 
 ####################################################################
-class LoadImageApp:
+class LoadImageApp(tk.Toplevel):
 
     #button_1 = "up"        
     tool = "move"          
@@ -300,6 +335,7 @@ class LoadImageApp:
     ####################################################################
     def __init__(self,root,image_file):
 
+        
         self.parent = root
         self.frame = tk.Frame(root, bg='black')
         self.imageFile = image_file
@@ -1183,24 +1219,28 @@ class LoadImageApp:
         pts_az = np.array([self.calculate_true_azimuth(x[3]) for x in self.dots])
         pts_hor = np.array([x[2] for x in self.dots])
         print(self.dots)
-        SVFDialog(self.parent, pts_az, pts_hor)
+        SVFDialog(self)
         
     def create_window(self):
-        t = ChildDialog(self.frame)
-        
+        t = ChildDialog(self)
+
 
 class ChildDialog(tk.Toplevel):
     def __init__(self, parent):
         
-        tk.Toplevel.__init__(self, parent)
-        self.transient(parent)
+        tk.Toplevel.__init__(self, parent.frame)
+        self.transient(parent.frame)
         
         self.title("Sky View Calculator")
-        self.parent = parent
-        self.pts_az = np.arange(0, 360, 10)
-        self.pts_hor = np.random.randint(2,20,36)
+        self.parent = parent.frame
+        #self.pts_az = np.arange(0, 360, 10)
+        #self.pts_hor = np.random.randint(2,20,36)
+        self.pts_az = np.array([parent.calculate_true_azimuth(x[3]) for x in parent.dots])
+        self.pts_hor = np.array([x[2] for x in parent.dots])
+        
         self.pts_az = np.append(self.pts_az, self.pts_az[0])
         self.pts_hor = np.append(self.pts_hor, self.pts_hor[0])
+
         self.surface_dip = 15
         self.surface_asp = 30     
         body = tk.Frame(self)
@@ -1242,6 +1282,7 @@ class ChildDialog(tk.Toplevel):
         self.apply()
         #self.ax.plot(np.arange(0,360,30), np.random.random(12))
         self.rot, = plot_rotated_points(self.pts_az, self.pts_hor, self.surface_asp, self.surface_dip, self.ax)
+        
         self.canvas.draw()
         
     def buttonbox(self):
