@@ -55,7 +55,7 @@ def SVF_discretized(az, hor, aspect, dip, increment=2, plot=False):
         ax.plot(ra(rt[0]), np.cos(ra(rt[1])), 'g.')
     
         # overhanging pts
-        ax.plot(ra(rt[0][rt[1] > 90]), np.cos(ra(rt[1][rt[1] > 90])), 'rx')
+        ax.plot(np.pi + ra(rt[0][rt[1] > 90]), np.abs(np.cos(ra(rt[1][rt[1] > 90]))), 'rx')
     
     return(sky_view_factor(FF, increment))
 
@@ -91,6 +91,7 @@ def sky_view_factor(f, delta_phi):
     
     #print(DataFrame(zip(phi, theta_h, cos2theta, S)))
     F_sky = (delta_phi / 360.) * np.sum(S)
+    F_sky = np.round(F_sky, decimals = 5)
     return(F_sky)
     
 
