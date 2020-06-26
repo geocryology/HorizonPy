@@ -31,7 +31,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib as mpl
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..")) # include module in python path
-from horizonpy.skyview import SVF_discretized
+from horizonpy.skyview import SVF_discretized, add_sky_plot, plot_rotated_points
 
 ####################################################################
 # AzimuthWheelDialog
@@ -1197,14 +1197,16 @@ class ChildDialog(tk.Toplevel):
         
         self.title("Sky View Calculator")
         self.parent = parent
-        self.pts_az = 0
-        self.pts_hor = 0
-        self.surface_dip = 0
-        self.surface_az = 0     
+        self.pts_az = np.arange(0, 360, 10)
+        self.pts_hor = np.random.randint(2,20,36)
+        self.pts_az = np.append(self.pts_az, self.pts_az[0])
+        self.pts_hor = np.append(self.pts_hor, self.pts_hor[0])
+        self.surface_dip = 15
+        self.surface_asp = 30     
         body = tk.Frame(self)
         self.initial_focus = self.body(body) 
         body.pack(padx=10, pady=10)
-        self.plotcanvas()
+        self.createcanvas()
         self.buttonbox()
         self.buttonbox2()
         self.grab_set()
@@ -1220,20 +1222,27 @@ class ChildDialog(tk.Toplevel):
         self.initial_focus.focus_set()
         self.wait_window(self)
 
-    def plotcanvas(self):
+    def createcanvas(self):
         f = mpl.figure.Figure(figsize=(5,5), dpi=100) 
-        ax = f.add_subplot(111, projection='polar')
-        ax.set_theta_direction(-1)
-        ax.set_theta_zero_location('N')
-        canvas = FigureCanvasTkAgg(f, self)
-        self.drawcanvas(ax, canvas)
-        canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
-        canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-    
-    def drawcanvas(self, ax, canvas):
-        ax.plot([1,2,3,4,5,6,7,8],[5,6,1,3,8,9,3,5])
+        self.ax = add_sky_plot(f, 111) 
+        self.canvas = FigureCanvasTkAgg(f, self)
+        self.canvas.get_tk_widget().pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+        self.canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        self.draw_unrotated()
+
         
-        canvas.draw()
+    def draw_unrotated(self):
+        self.ax.plot(np.radians(self.pts_az), np.cos(np.radians(self.pts_hor)))
+        self.canvas.draw()
+    
+    def redraw(self):
+        
+        if hasattr(self, 'rot'):
+            self.rot.remove()
+        self.apply()
+        #self.ax.plot(np.arange(0,360,30), np.random.random(12))
+        self.rot, = plot_rotated_points(self.pts_az, self.pts_hor, self.surface_asp, self.surface_dip, self.ax)
+        self.canvas.draw()
         
     def buttonbox(self):
         # add standard button box. override if you don't want the
@@ -1251,13 +1260,13 @@ class ChildDialog(tk.Toplevel):
     
     def buttonbox2(self):
         box = tk.Frame(self)
-        w = tk.Button(box, text="new", width=10, command=self.drawcanvas)
+        w = tk.Button(box, text="reset", width=10, command=self.redraw)
         w.pack(side=tk.LEFT, padx=5, pady=5)
         box.pack()
     # standard button semantics 
     def ok(self, event=None):
         if self.apply():
-           SVF = SVF_discretized(self.pts_az, self.pts_hor, self.surface_az, self.surface_dip, 1)
+           SVF = SVF_discretized(self.pts_az, self.pts_hor, self.surface_asp, self.surface_dip, 1)
            tkMessageBox.showinfo(title="SkyView", message="here's the SVF: %s" % SVF)    
         else:
             return        
@@ -1273,11 +1282,11 @@ class ChildDialog(tk.Toplevel):
 
         c1 = tk.StringVar()
         self.e1 = tk.Entry(master, textvariable=c1)
-        c1.set(str(0))
+        c1.set(str(self.surface_asp))
 
         c2 = tk.StringVar()
         self.e2 = tk.Entry(master, textvariable=c2)
-        c2.set(str(0))
+        c2.set(str(self.surface_dip))
         
         self.e1.grid(row=0, column=1)
         self.e2.grid(row=1, column=1)
@@ -1299,7 +1308,7 @@ class ChildDialog(tk.Toplevel):
                    
             else:
                 self.surface_dip = DIP
-                self.surface_az = AZ
+                self.surface_asp = AZ
                 return True
         except:
             tkMessageBox.showerror("Error!", "Numeric values only, please")

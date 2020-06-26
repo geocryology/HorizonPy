@@ -13,6 +13,27 @@ try: # Python 3.x
 except:  # Python 2.7
     from itertools import izip
 
+
+def add_sky_plot(figure, *args, **kwargs):
+    ax = figure.add_subplot(*args, **kwargs, projection='polar')
+    ax.set_theta_direction(-1)
+    ax.set_theta_zero_location('N')
+    ax.yaxis.set_visible(False)
+    ax.set_ylim(0, 1)
+    return ax
+    
+def plot_rotated_points(azi, hor, asp, dip, ax):
+    rt = rotate_horizon(azi, hor, asp, dip)
+    x = np.radians(rt[0])
+    y = np.cos(np.radians(rt[1]))
+
+    x[y < 0] = np.pi + x[y < 0]
+    y[y < 0] = np.abs(y[y < 0])
+    
+    p = ax.plot(x, y, 'r-')
+    #ax.plot(np.pi + rt[0][rt[1] > np.pi/2], np.abs(np.cos(rt[1][rt[1] > np.pi/2])), 'rx')
+    return p
+    
 def SVF_discretized(az, hor, aspect, dip, increment=2, plot=False):
     """ 
     az1 = np.array(range(0,360,10))
@@ -359,6 +380,8 @@ def rotate_horizon(az, hor, aspect, dip):
     coords[1][overhanging] = 180 - coords[1][overhanging]
     
     return(coords)
+    
+
 
 # def SVF_discretized(azi, hor, plane_az, plane_dip, delta_phi, 
 #                     interpolation='linear'):
