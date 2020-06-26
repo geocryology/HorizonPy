@@ -20,10 +20,10 @@ import sys
 import os
 import math
 import csv
-
+import configparser
 import logging
 import numpy as np
-
+import pandas as pd
 from PIL import Image, ImageTk, ImageEnhance
 from scipy.interpolate import interp1d
 from matplotlib import pyplot as plt
@@ -208,8 +208,8 @@ class SVFDialog(tk.Toplevel):
             
         self.protocol("WM_DELETE_WINDOW", self.cancel)
 
-        self.geometry("+%d+%d" % (parent.winfo_rootx() + 150,
-                                  parent.winfo_rooty() + 150))
+        self.geometry("+%d+%d" % (parent.frame.winfo_rootx() + 150,
+                                  parent.frame.winfo_rooty() + 150))
         
         self.initial_focus.focus_set()
         self.wait_window(self)
@@ -333,7 +333,7 @@ class LoadImageApp(tk.Toplevel):
     ####################################################################
     # Function: __init__
     ####################################################################
-    def __init__(self,root,image_file):
+    def __init__(self,root,image_file=None):
 
         
         self.parent = root
@@ -350,19 +350,8 @@ class LoadImageApp(tk.Toplevel):
 
         for n in range(-1, self.MIN_ZOOM-1, -1):
             self.mux[n] = round(self.mux[n+1] * 1.5, 5)
-
-        # Create canvas 
-        self.canvas = tk.Canvas(self.frame,width=800,height=600,bg='gray')
-        self.canvas.focus_set() 
-
-        # Create the image on canvas
-        if image_file:
-            self.init_canvas(self.canvas,image_file)
-
-        self.frame.pack(fill='both', expand=1)
-        self.canvas.pack(fill='both', expand=1)
-
-        #file types 
+        
+        #File associations
         self.file_opt = options = {}
         options['defaultextension'] = '.gif'
         options['filetypes'] = [('all files', '.*'),
@@ -375,11 +364,32 @@ class LoadImageApp(tk.Toplevel):
 
         # Importing csv file 
         self.csv_opt = csv_options = {}
-        csv_options['defaultextension'] = '.csv'
+        csv_options['defaultextension'] = '.hpt.csv'
         csv_options['filetypes'] = [('all files', '.*'),
-                                ('csv files', '.csv')]
-        csv_options['initialdir'] = '.'
+                                ('horizon csv files', '.hpt.csv')]
 
+        csv_options['initialdir'] = "."
+         
+        # Importing azimuth files
+        self.azm_opt = azm_options = {}
+        azm_options['defaultextension'] = '.azm.ini'
+        azm_options['filetypes'] = [('all files', '.*'),
+                                    ("Azimuth files",".azm.ini")]
+        azm_options['initialdir'] = "."
+        
+        # Create canvas 
+        self.canvas = tk.Canvas(self.frame,width=800,height=600,bg='gray')
+        self.canvas.focus_set() 
+
+        # Create the image on canvas
+        if image_file:
+            self.init_canvas(self.canvas, image_file)
+        
+        
+
+        self.frame.pack(fill='both', expand=1)
+        self.canvas.pack(fill='both', expand=1)
+        
         # Menu items
         menubar = tk.Menu(root)
         filemenu = tk.Menu(menubar,tearoff=0)
@@ -388,7 +398,9 @@ class LoadImageApp(tk.Toplevel):
         filemenu.add_cascade(label="Export", menu=exportmenu)
         exportmenu.add_command(label="Export CSV", command=self.save_csv)
         exportmenu.add_command(label="Export GEOtop horizon file", command=self.save_geotop_hrzn)
+        exportmenu.add_command(label="Export Azimuth grid", command=self.save_azimuth)
         filemenu.add_command(label="Import CSV", command=self.open_csv)
+        filemenu.add_command(label="Import Azimuth", command=self.load_azimuth)
         filemenu.add_command(label="Exit", command=self.exit_app)
         menubar.add_cascade(label="File", menu=filemenu)
 
@@ -455,6 +467,15 @@ class LoadImageApp(tk.Toplevel):
         self.canvas.bind("q", lambda event, x = 0.1 : self.adjust_brightness(x))
         self.canvas.bind("w", lambda event, x = -0.1: self.adjust_brightness(x))
         self.canvas.bind("t", self.toggle_grid)
+    
+    def set_file_locations(self):
+        self.file_opt['initialdir'] = self.imageDir
+        
+        self.csv_opt['initialdir'] = self.imageDir
+        self.csv_opt['initialfile'] = os.path.splitext(os.path.basename(self.imageFile))[0] + self.csv_opt['defaultextension']
+
+        self.azm_opt['initialdir'] = self.imageDir
+        self.azm_opt['initialfile'] = os.path.splitext(os.path.basename(self.imageFile))[0] + self.azm_opt['defaultextension']
 
     ####################################################################
     # Canvas and Image File
@@ -503,10 +524,12 @@ class LoadImageApp(tk.Toplevel):
         
     def load_image(self, canvas, image_file):
         self.imageFile = image_file
+        self.imageDir = os.path.dirname(image_file)
         self.raw_image = Image.open(image_file)
         (width, height) = self.raw_image.size
         self.field_azimuth = -1
         self.image_azimuth = -1
+        self.set_file_locations()
 
         # Image larger than 1000 pixels, resize to 800 x 600
         if width > 1000 or height > 1000:
@@ -577,6 +600,8 @@ class LoadImageApp(tk.Toplevel):
             rY = center[1] + int(radius * math.sin(math.radians(n)))
             pX,pY = self.to_window((rX, rY))
             my_canvas.create_line(wX, wY, pX, pY, fill="red", tag="grid")
+        
+        self.grid_set = True
 
     def drawAzimuth(self, my_canvas, center, radius, anchor):
 
@@ -648,14 +673,30 @@ class LoadImageApp(tk.Toplevel):
         if file:
             # Initialize the canvas with an image file
             self.init_canvas(self.canvas,file)
-
         else:
             logging.info('No file selected')
+            
+        default_azm = os.path.join(self.azm_opt['initialdir'], self.azm_opt['initialfile'])
+        if os.path.isfile(default_azm):
+            logging.info('Azimuth data found: {}'.format(default_azm))
+            self.load_azimuth(default_azm)
+            
+        else:
+            logging.info('No azimuth file found')
+            
+        default_pts = os.path.join(self.csv_opt['initialdir'], self.csv_opt['initialfile']) 
+        if os.path.isfile(default_pts):
+            logging.info('Horizon points file found {}'.format(default_pts))
+            self.open_csv(default_pts)
+        else:
+            logging.info('No horizon points file found')
 
-    def open_csv(self):
+
+    def open_csv(self, file=None):
         # Open a CSV file with previous XY coordinates
         
-        file = tkFileDialog.askopenfilename(**self.csv_opt)
+        if not file:
+            file = tkFileDialog.askopenfilename(**self.csv_opt)
 
         if file:
 
@@ -692,30 +733,68 @@ class LoadImageApp(tk.Toplevel):
             tkMessageBox.showerror("Error!", "Cannot save points without field " 
             "azimuth. Please set field azimuth before saving.")
             return
+        
         # Save the dots to CSV file
         if self.dots:
-            for x in self.dots:
-                print(x)
-                print(x[3])
-                print(self.calculate_true_azimuth(x[3]))
+
             self.dots = [x + [self.calculate_true_azimuth(x[3])] for x in self.dots]
-            
+            print(self.dots)
             try:
-                f_name = tkFileDialog.asksaveasfile(mode='wb', defaultextension=".csv")
+                f_name = tkFileDialog.asksaveasfilename(**self.csv_opt)
                 if f_name:
-                    try:
-                        writer = csv.writer(f_name)
-                        writer.writerow(('X', 'Y', 'Horizon', 'Image Azimuth', 'True Azimuth'))
-                        for row in self.dots:
-                            writer.writerow(row)
-    
-                    finally:
-                        f_name.close()
-            except:
+                    df = pd.DataFrame(self.dots)
+                    df.columns = ('X', 'Y', 'Horizon', 'Image Azimuth', 'True Azimuth')
+                    df.to_csv(f_name, index=False)
+
+            except PermissionError as e:
                 tkMessageBox.showerror("Error!", "Could not access file.  Maybe it is already open?")
+                logging.error(e)
 
         else:
             tkMessageBox.showerror("Error!", "No points to export!")
+    
+    def save_azimuth(self):
+        C = configparser.ConfigParser()
+        C.add_section("Azimuth")
+        C.set("Azimuth", "grid_centre_x", str(self.center[0]))
+        C.set("Azimuth", "grid_centre_y", str(self.center[1]))
+        C.set("Azimuth", "anchor_x", str(self.anchor[0]))
+        C.set("Azimuth", "anchor_y", str(self.anchor[1]))
+        C.set("Azimuth", "grid_centre_y", str(self.center[1]))
+        C.set("Azimuth", "radius", str(self.radius))
+        C.set("Azimuth", "spokes", str(self.spoke_spacing))
+        C.set("Azimuth", "image_azimuth", str(self.image_azimuth))
+        C.set("Azimuth", "field_azimuth", str(self.field_azimuth))
+        
+        f_name = tkFileDialog.asksaveasfilename(**self.azm_opt)
+        
+        with open(f_name, 'w') as file:
+            C.write(file)
+        
+    def load_azimuth(self, f_name=None):
+        if not f_name:
+            f_name = tkFileDialog.askopenfilename(**self.azm_opt)
+        C = configparser.ConfigParser()
+        C.read(f_name)
+        self.set_grid_from_config(C)
+        self.set_azimuth_from_config(C)
+        self.showGrid = True
+    
+    def set_grid_from_config(self, config):
+        self.spokes = config.getint("Azimuth","spokes")
+        self.center = (config.getint("Azimuth","grid_centre_x"), 
+                       config.getint("Azimuth","grid_centre_y"))
+        self.radius =  config.getint("Azimuth","radius")
+        self.drawGrid(self.canvas, self.center, self.radius, spoke_spacing=self.spokes)
+        
+        
+    def set_azimuth_from_config(self, config):
+        self.anchor = (config.getint("Azimuth","anchor_x"), 
+                       config.getint("Azimuth","anchor_y"))
+        self.radius =  config.getint("Azimuth","radius")
+        self.field_azimuth = config.getfloat("Azimuth","field_azimuth")
+        self.image_azimuth = config.getfloat("Azimuth","image_azimuth")
+        self.drawAzimuth(self.canvas, self.center, self.radius,  self.anchor)
         
     def save_geotop_hrzn(self):
         delta = 3 # discretization interval for azimuth
@@ -743,19 +822,17 @@ class LoadImageApp(tk.Toplevel):
             theta_h = f_hor(phi)
 
             try:
-                f_name = tkFileDialog.asksaveasfile(mode='wb', defaultextension=".txt")
+                f_name = tkFileDialog.asksaveasfilename(defaultextension=".txt")
+                
                 if f_name:
-                    try:
-                        writer = csv.writer(f_name)
-                        writer.writerow(('azimuth_deg', 'horizon_ele_deg'))
-                        for row in izip(phi, ["{:.2f}".format(t) for t in theta_h]):
-                            writer.writerow(row)
-
-                    finally:
-                        f_name.close()
-            except:
+                    df = pd.DataFrame(zip(phi, ["{:.2f}".format(t) for t in theta_h]))
+                    df.columns = ('azimuth_deg', 'horizon_ele_deg')
+                    df.to_csv(f_name, index=False)
+                       
+            except PermissionError as e:
                 tkMessageBox.showerror("Error!", "Could not access file.  Maybe it is already open?")
-
+                logging.error(e)
+                
         else:
             tkMessageBox.showerror("Error!", "No points to export!")
         
@@ -1366,13 +1443,13 @@ if __name__ == '__main__':
                     format='%(asctime)s %(levelname)-8s %(message)s',
                     datefmt='%a, %d %b %Y %H:%M:%S')
 
-#    if len(sys.argv) > 1:
-#        if os.path.isfile(sys.argv[1]):
-#            image_file = sys.argv[1]
-#            
-#        else:
-#            exit_string = "Image File " + sys.argv[1] + " doesn't exist!"
-#            sys.exit(exit_string)
+    if len(sys.argv) > 1:
+        if os.path.isfile(sys.argv[1]):
+            image_file = sys.argv[1]
+            
+        else:
+            exit_string = "Image File " + sys.argv[1] + " doesn't exist!"
+            sys.exit(exit_string)
 
     
     App = LoadImageApp(root,image_file)
