@@ -109,8 +109,6 @@ class LoadImageApp(tk.Toplevel):
         # Create the image on canvas
         if image_file:
             self.init_canvas(self.canvas, image_file)
-        
-        
 
         self.frame.pack(fill='both', expand=1)
         self.canvas.pack(fill='both', expand=1)

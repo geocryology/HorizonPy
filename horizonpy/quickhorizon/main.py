@@ -1,6 +1,8 @@
 from horizonpy.quickhorizon.LoadImageApp import LoadImageApp
 import logging
 import sys
+import pkg_resources
+from os import path
 
 try:
     import Tkinter as tk
@@ -10,6 +12,9 @@ except ImportError:
 if __name__ == '__main__':
     root = tk.Tk()
     root.title("QuickHorizon")
+    icon = pkg_resources.resource_filename("horizonpy", path.join("quickhorizon", "assets", "QH.ico"))
+    root.iconbitmap(icon)
+
     image_file = None
 
     logging.basicConfig(level=logging.INFO,
