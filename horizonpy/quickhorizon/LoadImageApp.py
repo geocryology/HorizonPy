@@ -33,8 +33,9 @@ from .GridDialog import GridDialog
 from .AzimuthDialog import AzimuthDialog
 from .SkyViewFactorDialog import SkyViewFactorDialog
 
-
-
+import horizonpy.quickhorizon.HorizonDecorators as hd
+    
+    
 ####################################################################
 # Main 
 ####################################################################
@@ -54,7 +55,6 @@ class LoadImageApp(tk.Toplevel):
     image_azimuth_coords = (0,0)   # Store image Azimuth coordinates (end point)
     anchor = (-999,-999)         # Store the anchor coordinate
 
-
     # list of digitized dots.  Columns contain X, Y, Elevation, Az
 
     dots = []
@@ -64,7 +64,6 @@ class LoadImageApp(tk.Toplevel):
     ####################################################################
     def __init__(self,root,image_file=None):
 
-        
         self.parent = root
         self.frame = tk.Frame(root, bg='black')
         self.imageFile = image_file
@@ -236,16 +235,18 @@ class LoadImageApp(tk.Toplevel):
         self.p_img = ImageTk.PhotoImage(self.raw_image)
         self.canvas.create_image(0,0,image=self.p_img, anchor="nw")
         self.display_region(self.canvas)
-        
+     
+    @hd.require_image_file
     def adjust_contrast(self, increment, *args):
-        logging.info('Image contrast changed by %d. Contrast now %d)', 
+        logging.info('Image contrast changed by %f; Contrast now %f)', 
         increment, self.contrast_value)
         self.zoomoriginal()
         self.contrast_value = self.contrast_value + increment
         self.reload_image()
-    
+        
+    @hd.require_image_file
     def adjust_brightness(self, increment, *args):
-        logging.info('Image brightness changed by %d. Brightness now %d)', 
+        logging.info('Image brightness changed by %f; Brightness now %f)', 
         increment, self.brightness_value)
         self.zoomoriginal()
         self.brightness_value = self.brightness_value + increment
@@ -363,8 +364,8 @@ class LoadImageApp(tk.Toplevel):
         self.image_azimuth = azimuth
 
     def scale_image(self):
-
         # Resize image 
+        
         raw_x, raw_y = self.raw_image.size
         new_w, new_h = int(raw_x * self.mux[self.zoomcycle]), int(raw_y * self.mux[self.zoomcycle])
         self.zoomed_image = self.raw_image.resize((new_w,new_h), Image.ANTIALIAS)
@@ -399,11 +400,12 @@ class LoadImageApp(tk.Toplevel):
     def open_file(self):
         file = tkFileDialog.askopenfilename(**self.file_opt)
 
-        if file:
-            # Initialize the canvas with an image file
-            self.init_canvas(self.canvas,file)
-        else:
-            logging.info('No file selected')
+        if not file:
+            return
+            
+        # Initialize the canvas with an image file
+        self.init_canvas(self.canvas,file)
+
             
         default_azm = os.path.join(self.azm_opt['initialdir'], self.azm_opt['initialfile'])
         if os.path.isfile(default_azm):
@@ -420,7 +422,8 @@ class LoadImageApp(tk.Toplevel):
         else:
             logging.info('No horizon points file found')
 
-
+    @hd.require_image_azimuth
+    @hd.require_grid
     def open_csv(self, file=None):
         # Open a CSV file with previous XY coordinates
         
@@ -440,12 +443,6 @@ class LoadImageApp(tk.Toplevel):
                 next(reader) # skip header row
 
                 for row in reader:
-                    
-                    # Make sure azimuth / horizon data are present
-                    if not row[2]:
-                        tkMessageBox.showerror("Error!", "No associated azimuth / horizon data " 
-                                "Please save csv files only after setting overlay parameters")
-                    
                     raw = (int(row[0]), int(row[1]))
                     overhang = float(row[2]) > 90
                     self._define_new_dot(raw, overhanging=overhang)
@@ -457,31 +454,25 @@ class LoadImageApp(tk.Toplevel):
         else:
             logging.info('No file selected')
 
+    @hd.require_field_azimuth
+    @hd.require_horizon_points
     def save_csv(self):
-        if self.field_azimuth == -1: 
-            tkMessageBox.showerror("Error!", "Cannot save points without field " 
-            "azimuth. Please set field azimuth before saving.")
-            return
-        
         # Save the dots to CSV file
-        if self.dots:
+        self.dots = [x + [self.calculate_true_azimuth(x[3])] for x in self.dots]
+        logging.debug(self.dots)
+        try:
+            f_name = tkFileDialog.asksaveasfilename(**self.csv_opt)
+            if f_name:
+                df = pd.DataFrame(self.dots)
+                df.columns = ('X', 'Y', 'Horizon', 'Image Azimuth', 'True Azimuth')
+                df.to_csv(f_name, index=False)
 
-            self.dots = [x + [self.calculate_true_azimuth(x[3])] for x in self.dots]
-            print(self.dots)
-            try:
-                f_name = tkFileDialog.asksaveasfilename(**self.csv_opt)
-                if f_name:
-                    df = pd.DataFrame(self.dots)
-                    df.columns = ('X', 'Y', 'Horizon', 'Image Azimuth', 'True Azimuth')
-                    df.to_csv(f_name, index=False)
-
-            except PermissionError as e:
-                tkMessageBox.showerror("Error!", "Could not access file.  Maybe it is already open?")
-                logging.error(e)
-
-        else:
-            tkMessageBox.showerror("Error!", "No points to export!")
+        except PermissionError as e:
+            tkMessageBox.showerror("Error!", "Could not access file.  Maybe it is already open?")
+            logging.error(e)
     
+    @hd.require_field_azimuth
+    @hd.require_image_azimuth
     def save_azimuth(self):
         C = configparser.ConfigParser()
         C.add_section("Azimuth")
@@ -497,17 +488,19 @@ class LoadImageApp(tk.Toplevel):
         
         f_name = tkFileDialog.asksaveasfilename(**self.azm_opt)
         
-        with open(f_name, 'w') as file:
-            C.write(file)
+        if f_name:
+            with open(f_name, 'w') as file:
+                C.write(file)
         
     def load_azimuth(self, f_name=None):
         if not f_name:
             f_name = tkFileDialog.askopenfilename(**self.azm_opt)
-        C = configparser.ConfigParser()
-        C.read(f_name)
-        self.set_grid_from_config(C)
-        self.set_azimuth_from_config(C)
-        self.showGrid = True
+        if f_name:
+            C = configparser.ConfigParser()
+            C.read(f_name)
+            self.set_grid_from_config(C)
+            self.set_azimuth_from_config(C)
+            self.showGrid = True
     
     def set_grid_from_config(self, config):
         self.spokes = config.getint("Azimuth","spokes")
@@ -524,46 +517,40 @@ class LoadImageApp(tk.Toplevel):
         self.field_azimuth = config.getfloat("Azimuth","field_azimuth")
         self.image_azimuth = config.getfloat("Azimuth","image_azimuth")
         self.drawAzimuth(self.canvas, self.center, self.radius,  self.anchor)
-        
-    def save_geotop_hrzn(self):
-        delta = 3 # discretization interval for azimuth
-        
-        if self.field_azimuth == -1: 
-            tkMessageBox.showerror("Error!", "Cannot save points without field " 
-            "azimuth. Please set field azimuth before saving.")
-            return
-        
-        # Save the dots to CSV file
-        if self.dots:
-            azi = np.array([self.calculate_true_azimuth(x[3]) for x in self.dots]) 
-            hor = np.array([x[2] for x in self.dots]) 
-            azi = azi[np.argsort(azi)]
-            hor = hor[np.argsort(azi)] # sorting to order by azimuth
-            
-            # Create spline equation to obtain hor(az) for any azimuth
-            # add endpoints on either side of sequence so interpolation is good          
-            x = np.concatenate((azi[-2:] - 360, azi, azi[:2] + 360)) 
-            y = np.concatenate((hor[-2:], hor, hor[:2]))
-            f_hor = interp1d(x, y, kind = 'linear')
-    
-            # Interpolate horizon at evenly spaced interval using spline
-            phi     = np.array(range(0, 360, delta))
-            theta_h = f_hor(phi)
+     
+    @hd.require_field_azimuth    
+    @hd.require_horizon_points
+    def save_geotop_hrzn(self, delta=3):
+         # Save the dots to CSV file
+         # delta = discretization interval for azimuth
 
-            try:
-                f_name = tkFileDialog.asksaveasfilename(defaultextension=".txt")
-                
-                if f_name:
-                    df = pd.DataFrame(zip(phi, ["{:.2f}".format(t) for t in theta_h]))
-                    df.columns = ('azimuth_deg', 'horizon_ele_deg')
-                    df.to_csv(f_name, index=False)
-                       
-            except PermissionError as e:
-                tkMessageBox.showerror("Error!", "Could not access file.  Maybe it is already open?")
-                logging.error(e)
-                
-        else:
-            tkMessageBox.showerror("Error!", "No points to export!")
+        azi = np.array([self.calculate_true_azimuth(x[3]) for x in self.dots]) 
+        hor = np.array([x[2] for x in self.dots]) 
+        azi = azi[np.argsort(azi)]
+        hor = hor[np.argsort(azi)] # sorting to order by azimuth
+        
+        # Create spline equation to obtain hor(az) for any azimuth
+        # add endpoints on either side of sequence so interpolation is good          
+        x = np.concatenate((azi[-2:] - 360, azi, azi[:2] + 360)) 
+        y = np.concatenate((hor[-2:], hor, hor[:2]))
+        f_hor = interp1d(x, y, kind = 'linear')
+
+        # Interpolate horizon at evenly spaced interval using spline
+        phi     = np.array(range(0, 360, delta))
+        theta_h = f_hor(phi)
+
+        try:
+            f_name = tkFileDialog.asksaveasfilename(defaultextension=".txt")
+            
+            if f_name:
+                df = pd.DataFrame(zip(phi, ["{:.2f}".format(t) for t in theta_h]))
+                df.columns = ('azimuth_deg', 'horizon_ele_deg')
+                df.to_csv(f_name, index=False)
+                    
+        except PermissionError as e:
+            tkMessageBox.showerror("Error!", "Could not access file.  Maybe it is already open?")
+            logging.error(e)
+ 
         
     def exit_app(self):
         root.destroy()
@@ -582,9 +569,9 @@ class LoadImageApp(tk.Toplevel):
     def about(self):
         tkMessageBox.showinfo("About QuickHorizon", 
         """Contributors:\n
-        Mark Empey
-        Stephan Gruber (stephan.gruber@carleton.ca)
         Nick Brown (nick.brown@carleton.ca)
+        Stephan Gruber (stephan.gruber@carleton.ca)
+        Mark Empey
         """
         )
     
@@ -654,20 +641,18 @@ class LoadImageApp(tk.Toplevel):
                         self.drawAzimuth(self.canvas, self.center, self.radius, self.anchor)
                 else:
                     tkMessageBox.showerror("Error!", "No overlay parameters have been set!")
-
+    
+    @hd.require_grid
     def define_azimuth(self):
       # Enter azimuth definition mode
         if not self.grid_set:
-            tkMessageBox.showerror("Error!", "No grid parameters have been "
-            "set! Please define azimuth grid first")
+            tkMessageBox.showerror("Error!", "")
             return
         if self.raw_image:
             self.tool = "azimuth"
-            
+    
+    @hd.require_image_file        
     def define_field_azimuth(self):
-        if not self.raw_image:
-            tkMessageBox.showerror("Error!", "Open an image first")
-            return
         if self.warn_dots:
             d = AzimuthDialog(self.parent, azimuth=self.field_azimuth)
             self.canvas.focus_set()
@@ -686,25 +671,29 @@ class LoadImageApp(tk.Toplevel):
         if self.raw_image:
             self.tool = "dot"
 
-
+    @hd.require_image_file
     def zoomin(self, *args):
         if self.raw_image:
             if self.zoomcycle < self.MAX_ZOOM:
                 self.zoomcycle += 1
+                logging.info("zoom level is {}".format(self.zoomcycle))
                 self.scale_image()
                 self.display_region(self.canvas)
             else:
-                print("Max zoom reached!")
-
+                logging.info("Max zoom reached!")
+    
+    @hd.require_image_file
     def zoomout(self, *args):
         if self.raw_image:
             if self.zoomcycle > self.MIN_ZOOM:
                 self.zoomcycle -= 1
+                logging.info("zoom level is {}".format(self.zoomcycle))
                 self.scale_image()
                 self.display_region(self.canvas)
             else:
-                print("Min zoom reached!")
+                logging.info("Min zoom reached!")
     
+    @hd.require_image_file
     def zoomoriginal(self):
         if self.raw_image:
             self.zoomcycle = 0
@@ -726,7 +715,7 @@ class LoadImageApp(tk.Toplevel):
             elif (event.delta < 0 and self.zoomcycle > self.MIN_ZOOM):
                 self.zoomcycle -= 1
             else:
-                logging.info('Max/Min zoom reached!')
+                logging.info('Zoom limit reached!')
                 return
 
             self.scale_image()
@@ -971,14 +960,9 @@ class LoadImageApp(tk.Toplevel):
         elev = (-0.00003 * (elev * elev)) + (1.0317 * (elev)) - 2.4902 # From Empey (2015)
         return (max([elev,0]))
     
-
+    @hd.require_horizon_points
+    @hd.require_image_azimuth
     def plothorizon(self, show=True):
-        if not self.dots:
-            tkMessageBox.showerror("Error!", "No horizon points have been specified.")
-            return
-        if self.field_azimuth == -1:
-            tkMessageBox.showerror("Error!", "Image azimuth has not been defined.")
-            return
         fig, ax = mpl.pyplot.subplots(1,1, sharex=True)
         plot_dots = self.dots
         plot_dots.sort(key=lambda x: x[3])  # sort dots using image azimuth
@@ -1012,7 +996,9 @@ class LoadImageApp(tk.Toplevel):
         if show:
             mpl.pyplot.show()
         return(fig)
-        
+    
+    @hd.require_horizon_points
+    @hd.require_image_azimuth    
     def popupimage(self):
         self.root2 = tk.Tk()
         fig = self.plothorizon(show=False)
@@ -1021,6 +1007,7 @@ class LoadImageApp(tk.Toplevel):
         canvas2.get_tk_widget().pack(side=TOP, fill=BOTH, expand=1.0)      
         canvas2.draw()
     
+    @hd.require_horizon_points
     def svf(self):
         pts_az = np.array([self.calculate_true_azimuth(x[3]) for x in self.dots])
         pts_hor = np.array([x[2] for x in self.dots])
@@ -1030,3 +1017,6 @@ class LoadImageApp(tk.Toplevel):
     def create_window(self):
         pass
 
+    
+
+        
