@@ -17,12 +17,10 @@ except:  # python 2
 import configparser
 import csv
 import logging
-import math
 import matplotlib as mpl
 import numpy as np
 import os
 import pandas as pd
-
 
 from PIL import Image, ImageTk, ImageEnhance
 from scipy.interpolate import interp1d
@@ -40,8 +38,7 @@ import horizonpy.quickhorizon.HorizonDecorators as hd
 # Main 
 ####################################################################
 class LoadImageApp(tk.Toplevel):
-
-    #button_1 = "up"        
+     
     tool = "move"          
     xold, yold = None, None
     viewport = (0,0)       # Used for zoom and pan
@@ -282,7 +279,7 @@ class LoadImageApp(tk.Toplevel):
 
         # Find center of image and radius
         self.center = (int(width/2), int(height/2))
-        self.radius = int(math.sqrt(self.center[0] * self.center[0] + self.center[1] * self.center[1]))
+        self.radius = int(np.sqrt(self.center[0] * self.center[0] + self.center[1] * self.center[1]))
         self.spoke_spacing = 15
         self.image_azimuth = -1
 
@@ -326,8 +323,8 @@ class LoadImageApp(tk.Toplevel):
 
         # Draw spokes on Az wheel 
         for n in range(0, 360,spoke_spacing):
-            rX = center[0] + int(radius * math.cos(math.radians(n)))
-            rY = center[1] + int(radius * math.sin(math.radians(n)))
+            rX = center[0] + int(radius * np.cos(np.radians(n)))
+            rY = center[1] + int(radius * np.sin(np.radians(n)))
             pX,pY = self.to_window((rX, rY))
             my_canvas.create_line(wX, wY, pX, pY, fill="red", tag="grid")
         
@@ -353,8 +350,8 @@ class LoadImageApp(tk.Toplevel):
         (wX,wY) = self.to_window(center)
 
         # Draw the field azimuth in reference to the anchor point
-        rX = center[0] + int(radius * math.cos(math.radians(azimuth)))
-        rY = center[1] + int(radius * math.sin(math.radians(azimuth)))
+        rX = center[0] + int(radius * np.cos(np.radians(azimuth)))
+        rY = center[1] + int(radius * np.sin(np.radians(azimuth)))
 
         # Store the field azimuth coordinates (end point) so that it can be used later to calculate dot azimuth
         self.image_azimuth_coords = (rX, rY)
@@ -666,40 +663,37 @@ class LoadImageApp(tk.Toplevel):
             return(dialog)
         else:
             return(True)   
-     
+            
+    @hd.require_image_file 
     def dot(self):
-        if self.raw_image:
-            self.tool = "dot"
+        self.tool = "dot"
 
     @hd.require_image_file
     def zoomin(self, *args):
-        if self.raw_image:
-            if self.zoomcycle < self.MAX_ZOOM:
-                self.zoomcycle += 1
-                logging.info("zoom level is {}".format(self.zoomcycle))
-                self.scale_image()
-                self.display_region(self.canvas)
-            else:
-                logging.info("Max zoom reached!")
+        if self.zoomcycle < self.MAX_ZOOM:
+            self.zoomcycle += 1
+            logging.info("zoom level is {}".format(self.zoomcycle))
+            self.scale_image()
+            self.display_region(self.canvas)
+        else:
+            logging.info("Max zoom reached!")
     
     @hd.require_image_file
     def zoomout(self, *args):
-        if self.raw_image:
-            if self.zoomcycle > self.MIN_ZOOM:
-                self.zoomcycle -= 1
-                logging.info("zoom level is {}".format(self.zoomcycle))
-                self.scale_image()
-                self.display_region(self.canvas)
-            else:
-                logging.info("Min zoom reached!")
+        if self.zoomcycle > self.MIN_ZOOM:
+            self.zoomcycle -= 1
+            logging.info("zoom level is {}".format(self.zoomcycle))
+            self.scale_image()
+            self.display_region(self.canvas)
+        else:
+            logging.info("Min zoom reached!")
     
     @hd.require_image_file
     def zoomoriginal(self):
-        if self.raw_image:
-            self.zoomcycle = 0
-            self.scale_image()
-            self.viewport = (0,0)
-            self.display_region(self.canvas)
+        self.zoomcycle = 0
+        self.scale_image()
+        self.viewport = (0,0)
+        self.display_region(self.canvas)
 
     #######################################################
     # Mouse options
@@ -844,7 +838,7 @@ class LoadImageApp(tk.Toplevel):
 
             azimuth = self.find_angle(self.center, self.image_azimuth_coords, (raw[0], raw[1]))
 
-            dot_radius = math.sqrt(math.pow(raw[0]-self.center[0],2)+math.pow(raw[1]-self.center[1],2))
+            dot_radius = np.sqrt(np.power(raw[0]-self.center[0],2)+np.power(raw[1]-self.center[1],2))
             logging.debug('Dot (%d,%d) has radius %f', raw[0], raw[1], dot_radius)
             horizon = self.find_horizon(dot_radius, self.radius)
             logging.info('Dot (%d,%d) has Horizon Elevation = %f, Azimuth = %f', raw[0], raw[1], horizon, azimuth)
@@ -915,7 +909,7 @@ class LoadImageApp(tk.Toplevel):
         for dot in self.dots:
             azimuth = self.find_angle(center, self.image_azimuth_coords, (dot[0], dot[1]))
 
-            dot_radius = math.sqrt(math.pow(dot[0]-center[0],2)+math.pow(dot[1]-center[1],2))
+            dot_radius = np.sqrt(np.power(dot[0]-center[0],2)+np.power(dot[1]-center[1],2))
             horizon = self.find_horizon(dot_radius, radius)
 
             if dot[2] == -998 or dot[2] > 90:
@@ -934,8 +928,8 @@ class LoadImageApp(tk.Toplevel):
     
     def find_angle(self, C, P2, P3):
 
-        angle = math.atan2(P2[1]-C[1], P2[0]-C[0]) - math.atan2(P3[1]-C[1], P3[0]-C[0])
-        angle_in_degree = math.degrees(angle)
+        angle = np.arctan2(P2[1]-C[1], P2[0]-C[0]) - np.arctan2(P3[1]-C[1], P3[0]-C[0])
+        angle_in_degree = np.degrees(angle)
 
         if angle_in_degree < 0:
             angle_in_degree += 360
