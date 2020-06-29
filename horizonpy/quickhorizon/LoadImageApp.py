@@ -30,7 +30,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from .GridDialog import GridDialog
 from .AzimuthDialog import AzimuthDialog
 from .SkyViewFactorDialog import SkyViewFactorDialog
-
+from .ArcSkyDialog import ArcSkyDialog
 import horizonpy.quickhorizon.HorizonDecorators as hd
     
     
@@ -127,14 +127,15 @@ class LoadImageApp(tk.Toplevel):
         filemenu.add_command(label="Exit", command=self.exit_app)
         menubar.add_cascade(label="File", menu=filemenu)
 
-        drawmenu = tk.Menu(menubar,tearoff=0)
-        drawmenu.add_command(label="Pan (Move)", command=self.move)
-        drawmenu.add_command(label="Draw Horizon Points", command=self.dot)
-        drawmenu.add_command(label="Delete Selection", command=self.select)
-        drawmenu.add_command(label="Delete All Points", command=self.delete_all)
-        drawmenu.add_command(label="Plot Horizon", command=self.plothorizon)
-        drawmenu.add_command(label="Compute SVF", command=self.svf)
-        menubar.add_cascade(label="Tools", menu=drawmenu)
+        toolsmenu = tk.Menu(menubar,tearoff=0)
+        toolsmenu.add_command(label="Pan (Move)", command=self.move)
+        toolsmenu.add_command(label="Draw Horizon Points", command=self.dot)
+        toolsmenu.add_command(label="Delete Selection", command=self.select)
+        toolsmenu.add_command(label="Delete All Points", command=self.delete_all)
+        toolsmenu.add_command(label="Plot Horizon", command=self.plothorizon)
+        toolsmenu.add_command(label="Compute SVF", command=self.svf)
+        toolsmenu.add_command(label="Process ArcGIS file", command=self.arcsky)
+        menubar.add_cascade(label="Tools", menu=toolsmenu)
         
         gridmenu = tk.Menu(menubar, tearoff=0)
         drawgridmenu = tk.Menu(menubar, tearoff=0)
@@ -163,7 +164,6 @@ class LoadImageApp(tk.Toplevel):
         helpmenu = tk.Menu(menubar, tearoff=0)
         helpmenu.add_command(label="Show Point Coordinates", command=self.show_dots)
         helpmenu.add_command(label="About QuickHorizon", command=self.about)
-        helpmenu.add_command(label="new", command=self.create_window)
         menubar.add_cascade(label="Help",menu=helpmenu)
 
         # Attach menu bar to interface
@@ -1026,10 +1026,12 @@ class LoadImageApp(tk.Toplevel):
     def svf(self):
         pts_az = np.array([self.calculate_true_azimuth(x[3]) for x in self.dots])
         pts_hor = np.array([x[2] for x in self.dots])
-        SkyViewFactorDialog(self)
+        SkyViewFactorDialog(self.frame)
         
-    def create_window(self):
-        pass
+    def arcsky(self):
+        skypoints = ArcSkyDialog(self.parent, azimuth=self.field_azimuth)
+        
+
 
     
 
