@@ -3,6 +3,7 @@ import logging
 import sys
 import pkg_resources
 from os import path
+import os
 
 try:
     import Tkinter as tk

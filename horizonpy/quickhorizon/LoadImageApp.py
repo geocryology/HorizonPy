@@ -59,7 +59,7 @@ class LoadImageApp(tk.Toplevel):
     ####################################################################
     # Function: __init__
     ####################################################################
-    def __init__(self,root,image_file=None):
+    def __init__(self, root, image_file=None):
 
         self.parent = root
         self.frame = tk.Frame(root, bg='black')
@@ -220,54 +220,74 @@ class LoadImageApp(tk.Toplevel):
 
         if image_file:
             self.load_image(canvas, image_file)
+        
+        default_azm = os.path.join(self.azm_opt['initialdir'], self.azm_opt['initialfile'])
+        if os.path.isfile(default_azm):
+            logging.info('Azimuth data found: {}'.format(default_azm))
+            self.load_azimuth(default_azm)
+            
+        else:
+            logging.info('No azimuth file found')
+            
+        default_pts = os.path.join(self.csv_opt['initialdir'], self.csv_opt['initialfile']) 
+        if os.path.isfile(default_pts):
+            logging.info('Horizon points file found {}'.format(default_pts))
+            self.open_csv(default_pts)
+        else:
+            logging.info('No horizon points file found')
     
     def reload_image(self):
         # Create objects to adjust brightness and contrast
-        contrast = ImageEnhance.Contrast(self.orig_img)
-        c_enhanced = contrast.enhance(self.contrast_value)
-        brightness = ImageEnhance.Brightness(c_enhanced)
-        self.raw_image = brightness.enhance(self.brightness_value)
+
+        img = ImageEnhance.Contrast(self.orig_img).enhance(1)
+        img = ImageEnhance.Contrast(img).enhance(self.contrast_value)
+        self.raw_image = ImageEnhance.Brightness(img).enhance(self.brightness_value)
+
+        
         self.p_img = ImageTk.PhotoImage(self.raw_image)
-        self.canvas.create_image(0,0,image=self.p_img, anchor="nw")
-        self.display_region(self.canvas)
+        self.canvas.create_image(0, 0, image=self.p_img, anchor="nw")
+        self.zoomcurrent()
      
     @hd.require_image_file
     def adjust_contrast(self, increment, *args):
+        self.contrast_value += increment
+        self.reload_image()
         logging.info('Image contrast changed by {:.2f}; Contrast now {:.2f})'.format( 
                     increment, self.contrast_value))
-        self.zoomoriginal()
-        self.contrast_value = self.contrast_value + increment
-        self.reload_image()
         
     @hd.require_image_file
     def adjust_brightness(self, increment, *args):
+        self.brightness_value += increment
+        self.reload_image()
         logging.info('Image brightness changed by {:.2f}; Brightness now {:.2f})'.format( 
         increment, self.brightness_value))
-        self.zoomoriginal()
-        self.brightness_value = self.brightness_value + increment
-        self.reload_image()
+    
+    def apply_enhancement(self, image, enhancement, increment):
+        pass
+        
         
     def load_image(self, canvas, image_file):
         self.imageFile = image_file
         self.imageDir = os.path.dirname(image_file)
         self.raw_image = Image.open(image_file)
+        self.orig_img = Image.open(image_file)
         (width, height) = self.raw_image.size
         self.field_azimuth = -1
         self.image_azimuth = -1
         self.set_file_locations()
 
         # Image larger than 1000 pixels, resize to 800 x 600
-        if width > 1000 or height > 1000:
-            self.raw_image.thumbnail((800,600),Image.ANTIALIAS)
+        if (width > 1000) or (height > 1000):
+            self.orig_img.thumbnail((800, 600), Image.ANTIALIAS)
+            self.raw_image.thumbnail((800, 600), Image.ANTIALIAS)
             (width, height) = self.raw_image.size
             logging.info("Resizing image to {} x {}".format(width, height))
 
         self.zoomed_image = self.raw_image
 
-        # Save reference to the image object in order to show it. Also save backup
+        # Save reference to the image object in order to show it. 
         self.p_img = ImageTk.PhotoImage(self.raw_image)
-        self.orig_img = ImageEnhance.Contrast(self.raw_image).enhance(1)
-        
+
         # Change size of canvas to new width and height 
         canvas.config(width=width, height=height)
 
@@ -403,20 +423,7 @@ class LoadImageApp(tk.Toplevel):
         self.init_canvas(self.canvas,file)
 
             
-        default_azm = os.path.join(self.azm_opt['initialdir'], self.azm_opt['initialfile'])
-        if os.path.isfile(default_azm):
-            logging.info('Azimuth data found: {}'.format(default_azm))
-            self.load_azimuth(default_azm)
-            
-        else:
-            logging.info('No azimuth file found')
-            
-        default_pts = os.path.join(self.csv_opt['initialdir'], self.csv_opt['initialfile']) 
-        if os.path.isfile(default_pts):
-            logging.info('Horizon points file found {}'.format(default_pts))
-            self.open_csv(default_pts)
-        else:
-            logging.info('No horizon points file found')
+
 
     @hd.require_image_azimuth
     @hd.require_grid
@@ -693,6 +700,13 @@ class LoadImageApp(tk.Toplevel):
         self.scale_image()
         self.viewport = (0,0)
         self.display_region(self.canvas)
+        
+    @hd.require_image_file
+    def zoomcurrent(self, *args):
+        self.zoomcycle = self.zoomcycle
+        self.scale_image()
+        self.display_region(self.canvas)
+
 
     #######################################################
     # Mouse options
