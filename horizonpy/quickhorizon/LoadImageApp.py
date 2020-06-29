@@ -239,11 +239,9 @@ class LoadImageApp(tk.Toplevel):
     def reload_image(self):
         # Create objects to adjust brightness and contrast
 
-        img = ImageEnhance.Contrast(self.orig_img).enhance(1)
-        img = ImageEnhance.Contrast(img).enhance(self.contrast_value)
-        self.raw_image = ImageEnhance.Brightness(img).enhance(self.brightness_value)
+        self.raw_image = self.apply_enhancement(self.orig_img, ImageEnhance.Contrast, self.contrast_value) 
+        self.raw_image = self.apply_enhancement(self.raw_image, ImageEnhance.Brightness, self.brightness_value) 
 
-        
         self.p_img = ImageTk.PhotoImage(self.raw_image)
         self.canvas.create_image(0, 0, image=self.p_img, anchor="nw")
         self.zoomcurrent()
@@ -263,8 +261,12 @@ class LoadImageApp(tk.Toplevel):
         increment, self.brightness_value))
     
     def apply_enhancement(self, image, enhancement, increment):
-        pass
-        
+        if image.mode == 'I':
+            logging.info("Cannot apply enhancement to image")
+            return image
+        else:
+            return enhancement(image).enhance(increment)
+            
         
     def load_image(self, canvas, image_file):
         self.imageFile = image_file
