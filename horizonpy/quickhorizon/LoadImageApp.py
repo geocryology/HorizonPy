@@ -549,7 +549,7 @@ class LoadImageApp(tk.Toplevel):
  
         
     def exit_app(self):
-        root.destroy()
+        self.parent.destroy()
 
     def move(self):
         # Set mouse behaviour to move canvas on click
@@ -890,12 +890,18 @@ class LoadImageApp(tk.Toplevel):
             self.yold = event.y
 
         # update the status bar with x,y values, status bar always shows "RAW" coordinates
-        (rX,rY) = self.to_raw((event.x,event.y))
-        output = "Cursor = %d, %d" % (rX,rY)
+        coordinate = (rX,rY) = self.to_raw((event.x,event.y))
+        output = "Cursor = {}".format(str(coordinate))
         if 0 <= self.image_azimuth <= 360:
             output += "      Image Azimuth = %d" %(360 - self.image_azimuth)
         if 0 <= self.field_azimuth <= 360:
             output += "      Field Azimuth = %d" %(self.field_azimuth)
+        if self.raw_image:
+            try: 
+                img_value = self.raw_image.getpixel(coordinate)
+            except IndexError:
+                img_value = "NA"
+            output += "     Image value: {}".format(str(img_value))
         self.status.config(text=output)
 
     def resize_window(self, event):
