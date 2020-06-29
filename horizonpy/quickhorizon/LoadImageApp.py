@@ -233,16 +233,16 @@ class LoadImageApp(tk.Toplevel):
      
     @hd.require_image_file
     def adjust_contrast(self, increment, *args):
-        logging.info('Image contrast changed by %f; Contrast now %f)', 
-        increment, self.contrast_value)
+        logging.info('Image contrast changed by {:.2f}; Contrast now {:.2f})'.format( 
+                    increment, self.contrast_value))
         self.zoomoriginal()
         self.contrast_value = self.contrast_value + increment
         self.reload_image()
         
     @hd.require_image_file
     def adjust_brightness(self, increment, *args):
-        logging.info('Image brightness changed by %f; Brightness now %f)', 
-        increment, self.brightness_value)
+        logging.info('Image brightness changed by {:.2f}; Brightness now {:.2f})'.format( 
+        increment, self.brightness_value))
         self.zoomoriginal()
         self.brightness_value = self.brightness_value + increment
         self.reload_image()
@@ -260,7 +260,7 @@ class LoadImageApp(tk.Toplevel):
         if width > 1000 or height > 1000:
             self.raw_image.thumbnail((800,600),Image.ANTIALIAS)
             (width, height) = self.raw_image.size
-            print("Resizing image to ", width, "x", height)
+            logging.info("Resizing image to {} x {}".format(width, height))
 
         self.zoomed_image = self.raw_image
 
@@ -280,6 +280,7 @@ class LoadImageApp(tk.Toplevel):
         self.radius = int(np.sqrt(self.center[0] * self.center[0] + self.center[1] * self.center[1]))
         self.spoke_spacing = 15
         self.image_azimuth = -1
+        logging.info("Loaded image {}".format(self.imageFile))
 
     def to_raw(self, p):
         x, y = p
@@ -600,7 +601,7 @@ class LoadImageApp(tk.Toplevel):
             center=self.center, radius=self.radius, spacing=self.spoke_spacing)
             
             self.canvas.focus_set()
-            print("D = ", d, self.showGrid, d.result)
+            logging.info("D = ", d, self.showGrid, d.result)
 
             if d:
                 self.center = d.center
@@ -1003,7 +1004,6 @@ class LoadImageApp(tk.Toplevel):
     def svf(self):
         pts_az = np.array([self.calculate_true_azimuth(x[3]) for x in self.dots])
         pts_hor = np.array([x[2] for x in self.dots])
-        print(self.dots)
         SkyViewFactorDialog(self)
         
     def create_window(self):
