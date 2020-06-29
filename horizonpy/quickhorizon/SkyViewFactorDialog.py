@@ -1,7 +1,9 @@
 try:
     import Tkinter as tk
+    import tkMessageBox
 except ImportError:
     import tkinter as tk
+    import tkinter.messagebox as tkMessageBox
 
 import numpy as np
 import matplotlib as mpl

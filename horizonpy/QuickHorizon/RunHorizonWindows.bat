@@ -1,2 +1,2 @@
 cd /d %~dp0
-python quickhorizon.py
+python main.py
