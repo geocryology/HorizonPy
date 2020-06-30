@@ -1,19 +1,17 @@
-try:
+try: #python 2
     import Tkinter as tk
-except ImportError:
-    import tkinter as tk
-    
-try: # python 3 
-    import tkinter.filedialog as tkFileDialog
-    import tkinter.messagebox as tkMessageBox
-    import tkinter.simpledialog as tkSimpleDialog
-    izip = zip
-except:  # python 2 
     import tkFileDialog
     import tkMessageBox
     import tkSimpleDialog
     from itertools import izip
-
+except ImportError: # python 2 
+    
+    import tkinter as tk
+    import tkinter.filedialog as tkFileDialog
+    import tkinter.messagebox as tkMessageBox
+    import tkinter.simpledialog as tkSimpleDialog
+    izip = zip
+    
 import configparser
 import csv
 import logging
@@ -21,17 +19,21 @@ import matplotlib as mpl
 import numpy as np
 import os
 import pandas as pd
+import warnings
 
 from PIL import Image, ImageTk, ImageEnhance
 from scipy.interpolate import interp1d
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-
-from .GridDialog import GridDialog
-from .AzimuthDialog import AzimuthDialog
-from .SkyViewFactorDialog import SkyViewFactorDialog
-
+from horizonpy.quickhorizon.ArcSkyDialog import ArcSkyDialog
+from horizonpy.quickhorizon.GridDialog import GridDialog
+from horizonpy.quickhorizon.AzimuthDialog import AzimuthDialog
+from horizonpy.quickhorizon.SkyViewFactorDialog import SkyViewFactorDialog
 import horizonpy.quickhorizon.HorizonDecorators as hd
+
+
+from horizonpy.quickhorizon.ArcSkyDialog import ArcSkyDialog # creates _has_gdal object
+
     
     
 ####################################################################
@@ -59,7 +61,7 @@ class LoadImageApp(tk.Toplevel):
     ####################################################################
     # Function: __init__
     ####################################################################
-    def __init__(self,root,image_file=None):
+    def __init__(self, root, image_file=None):
 
         self.parent = root
         self.frame = tk.Frame(root, bg='black')
@@ -127,14 +129,15 @@ class LoadImageApp(tk.Toplevel):
         filemenu.add_command(label="Exit", command=self.exit_app)
         menubar.add_cascade(label="File", menu=filemenu)
 
-        drawmenu = tk.Menu(menubar,tearoff=0)
-        drawmenu.add_command(label="Pan (Move)", command=self.move)
-        drawmenu.add_command(label="Draw Horizon Points", command=self.dot)
-        drawmenu.add_command(label="Delete Selection", command=self.select)
-        drawmenu.add_command(label="Delete All Points", command=self.delete_all)
-        drawmenu.add_command(label="Plot Horizon", command=self.plothorizon)
-        drawmenu.add_command(label="Compute SVF", command=self.svf)
-        menubar.add_cascade(label="Tools", menu=drawmenu)
+        toolsmenu = tk.Menu(menubar,tearoff=0)
+        toolsmenu.add_command(label="Pan (Move)", command=self.move)
+        toolsmenu.add_command(label="Draw Horizon Points", command=self.dot)
+        toolsmenu.add_command(label="Delete Selection", command=self.select)
+        toolsmenu.add_command(label="Delete All Points", command=self.delete_all)
+        toolsmenu.add_command(label="Plot Horizon", command=self.plothorizon)
+        toolsmenu.add_command(label="Compute SVF", command=self.svf)
+        toolsmenu.add_command(label="Process ArcGIS file", command=self.arcsky)
+        menubar.add_cascade(label="Tools", menu=toolsmenu)
         
         gridmenu = tk.Menu(menubar, tearoff=0)
         drawgridmenu = tk.Menu(menubar, tearoff=0)
@@ -163,7 +166,6 @@ class LoadImageApp(tk.Toplevel):
         helpmenu = tk.Menu(menubar, tearoff=0)
         helpmenu.add_command(label="Show Point Coordinates", command=self.show_dots)
         helpmenu.add_command(label="About QuickHorizon", command=self.about)
-        helpmenu.add_command(label="new", command=self.create_window)
         menubar.add_cascade(label="Help",menu=helpmenu)
 
         # Attach menu bar to interface
@@ -220,54 +222,76 @@ class LoadImageApp(tk.Toplevel):
 
         if image_file:
             self.load_image(canvas, image_file)
+        
+        default_azm = os.path.join(self.azm_opt['initialdir'], self.azm_opt['initialfile'])
+        if os.path.isfile(default_azm):
+            logging.info('Azimuth data found: {}'.format(default_azm))
+            self.load_azimuth(default_azm)
+            
+        else:
+            logging.info('No azimuth file found')
+            
+        default_pts = os.path.join(self.csv_opt['initialdir'], self.csv_opt['initialfile']) 
+        if os.path.isfile(default_pts):
+            logging.info('Horizon points file found {}'.format(default_pts))
+            self.open_csv(default_pts)
+        else:
+            logging.info('No horizon points file found')
     
     def reload_image(self):
         # Create objects to adjust brightness and contrast
-        contrast = ImageEnhance.Contrast(self.orig_img)
-        c_enhanced = contrast.enhance(self.contrast_value)
-        brightness = ImageEnhance.Brightness(c_enhanced)
-        self.raw_image = brightness.enhance(self.brightness_value)
+
+        self.raw_image = self.apply_enhancement(self.orig_img, ImageEnhance.Contrast, self.contrast_value) 
+        self.raw_image = self.apply_enhancement(self.raw_image, ImageEnhance.Brightness, self.brightness_value) 
+
         self.p_img = ImageTk.PhotoImage(self.raw_image)
-        self.canvas.create_image(0,0,image=self.p_img, anchor="nw")
-        self.display_region(self.canvas)
+        self.canvas.create_image(0, 0, image=self.p_img, anchor="nw")
+        self.zoomcurrent()
      
     @hd.require_image_file
     def adjust_contrast(self, increment, *args):
-        logging.info('Image contrast changed by %f; Contrast now %f)', 
-        increment, self.contrast_value)
-        self.zoomoriginal()
-        self.contrast_value = self.contrast_value + increment
+        self.contrast_value += increment
         self.reload_image()
+        logging.info('Image contrast changed by {:.2f}; Contrast now {:.2f})'.format( 
+                    increment, self.contrast_value))
         
     @hd.require_image_file
     def adjust_brightness(self, increment, *args):
-        logging.info('Image brightness changed by %f; Brightness now %f)', 
-        increment, self.brightness_value)
-        self.zoomoriginal()
-        self.brightness_value = self.brightness_value + increment
+        self.brightness_value += increment
         self.reload_image()
+        logging.info('Image brightness changed by {:.2f}; Brightness now {:.2f})'.format( 
+        increment, self.brightness_value))
+    
+    def apply_enhancement(self, image, enhancement, increment):
+        if image.mode == 'I':
+            logging.info("Cannot apply enhancement to image")
+            return image
+        else:
+            return enhancement(image).enhance(increment)
+            
         
     def load_image(self, canvas, image_file):
         self.imageFile = image_file
         self.imageDir = os.path.dirname(image_file)
         self.raw_image = Image.open(image_file)
+        self.orig_img = Image.open(image_file)
         (width, height) = self.raw_image.size
         self.field_azimuth = -1
         self.image_azimuth = -1
         self.set_file_locations()
 
         # Image larger than 1000 pixels, resize to 800 x 600
-        if width > 1000 or height > 1000:
-            self.raw_image.thumbnail((800,600),Image.ANTIALIAS)
+        if (width > 1000) or (height > 1000):
+            self.orig_img.thumbnail((800, 600), Image.ANTIALIAS)
+            self.raw_image.thumbnail((800, 600), Image.ANTIALIAS)
             (width, height) = self.raw_image.size
-            print("Resizing image to ", width, "x", height)
+            logging.info("Resizing image to {} x {}".format(width, height))
 
         self.zoomed_image = self.raw_image
 
-        # Save reference to the image object in order to show it. Also save backup
+        # Save reference to the image object in order to show it. 
         self.p_img = ImageTk.PhotoImage(self.raw_image)
-        self.orig_img = ImageEnhance.Contrast(self.raw_image).enhance(1)
-        
+
         # Change size of canvas to new width and height 
         canvas.config(width=width, height=height)
 
@@ -280,6 +304,7 @@ class LoadImageApp(tk.Toplevel):
         self.radius = int(np.sqrt(self.center[0] * self.center[0] + self.center[1] * self.center[1]))
         self.spoke_spacing = 15
         self.image_azimuth = -1
+        logging.info("Loaded image {}".format(self.imageFile))
 
     def to_raw(self, p):
         x, y = p
@@ -402,20 +427,7 @@ class LoadImageApp(tk.Toplevel):
         self.init_canvas(self.canvas,file)
 
             
-        default_azm = os.path.join(self.azm_opt['initialdir'], self.azm_opt['initialfile'])
-        if os.path.isfile(default_azm):
-            logging.info('Azimuth data found: {}'.format(default_azm))
-            self.load_azimuth(default_azm)
-            
-        else:
-            logging.info('No azimuth file found')
-            
-        default_pts = os.path.join(self.csv_opt['initialdir'], self.csv_opt['initialfile']) 
-        if os.path.isfile(default_pts):
-            logging.info('Horizon points file found {}'.format(default_pts))
-            self.open_csv(default_pts)
-        else:
-            logging.info('No horizon points file found')
+
 
     @hd.require_image_azimuth
     @hd.require_grid
@@ -548,7 +560,7 @@ class LoadImageApp(tk.Toplevel):
  
         
     def exit_app(self):
-        root.destroy()
+        self.parent.destroy()
 
     def move(self):
         # Set mouse behaviour to move canvas on click
@@ -567,6 +579,8 @@ class LoadImageApp(tk.Toplevel):
         Nick Brown (nick.brown@carleton.ca)
         Stephan Gruber (stephan.gruber@carleton.ca)
         Mark Empey
+        More information:
+        github.com/geocryology/horizonpy
         """
         )
     
@@ -600,7 +614,7 @@ class LoadImageApp(tk.Toplevel):
             center=self.center, radius=self.radius, spacing=self.spoke_spacing)
             
             self.canvas.focus_set()
-            print("D = ", d, self.showGrid, d.result)
+            logging.info("D = ", d, self.showGrid, d.result)
 
             if d:
                 self.center = d.center
@@ -692,6 +706,13 @@ class LoadImageApp(tk.Toplevel):
         self.scale_image()
         self.viewport = (0,0)
         self.display_region(self.canvas)
+        
+    @hd.require_image_file
+    def zoomcurrent(self, *args):
+        self.zoomcycle = self.zoomcycle
+        self.scale_image()
+        self.display_region(self.canvas)
+
 
     #######################################################
     # Mouse options
@@ -889,12 +910,18 @@ class LoadImageApp(tk.Toplevel):
             self.yold = event.y
 
         # update the status bar with x,y values, status bar always shows "RAW" coordinates
-        (rX,rY) = self.to_raw((event.x,event.y))
-        output = "Cursor = %d, %d" % (rX,rY)
+        coordinate = (rX,rY) = self.to_raw((event.x,event.y))
+        output = "Cursor = {}".format(str(coordinate))
         if 0 <= self.image_azimuth <= 360:
             output += "      Image Azimuth = %d" %(360 - self.image_azimuth)
         if 0 <= self.field_azimuth <= 360:
             output += "      Field Azimuth = %d" %(self.field_azimuth)
+        if self.raw_image:
+            try: 
+                img_value = self.raw_image.getpixel(coordinate)
+            except IndexError:
+                img_value = "NA"
+            output += "     Image value: {}".format(str(img_value))
         self.status.config(text=output)
 
     def resize_window(self, event):
@@ -1003,11 +1030,15 @@ class LoadImageApp(tk.Toplevel):
     def svf(self):
         pts_az = np.array([self.calculate_true_azimuth(x[3]) for x in self.dots])
         pts_hor = np.array([x[2] for x in self.dots])
-        print(self.dots)
         SkyViewFactorDialog(self)
         
-    def create_window(self):
-        pass
+    def arcsky(self):
+        if not _has_gdal:
+            raise Impor
+        else:
+            skypoints = ArcSkyDialog(self)
+        
+
 
     
 
