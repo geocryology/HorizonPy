@@ -1,4 +1,5 @@
 from horizonpy.arcsky import ArcSky
+import logging
 
 try:
     import Tkinter as tk
@@ -27,8 +28,7 @@ class ArcSkyDialog(tk.Toplevel):
         self.initial_focus = self.body(body)
         body.pack(padx=10, pady=10)
 
-        #self.buttonbox()
-        self.grab_set()
+        #self.grab_set()
 
         if not self.initial_focus:
             self.initial_focus = self
@@ -68,25 +68,12 @@ class ArcSkyDialog(tk.Toplevel):
         e2 = tk.Entry(master, textvariable=self.skyid)
         self.skyid.set(1)
 
-
         # this will arrange entry widgets
         e0.grid(row = 0, column = 1, pady = 2, padx = 2,  columnspan = 4, sticky = tk.W + tk.E)
         e1.grid(row = 1, column = 1, pady = 2, padx = 2,  columnspan = 4, sticky = tk.W + tk.E)
         e2.grid(row = 2, column = 1, pady = 2)
 
-        # checkbutton widget
-        #c1 = tk.Checkbutton(master, text = "Preserve")
-        #c1.grid(row = 2, column = 0, sticky = tk.W, columnspan = 2)
-
-        # adding image (remember image should be PNG and not JPG)
-        #img = tk.PhotoImage(file = r"C:\Users\Nick\Pictures\Snips\22.png")
-        #img1 = img.subsample(2, 2)
-
-        # setting image with the help of label
-        #tk.Label(master, image = img1).grid(row = 0, column = 2,
-        #    columnspan = 2, rowspan = 2, padx = 5, pady = 5)
-
-        # button widget
+        # Create and arrage buttons
         b0 = tk.Button(master, text = "Select Input File", command=self.open_inputfile)
         b0.grid(row = 0, column = 5, sticky = tk.E, padx=2, pady=2)
 
@@ -98,16 +85,11 @@ class ArcSkyDialog(tk.Toplevel):
 
         b3 = tk.Button(master, text = "Cancel", command=self.cancel)
         b3.grid(row = 4, column = 2, sticky = tk.E, padx=2, pady=5)
-        # arranging button widgets
 
-
-
-
-        #return self.e1
 
     def ok(self, event=None):
         if self.process():
-           pass
+          pass# self.cancel()
         else:
             return
 
@@ -117,24 +99,32 @@ class ArcSkyDialog(tk.Toplevel):
         self.destroy()
 
     def open_inputfile(self):
-        file = tkFileDialog.askopenfilename()
+        file = tkFileDialog.askopenfilename(**self.parent.file_opt)
         if file:
             self.inputfilename.set(file)
         else:
             return
 
     def open_outputfile(self):
-        file = tkFileDialog.asksaveasfilename()
+        file = tkFileDialog.asksaveasfilename(defaultextension=".txt",
+                                            filetypes = [('all files', '.*'),
+                                                        ('text files', '.txt')])
         if file:
             self.outputfilename.set(file)
         else:
             return
 
+
     def process(self):
+        try:
+            AS = ArcSky()
+            AS.setSkyClassValue(self.skyid.get())
+            AS.open_new_file(self.parent.imageFile)
+            outfile = self.outputfilename.get()
+            AS.write_horizon_file(outfile)
+            tkMessageBox.showinfo("Success!", "Horizon points written to {}".format(outfile))
+            return True
 
-        AS = ArcSky()
-        AS.setSkyClassValue(self.skyid.get())
-        AS.open_new_file(self.parent.imageFile)
-        AS.write_horizon_file(self.outputfilename.get())
-
-        return
+        except Exception as e:
+            tkMessageBox.showerror("Error!", "Failed to process file")
+            return False
