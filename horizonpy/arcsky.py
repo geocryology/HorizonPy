@@ -1,5 +1,15 @@
-import gdal
-import ogr
+
+
+try:
+    import gdal
+    import ogr
+except ImportError:
+    warnings.ImportWarning("Could not import gdal / ogr")
+    _has_gdal = False
+else:
+    _has_gdal = True
+    
+    
 import re 
 import os
 

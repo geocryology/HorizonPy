@@ -1,19 +1,17 @@
-try:
+try: #python 2
     import Tkinter as tk
-except ImportError:
-    import tkinter as tk
-    
-try: # python 3 
-    import tkinter.filedialog as tkFileDialog
-    import tkinter.messagebox as tkMessageBox
-    import tkinter.simpledialog as tkSimpleDialog
-    izip = zip
-except:  # python 2 
     import tkFileDialog
     import tkMessageBox
     import tkSimpleDialog
     from itertools import izip
-
+except ImportError: # python 2 
+    
+    import tkinter as tk
+    import tkinter.filedialog as tkFileDialog
+    import tkinter.messagebox as tkMessageBox
+    import tkinter.simpledialog as tkSimpleDialog
+    izip = zip
+    
 import configparser
 import csv
 import logging
@@ -21,6 +19,7 @@ import matplotlib as mpl
 import numpy as np
 import os
 import pandas as pd
+import warnings
 
 from PIL import Image, ImageTk, ImageEnhance
 from scipy.interpolate import interp1d
@@ -30,8 +29,11 @@ from horizonpy.quickhorizon.ArcSkyDialog import ArcSkyDialog
 from horizonpy.quickhorizon.GridDialog import GridDialog
 from horizonpy.quickhorizon.AzimuthDialog import AzimuthDialog
 from horizonpy.quickhorizon.SkyViewFactorDialog import SkyViewFactorDialog
-from horizonpy.quickhorizon.ArcSkyDialog import ArcSkyDialog
 import horizonpy.quickhorizon.HorizonDecorators as hd
+
+
+from horizonpy.quickhorizon.ArcSkyDialog import ArcSkyDialog # creates _has_gdal object
+
     
     
 ####################################################################
@@ -1031,7 +1033,10 @@ class LoadImageApp(tk.Toplevel):
         SkyViewFactorDialog(self)
         
     def arcsky(self):
-        skypoints = ArcSkyDialog(self)
+        if not _has_gdal:
+            raise Impor
+        else:
+            skypoints = ArcSkyDialog(self)
         
 
 
