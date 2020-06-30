@@ -1,9 +1,10 @@
 try:
     import Tkinter as tk
-    import tkFileDialog
+    import tkMessageBox
 except ImportError:
     import tkinter as tk
     import tkinter.filedialog as tkFileDialog
+    import tkinter.messagebox as tkMessageBox
 #from ..arcsky import ArcSky
 ####################################################################
 # FieldAzimuth Dialog (green line)
@@ -15,7 +16,7 @@ class ArcSkyDialog(tk.Toplevel):
         self.transient(parent.frame)
 
         self.title("Process ArcGIS horizon map")
-        self.parent = parent.frame
+        self.parent = parent
 
 
         body = tk.Frame(self)
@@ -30,26 +31,34 @@ class ArcSkyDialog(tk.Toplevel):
 
         self.protocol("WM_DELETE_WINDOW", self.cancel)
 
-        self.geometry("+%d+%d" % (parent.frame.winfo_rootx() + 150,
-                                  parent.frame.winfo_rooty() + 150))
+        self.geometry("+%d+%d" % (self.parent.frame.winfo_rootx() + 150,
+                                  self.parent.frame.winfo_rooty() + 150))
 
         self.initial_focus.focus_set()
         self.wait_window(self)
 
 
     def body(self, master):
+        l0 = tk.Label(master, text = "Input File")
         l1 = tk.Label(master, text = "Output File")
         l2 = tk.Label(master, text = "Pixel value for sky")
 
         # grid method to arrange labels in respective
         # rows and columns as specified
-        l1.grid(row = 0, column = 0, sticky = tk.W, pady = 2)
-        l2.grid(row = 1, column = 0, sticky = tk.W, pady = 2)
+        l0.grid(row = 0, column = 0, sticky = tk.W, pady = 2)
+        l1.grid(row = 1, column = 0, sticky = tk.W, pady = 2)
+        l2.grid(row = 2, column = 0, sticky = tk.W, pady = 2)
 
         # entry widgets, used to take entry from user
-        self.filename = tk.StringVar()
-        e1 = tk.Entry(master, textvariable=self.filename)
-        self.filename.set('')
+
+        self.inputfilename = tk.StringVar()
+        e0 = tk.Entry(master, textvariable=self.inputfilename)
+        e0.configure(state='readonly')
+        self.inputfilename.set(self.parent.imageFile)
+
+        self.outputfilename = tk.StringVar()
+        e1 = tk.Entry(master, textvariable=self.outputfilename)
+        self.outputfilename.set('')
 
         self.skyid = tk.IntVar()
         e2 = tk.Entry(master, textvariable=self.skyid)
@@ -57,8 +66,9 @@ class ArcSkyDialog(tk.Toplevel):
 
 
         # this will arrange entry widgets
-        e1.grid(row = 0, column = 1, pady = 2)
-        e2.grid(row = 1, column = 1, pady = 2)
+        e0.grid(row = 0, column = 1, pady = 2, padx = 2,  columnspan = 4, sticky = tk.W + tk.E)
+        e1.grid(row = 1, column = 1, pady = 2, padx = 2,  columnspan = 4, sticky = tk.W + tk.E)
+        e2.grid(row = 2, column = 1, pady = 2)
 
         # checkbutton widget
         #c1 = tk.Checkbutton(master, text = "Preserve")
@@ -73,14 +83,21 @@ class ArcSkyDialog(tk.Toplevel):
         #    columnspan = 2, rowspan = 2, padx = 5, pady = 5)
 
         # button widget
-        b1 = tk.Button(master, text = "Select File")
-        b2 = tk.Button(master, text = "Process", command=self.ok)
-        b3 = tk.Button(master, text = "Cancel", command=self.cancel)
+        b0 = tk.Button(master, text = "Select Input File", command=self.open_inputfile)
+        b0.grid(row = 0, column = 5, sticky = tk.E, padx=2, pady=2)
 
+        b1 = tk.Button(master, text = "Select Output File", command=self.open_outputfile)
+        b1.grid(row = 1, column = 5, sticky = tk.E, padx=2, pady=2)
+
+        b2 = tk.Button(master, text = "Process", command=self.ok)
+        b2.grid(row = 4, column = 0, sticky = tk.E, padx=2, pady=5)
+
+        b3 = tk.Button(master, text = "Cancel", command=self.cancel)
+        b3.grid(row = 4, column = 2, sticky = tk.E, padx=2, pady=5)
         # arranging button widgets
-        b1.grid(row = 0, column = 3, sticky = tk.E)
-        b2.grid(row = 2, column = 0, sticky = tk.E)
-        b3.grid(row = 2, column = 3, sticky = tk.E)
+
+
+
 
         #return self.e1
 
@@ -92,32 +109,32 @@ class ArcSkyDialog(tk.Toplevel):
 
     def cancel(self, event=None):
         # put focus back to the parent window
-        self.parent.focus_set()
+        self.parent.frame.focus_set()
         self.destroy()
 
-    def open_file(self):
+    def open_inputfile(self):
         file = tkFileDialog.askopenfilename()
-
-        if not file:
+        if file:
+            self.inputfilename.set(file)
+        else:
             return
 
-    def apply(self):
+    def open_outputfile(self):
+        file = tkFileDialog.askopenfilename()
+        if file:
+            self.outputfilename.set(file)
+        else:
+            return
+
+
+
+    def process(self):
         try:
-            sky_id = int(self.e1.get())
-            output_file = self.e2.get()
+            AS = ArcSky()
+            AS.setSkyClassValue(self.skyid.get())
+            AS.open_new_file(self.parent.imageFile)
+            AS.write_horizon_file(self.filename.get())
 
-            if not 0 <= AZ <= 360:
-                tkMessageBox.showerror("Error!", "Azimuth value must be between 0 and 360")
-                return False
-
-            if not 0 <= DIP <= 180:
-                tkMessageBox.showerror("Error!", "Dip value must be between 0 and 180")
-                return False
-
-            else:
-                self.surface_dip = DIP
-                self.surface_asp = AZ
-                return True
         except:
-            tkMessageBox.showerror("Error!", "Numeric values only, please")
+            tkMessageBox.showerror("Error!", "Could not complete")
             return False
