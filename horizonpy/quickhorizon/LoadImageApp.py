@@ -1026,10 +1026,10 @@ class LoadImageApp(tk.Toplevel):
     def svf(self):
         pts_az = np.array([self.calculate_true_azimuth(x[3]) for x in self.dots])
         pts_hor = np.array([x[2] for x in self.dots])
-        SkyViewFactorDialog(self.frame)
+        SkyViewFactorDialog(self)
         
     def arcsky(self):
-        skypoints = ArcSkyDialog(self.parent, azimuth=self.field_azimuth)
+        skypoints = ArcSkyDialog(self)
         
 
 
