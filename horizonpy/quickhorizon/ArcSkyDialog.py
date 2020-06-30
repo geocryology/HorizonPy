@@ -28,8 +28,6 @@ class ArcSkyDialog(tk.Toplevel):
         self.initial_focus = self.body(body)
         body.pack(padx=10, pady=10)
 
-        #self.grab_set()
-
         if not self.initial_focus:
             self.initial_focus = self
 
@@ -89,7 +87,7 @@ class ArcSkyDialog(tk.Toplevel):
 
     def ok(self, event=None):
         if self.process():
-          pass# self.cancel()
+            self.cancel()
         else:
             return
 

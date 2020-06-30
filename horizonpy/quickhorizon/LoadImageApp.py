@@ -577,6 +577,8 @@ class LoadImageApp(tk.Toplevel):
         Nick Brown (nick.brown@carleton.ca)
         Stephan Gruber (stephan.gruber@carleton.ca)
         Mark Empey
+        More information:
+        github.com/geocryology/horizonpy
         """
         )
     
