@@ -1,5 +1,3 @@
-
-
 try:
     import gdal
     import ogr
