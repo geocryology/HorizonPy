@@ -26,11 +26,11 @@ from PIL import Image, ImageTk, ImageEnhance
 from scipy.interpolate import interp1d
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-
-from .GridDialog import GridDialog
-from .AzimuthDialog import AzimuthDialog
-from .SkyViewFactorDialog import SkyViewFactorDialog
-from .ArcSkyDialog import ArcSkyDialog
+from horizonpy.quickhorizon.ArcSkyDialog import ArcSkyDialog
+from horizonpy.quickhorizon.GridDialog import GridDialog
+from horizonpy.quickhorizon.AzimuthDialog import AzimuthDialog
+from horizonpy.quickhorizon.SkyViewFactorDialog import SkyViewFactorDialog
+from horizonpy.quickhorizon.ArcSkyDialog import ArcSkyDialog
 import horizonpy.quickhorizon.HorizonDecorators as hd
     
     

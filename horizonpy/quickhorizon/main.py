@@ -1,9 +1,12 @@
-from horizonpy.quickhorizon.LoadImageApp import LoadImageApp
 import logging
-import sys
-import pkg_resources
-from os import path
 import os
+import pkg_resources
+import sys
+
+from os import path
+
+
+from horizonpy.quickhorizon.LoadImageApp import LoadImageApp
 
 try:
     import Tkinter as tk

@@ -1,3 +1,5 @@
+from horizonpy.arcsky import ArcSky
+
 try:
     import Tkinter as tk
     import tkMessageBox
@@ -5,7 +7,9 @@ except ImportError:
     import tkinter as tk
     import tkinter.filedialog as tkFileDialog
     import tkinter.messagebox as tkMessageBox
-#from ..arcsky import ArcSky
+
+
+
 ####################################################################
 # FieldAzimuth Dialog (green line)
 ####################################################################
@@ -120,21 +124,17 @@ class ArcSkyDialog(tk.Toplevel):
             return
 
     def open_outputfile(self):
-        file = tkFileDialog.askopenfilename()
+        file = tkFileDialog.asksaveasfilename()
         if file:
             self.outputfilename.set(file)
         else:
             return
 
-
-
     def process(self):
-        try:
-            AS = ArcSky()
-            AS.setSkyClassValue(self.skyid.get())
-            AS.open_new_file(self.parent.imageFile)
-            AS.write_horizon_file(self.filename.get())
 
-        except:
-            tkMessageBox.showerror("Error!", "Could not complete")
-            return False
+        AS = ArcSky()
+        AS.setSkyClassValue(self.skyid.get())
+        AS.open_new_file(self.parent.imageFile)
+        AS.write_horizon_file(self.outputfilename.get())
+
+        return

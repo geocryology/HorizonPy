@@ -224,7 +224,3 @@ if __name__ == "__main__":
     if out_file is None:
         out_file = re.sub("\\..*$", ".csv", in_file)
     
-    AS = ArcSky()
-    AS.setSkyClassValue(args.id)
-    AS.open_new_file(in_file)
-    AS.write_horizon_file(out_file)
