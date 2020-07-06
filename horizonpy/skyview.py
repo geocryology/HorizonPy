@@ -23,9 +23,11 @@ def add_sky_plot(figure, *args, **kwargs):
     return ax
     
 def plot_rotated_points(azi, hor, asp, dip, ax):
+    
     rt = rotate_horizon(azi, hor, asp, dip)
-    x = np.radians(rt[0])
-    y = np.cos(np.radians(rt[1]))
+    
+    x = np.radians(rt[0])[np.argsort(rt[0])]
+    y = np.cos(np.radians(rt[1]))[np.argsort(rt[0])]
 
     x[y < 0] = np.pi + x[y < 0]
     y[y < 0] = np.abs(y[y < 0])
@@ -115,7 +117,33 @@ def sky_view_factor(f, delta_phi):
     F_sky = np.round(F_sky, decimals = 5)
     return(F_sky)
     
+# Steyn -
+def steyn_1980_svf(azimuth, horizon, n=36):
+    if not (horizon[0] == horizon[-1] and azimuth[0] == azimuth[-1]):
+        horizon = np.append(horizon, horizon[0])
+        azimuth = np.append(azimuth, azimuth[0])
 
+    # Project horizon points onto plane (equirectangular)
+    r =  (90 - horizon) / 90
+    sky_x = np.cos(np.radians(azimuth)) * r
+    sky_y = np.sin(np.radians(azimuth)) * r
+
+    # make sky polygon
+    P = Polygon(p for p in zip(sky_x, sky_y))
+
+    L = list()
+
+    for i in np.arange(1, n+1):
+        # Calculate sky proportion of each annulus
+        A = annulus((i-1)/n, (i)/n )
+        ti = A.area
+        pi = P.intersection(A).area
+        annular_svf = np.sin(np.pi * (2 * i-1) / (2 * n)) * (pi / ti)
+        L.append(annular_svf)
+
+    svf = sum(L) * np.pi/(2*n)
+    return np.round(svf, 4)
+    
     
 def SVF_from_csv(horizon_file, plot=False):
     horizon = read_csv(horizon_file)
@@ -370,7 +398,7 @@ def rotate_horizon(az, hor, aspect, dip):
     # put back in spherical coordinates
     coords = carte_to_horiz(rot[0], rot[1], rot[2])
     
-    # put negative horizons at 0 degrees
+    # put negative horizons at 0 degrees (Assume self-shading)
     coords[1] = [x if x>=0 else 0 for x in coords[1]] 
 
     # for overhanging points, flip the azimuth
