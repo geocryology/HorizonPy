@@ -1,4 +1,7 @@
-from horizonpy.arcsky import ArcSky
+# from horizonpy.arcsky import ArcSky  # don't import to avoid gdal/shapely import conflict
+import subprocess
+import pkg_resources
+
 import logging
 
 try:
@@ -115,14 +118,29 @@ class ArcSkyDialog(tk.Toplevel):
 
     def process(self):
         try:
-            AS = ArcSky()
-            AS.setSkyClassValue(self.skyid.get())
-            AS.open_new_file(self.parent.imageFile)
-            outfile = self.outputfilename.get()
-            AS.write_horizon_file(outfile)
-            tkMessageBox.showinfo("Success!", "Horizon points written to {}".format(outfile))
-            return True
+            # run from subprocess to avoid gdal/shapely import clash
+            # AS = ArcSky()
+            # AS.setSkyClassValue(self.skyid.get())
+            # AS.open_new_file(self.parent.imageFile)
+            # outfile = self.outputfilename.get()
+            # AS.write_horizon_file(outfile)
+
+            script = pkg_resources.resource_filename('horizonpy', 'arcsky.py')
+            image = self.parent.imageFile
+            outfile =  self.outputfilename.get()
+            id = self.skyid.get()
+            S = subprocess.run(['python', script,
+                            "--sky", image ,
+                            "--out", outfile,
+                            "--id", str(id)])
+            logging.info("ran command: {}".format(" ".join(S.args)))
+            if S.returncode == 0:
+                tkMessageBox.showinfo("Success!", "Horizon points written to {}".format(outfile))
+                return True
+            else:
+                raise RuntimeError
 
         except Exception as e:
+            logging.error(str(e))
             tkMessageBox.showerror("Error!", "Failed to process file")
             return False
