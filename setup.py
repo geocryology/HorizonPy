@@ -8,4 +8,8 @@ setup(name='horizonpy',
       packages=['horizonpy'], 
       install_requires=[
                         'numpy==1.13.3',
-                        'matplotlib==2.2.5'])
+                        'matplotlib==2.2.5'
+                        ],
+      extras_require = {
+                        "gdal": ["gdal"],
+                        "shapely": ["shapely"]})

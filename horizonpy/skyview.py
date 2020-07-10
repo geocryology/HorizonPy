@@ -110,7 +110,6 @@ def sky_view_factor(f, delta_phi):
     # terrain increases the skyview factor
     S = [y if x <= 90 else -y for (x, y) in izip(theta_h, cos2theta)] 
     
-    #print(DataFrame(zip(phi, theta_h, cos2theta, S)))
     F_sky = (delta_phi / 360.) * np.sum(S)
     F_sky = np.round(F_sky, decimals = 5)
     return(F_sky)
