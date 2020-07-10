@@ -186,11 +186,11 @@ class ArcSky(object):
             return
             
         # sort horizon coordinates by azimuth angle
-        azi = self.horizon[0][np.argsort(self.horizon[0])]
+        az = self.horizon[0][np.argsort(self.horizon[0])]
         hor = self.horizon[1][np.argsort(self.horizon[0])]
         
         # add endpoints on either side of sequence so interpolation is good  
-        x = np.concatenate((azi[-2: ] - 360, azi, azi[: 2] + 360)) 
+        x = np.concatenate((az[-2: ] - 360, az, az[: 2] + 360)) 
         y = np.concatenate((hor[-2: ], hor, hor[: 2]))
         
         # create evenly spaced horizon points using interpolation

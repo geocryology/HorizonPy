@@ -426,8 +426,6 @@ class LoadImageApp(tk.Toplevel):
         # Initialize the canvas with an image file
         self.init_canvas(self.canvas,file)
 
-            
-
 
     @hd.require_image_azimuth
     @hd.require_grid
@@ -531,14 +529,14 @@ class LoadImageApp(tk.Toplevel):
          # Save the dots to CSV file
          # delta = discretization interval for azimuth
 
-        azi = np.array([self.calculate_true_azimuth(x[3]) for x in self.dots]) 
+        az = np.array([self.calculate_true_azimuth(x[3]) for x in self.dots]) 
         hor = np.array([x[2] for x in self.dots]) 
-        azi = azi[np.argsort(azi)]
-        hor = hor[np.argsort(azi)] # sorting to order by azimuth
+        az = az[np.argsort(az)]
+        hor = hor[np.argsort(az)] # sorting to order by azimuth
         
         # Create spline equation to obtain hor(az) for any azimuth
         # add endpoints on either side of sequence so interpolation is good          
-        x = np.concatenate((azi[-2:] - 360, azi, azi[:2] + 360)) 
+        x = np.concatenate((az[-2:] - 360, az, az[:2] + 360)) 
         y = np.concatenate((hor[-2:], hor, hor[:2]))
         f_hor = interp1d(x, y, kind = 'linear')
 
@@ -1033,10 +1031,7 @@ class LoadImageApp(tk.Toplevel):
         SkyViewFactorDialog(self)
         
     def arcsky(self):
-        if not _has_gdal:
-            raise Impor
-        else:
-            skypoints = ArcSkyDialog(self)
+        skypoints = ArcSkyDialog(self)
         
 
 

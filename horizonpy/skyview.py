@@ -22,9 +22,9 @@ def add_sky_plot(figure, *args, **kwargs):
     ax.set_ylim(0, 1)
     return ax
     
-def plot_rotated_points(azi, hor, asp, dip, ax):
+def plot_rotated_points(az, hor, asp, dip, ax):
     
-    rt = rotate_horizon(azi, hor, asp, dip)
+    rt = rotate_horizon(az, hor, asp, dip)
     
     x = np.radians(rt[0])[np.argsort(rt[0])]
     y = np.cos(np.radians(rt[1]))[np.argsort(rt[0])]
@@ -80,16 +80,16 @@ def SVF_discretized(az, hor, aspect, dip, increment=2, plot=False):
         # overhanging pts
         ax.plot(np.pi + ra(rt[0][rt[1] > 90]), np.abs(np.cos(ra(rt[1][rt[1] > 90]))), 'rx')
     
-    return(sky_view_factor(FF, increment))
+    return(svf_helbig_2009(FF, increment))
 
-def sky_view_factor(f, delta_phi):
+def svf_helbig_2009(f, delta_phi):
     """
     Calculates sky view factors using the discretized form of the continuum equation 
     for sky view factor (eq 9.3 from Helbig, 2009).  The integral form of the
     sky view equation is given in equation 4.41 of the same thesis.
     
     args:
-        F a function that relates azimuth to horizon angle
+        f a function that relates azimuth to horizon angle
         delta phi: discretized azimuth width
     """
     # Measure horizon at evenly spaced interval using spline
@@ -135,7 +135,7 @@ def project_horizon_to_equirectangular(azimuth, horizon, r0=1, degrees=True):
     
 
 # Steyn -
-def steyn_1980_svf(azimuth, horizon, n=36):
+def svf_steyn_1980(azimuth, horizon, n=36):
     if not (horizon[0] == horizon[-1] and azimuth[0] == azimuth[-1]):
         horizon = np.append(horizon, horizon[0])
         azimuth = np.append(azimuth, azimuth[0])
@@ -155,8 +155,9 @@ def steyn_1980_svf(azimuth, horizon, n=36):
         annular_svf = np.sin(np.pi * (2 * i-1) / (2 * n)) * (pi / ti)
         L.append(annular_svf)
 
-    svf = sum(L) * np.pi/(2*n)
-    return np.round(svf, 4)
+    F_sky = sum(L) * np.pi/(2*n)
+    F_sky = np.round(F_sky, 5)
+    return F_sky
     
     
 def SVF_from_csv(horizon_file, plot=False):
