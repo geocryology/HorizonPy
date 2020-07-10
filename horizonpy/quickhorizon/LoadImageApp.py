@@ -330,7 +330,18 @@ class LoadImageApp(tk.Toplevel):
                 item = my_canvas.create_oval(x-2,y-2,x+2,y+2,fill="white")
             
             my_canvas.itemconfig(item, tags=("dot", str(dot[0]), str(dot[1])))
+            
+            self.drawPatch(my_canvas)
 
+                
+    def drawPatch(self, my_canvas):
+        if len(self.dots) > 3:
+            self.canvas.delete("sky_polygon")
+            scaled = [self.to_window((dot[0], dot[1])) for dot in self.dots]
+            xy = [i for dot in scaled for i in dot[:2]]
+            sky_polygon = my_canvas.create_polygon(*xy, fill="",outline='blue')
+            my_canvas.itemconfig(sky_polygon, tags=("sky_polygon", "dot"))
+            
     def drawGrid(self, my_canvas, center, radius, spoke_spacing=15):
 
         # Remove old grid before drawing new one
@@ -393,7 +404,7 @@ class LoadImageApp(tk.Toplevel):
     def display_region(self, my_canvas):
 
         my_canvas.delete("all")
-
+        
         # Display the region of the zoomed image starting at viewport and window size
         (x,y) = self.viewport
         w,h = self.frame.winfo_width(), self.frame.winfo_height()
@@ -674,7 +685,8 @@ class LoadImageApp(tk.Toplevel):
         else:
             return(True)   
             
-    @hd.require_image_file 
+    @hd.require_image_file
+    @hd.require_image_azimuth 
     def dot(self):
         self.tool = "dot"
 
@@ -739,14 +751,12 @@ class LoadImageApp(tk.Toplevel):
         logging.debug('b1down() at (%d,%d)', event.x, event.y)
         if self.raw_image:
             if self.tool is "dot":
-
-                item = event.widget.create_oval(event.x-2,event.y-2,event.x+2,event.y+2,fill="blue",outline='pink' )
-
-                
                 raw = self.to_raw((event.x,event.y))
-                event.widget.itemconfig(item, tags=("dot", str(raw[0]), str(raw[1])))
-
                 self._define_new_dot(raw, overhanging=False)
+                # item = event.widget.create_oval(event.x-2,event.y-2,event.x+2,event.y+2,fill="blue",outline='pink' )
+                # event.widget.itemconfig(item, tags=("dot", str(raw[0]), str(raw[1])))
+                self.drawDots(self.canvas)
+                
                 
             else:   
 
