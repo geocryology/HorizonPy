@@ -149,11 +149,7 @@ def svf_steyn_1980(azimuth, horizon, n=36):
 
     # make sky polygon
     P = Polygon(p for p in zip(sky_x, sky_y))
-    return(P)
-    if (P.buffer(0).area - P.area) / P.area > 0.01:
-        raise RuntimeError("Sky polygon geometry invalid")
-    
-    P = P.buffer(0)
+
     L = list()
 
     for i in np.arange(1, n+1):
@@ -162,8 +158,8 @@ def svf_steyn_1980(azimuth, horizon, n=36):
         ti = A.area
         pi = P.intersection(A).area
         annular_svf = np.sin(np.pi * (2 * i-1) / (2 * n)) * (pi / ti)
-        L.append(A)
-    return(L,P)
+        L.append(annular_svf)
+
     F_sky = sum(L) * np.pi/(2*n)
     F_sky = np.round(F_sky, 5)
     return F_sky
