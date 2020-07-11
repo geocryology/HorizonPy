@@ -8,7 +8,7 @@ except ImportError:
 import numpy as np
 import matplotlib as mpl
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from horizonpy.skyview import SVF_discretized, add_sky_plot, plot_rotated_points
+from horizonpy.skyview import SVF_discretized, add_sky_plot, plot_rotated_points, svf_steyn_1980, rotate_horizon, project_horizon_to_equirectangular
 
 ####################################################################
 # Skyview factor popup
@@ -61,7 +61,10 @@ class SkyViewFactorDialog(tk.Toplevel):
 
 
     def draw_unrotated(self):
-        self.ax.plot(np.radians(self.pts_az), np.cos(np.radians(self.pts_hor)))
+        x,y = project_horizon_to_equirectangular(self.pts_az, self.pts_hor)
+        r = np.sqrt(x**2 + y**2)
+        azimuth = np.mod(np.arctan2(x,y), 2 * np.pi)
+        self.ax.plot(azimuth, r)
         self.canvas.draw()
 
     def redraw(self):
@@ -94,9 +97,12 @@ class SkyViewFactorDialog(tk.Toplevel):
     # standard button semantics
     def ok(self, event=None):
         if self.apply():
-           SVF = SVF_discretized(self.pts_az, self.pts_hor, self.surface_asp, self.surface_dip, 1)
+           #F_sky = SVF_discretized(self.pts_az, self.pts_hor, self.surface_asp, self.surface_dip, 1)
+           rotated_horizon = rotate_horizon(self.pts_az, self.pts_hor, self.surface_asp, self.surface_dip)
+           F_sky = svf_steyn_1980(rotated_horizon[0], rotated_horizon[1], 72)
            self.redraw()
-           tkMessageBox.showinfo(title="SkyView", message="here's the SVF: %s" % SVF)
+           tkMessageBox.showinfo(title="SkyView",
+           message="Sky view factor = : {}".format(F_sky))
         else:
             return
 

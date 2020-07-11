@@ -212,7 +212,7 @@ class LoadImageApp(tk.Toplevel):
         self.button_2 = "up"
         self.button_3 = "up"
         self.tool = "move"
-        self.xold, self.yold = None, None
+        self.store_old_xy_event(None, None)
         self.viewport = (0,0)
         self.zoomcycle = 0
         self.showGrid = False
@@ -542,6 +542,14 @@ class LoadImageApp(tk.Toplevel):
 
         az = np.array([self.calculate_true_azimuth(x[3]) for x in self.dots]) 
         hor = np.array([x[2] for x in self.dots]) 
+        if np.any(hor > 90):
+            if not tkMessageBox.askokcancel("Warning!",
+                     "Horizon angles greater than 90 degrees are not\n" +
+                     "compatible with geotop horizon files. They will be reduced\n"+
+                    "to 90 degrees. \n Click OK to continue or Cancel to abort"):
+                return
+            hor[hor >= 90] = 90
+            
         az = az[np.argsort(az)]
         hor = hor[np.argsort(az)] # sorting to order by azimuth
         
@@ -727,7 +735,11 @@ class LoadImageApp(tk.Toplevel):
     #######################################################
     # Mouse options
     #######################################################
-
+    
+    def store_old_xy_event(self, event_x, event_y):
+        self.xold = event_x
+        self.yold = event_y
+        
     def zoomer(self,event):
         
         if self.raw_image:
@@ -786,9 +798,7 @@ class LoadImageApp(tk.Toplevel):
             return
 
         self.button_1 = "up"
-        self.xold = None           
-        self.yold = None
-
+        self.store_old_xy_event(None, None) 
         
         if self.tool is "select":
             items = event.widget.find_enclosed(self.select_X, self.select_Y, event.x, event.y)
@@ -842,22 +852,15 @@ class LoadImageApp(tk.Toplevel):
 
     def b2up(self, event):
         self.button_2 = "up"
-        self.xold = None           
-        self.yold = None
+        self.store_old_xy_event(None, None)
         
     def b3down(self,event):
-
         logging.debug('b3down() at (%d,%d)', event.x, event.y)
+        
         if self.raw_image:
             if self.tool is "dot":
-
-                item = event.widget.create_rectangle(event.x-2,event.y-2,event.x+2,event.y+2,fill="yellow")
-          
                 raw = self.to_raw((event.x,event.y))
-                event.widget.itemconfig(item, tags=("dot", str(raw[0]), str(raw[1])))
-
                 self._define_new_dot(raw, overhanging=True)
-                
                 self.drawDots(self.canvas)
     
     def _define_new_dot(self, raw, overhanging=False):
@@ -887,7 +890,7 @@ class LoadImageApp(tk.Toplevel):
     def b3up(self,event):
         logging.debug('b3up()-> tool = %s at (%d, %d)', self.tool, event.x, event.y)
         pass
-                        
+
     # Handles mouse 
     def motion(self,event):
         
@@ -896,8 +899,7 @@ class LoadImageApp(tk.Toplevel):
             if self.xold is not None and self.yold is not None:
                 self.viewport = (self.viewport[0] - (event.x - self.xold), self.viewport[1] - (event.y - self.yold))
                 self.display_region(self.canvas)
-            self.xold = event.x
-            self.yold = event.y
+            self.store_old_xy_event(event.x, event.y)
 
         # Conditional on button 1 depressed
         if self.raw_image and self.button_1 == "down":
@@ -913,9 +915,8 @@ class LoadImageApp(tk.Toplevel):
                     if rect:
                         event.widget.delete(rect)
                     event.widget.create_rectangle(self.select_X,self.select_Y,event.x,event.y,fill="",dash=(4,2),tag="selection_rectangle")
+            self.store_old_xy_event(event.x, event.y)
 
-            self.xold = event.x
-            self.yold = event.y
 
         # update the status bar with x,y values, status bar always shows "RAW" coordinates
         coordinate = (rX,rY) = self.to_raw((event.x,event.y))

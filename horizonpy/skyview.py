@@ -16,7 +16,7 @@ except:  # Python 2.7
 
 def add_sky_plot(figure, *args, **kwargs):
     ax = figure.add_subplot(*args, **kwargs, projection='polar')
-    ax.set_theta_direction(-1)
+    ax.set_theta_direction(1)
     ax.set_theta_zero_location('N')
     ax.yaxis.set_visible(False)
     ax.set_ylim(0, 1)
@@ -26,13 +26,15 @@ def plot_rotated_points(az, hor, asp, dip, ax):
     
     rt = rotate_horizon(az, hor, asp, dip)
     
-    x = np.radians(rt[0])[np.argsort(rt[0])]
-    y = np.cos(np.radians(rt[1]))[np.argsort(rt[0])]
-
-    x[y < 0] = np.pi + x[y < 0]
-    y[y < 0] = np.abs(y[y < 0])
-    
-    p = ax.plot(x, y, 'r-')
+    # x = np.radians(rt[0])[np.argsort(rt[0])]
+    # y = np.cos(np.radians(rt[1]))[np.argsort(rt[0])]
+    # 
+    # x[y < 0] = np.pi + x[y < 0]
+    # y[y < 0] = np.abs(y[y < 0])
+    x,y = project_horizon_to_equirectangular(rt[0], rt[1])
+    r = np.sqrt(x**2 + y**2)
+    azimuth = np.mod(np.arctan2(x,y), 2 * np.pi) 
+    p = ax.plot(azimuth, r, 'r-')
     #ax.plot(np.pi + rt[0][rt[1] > np.pi/2], np.abs(np.cos(rt[1][rt[1] > np.pi/2])), 'rx')
     return p
     
@@ -44,6 +46,12 @@ def SVF_discretized(az, hor, aspect, dip, increment=2, plot=False):
     """
     # rotate horizon coordinates
     rt = rotate_horizon(az, hor, aspect, dip)
+    
+    # for overhanging points, flip the azimuth
+    overhanging = test_overhang(rt[0], rt[1])
+
+    rt[0][overhanging] = (180 + rt[0][overhanging]) % 360
+    rt[1][overhanging] = 180 - rt[1][overhanging]
     
     obs = test_obscured(rt[0], rt[1], increment)
 
@@ -58,7 +66,7 @@ def SVF_discretized(az, hor, aspect, dip, increment=2, plot=False):
     # add endpoints on either side of sequence so interpolation is good 
     xx = np.concatenate((xx[-2:] - 360, xx, xx[:2] + 360)) 
     yy = np.concatenate((yy[-2:], yy, yy[:2]))
-    FF = interp1d(x=xx, y=yy)
+    
 
     if plot:
         fig = plt.figure()
@@ -80,7 +88,10 @@ def SVF_discretized(az, hor, aspect, dip, increment=2, plot=False):
         # overhanging pts
         ax.plot(np.pi + ra(rt[0][rt[1] > 90]), np.abs(np.cos(ra(rt[1][rt[1] > 90]))), 'rx')
     
-    return(svf_helbig_2009(FF, increment))
+    FF = interp1d(x=xx, y=yy)
+    F_sky = svf_helbig_2009(FF, increment)
+    
+    return(F_sky)
 
 def svf_helbig_2009(f, delta_phi):
     """
@@ -122,20 +133,14 @@ def annulus(r_in, r_out):
     C2 = Point(0,0).buffer(r_out)
     return C2.difference(C1)
 
-def project_horizon_to_equirectangular(azimuth, horizon, r0=1, degrees=True):
-    if degrees:
-        azimuth = np.radians(azimuth)
-        r =  (90 - horizon) * r0 / 90
-    else:
-        r =  (np.pi / 2 - horizon) * r0 / (np.pi/2)
-    x = np.cos(azimuth) * r
-    y = np.sin(azimuth) * r
-    
-    return x,y   
+
     
 
 # Steyn -
 def svf_steyn_1980(azimuth, horizon, n=36):
+    """
+    
+    """
     if not (horizon[0] == horizon[-1] and azimuth[0] == azimuth[-1]):
         horizon = np.append(horizon, horizon[0])
         azimuth = np.append(azimuth, azimuth[0])
@@ -144,7 +149,11 @@ def svf_steyn_1980(azimuth, horizon, n=36):
 
     # make sky polygon
     P = Polygon(p for p in zip(sky_x, sky_y))
-
+    return(P)
+    if (P.buffer(0).area - P.area) / P.area > 0.01:
+        raise RuntimeError("Sky polygon geometry invalid")
+    
+    P = P.buffer(0)
     L = list()
 
     for i in np.arange(1, n+1):
@@ -153,8 +162,8 @@ def svf_steyn_1980(azimuth, horizon, n=36):
         ti = A.area
         pi = P.intersection(A).area
         annular_svf = np.sin(np.pi * (2 * i-1) / (2 * n)) * (pi / ti)
-        L.append(annular_svf)
-
+        L.append(A)
+    return(L,P)
     F_sky = sum(L) * np.pi/(2*n)
     F_sky = np.round(F_sky, 5)
     return F_sky
@@ -340,6 +349,19 @@ def test_overhang(theta, horiz):
 
     return(np.array(ohang))
 
+def project_horizon_to_equirectangular(azimuth, horizon, r0=1, degrees=True):
+    if degrees:
+        azimuth = np.radians(azimuth)
+        horizon = np.radians(horizon)
+        
+    offset = np.pi / 2
+    r =  (np.pi / 2 - horizon) * r0 / (np.pi/2)
+    
+    x = np.cos(offset - azimuth) * r
+    y = np.sin(offset - azimuth) * r
+    
+    return x,y   
+    
 def project_horizon_top_down(azimuth, horizon, r0=1, degrees=True):
     if degrees:
         azimuth = np.radians(azimuth)
@@ -375,7 +397,7 @@ def test_obscured(theta, horiz, increment):
     xy = np.array([[x,y] for (x,y) in zip(xp, yp)])
     L  = LinearRing(xy)  # horizon line
     
-    obscura = []
+    obscured_points = []
 
     # make test points halfway around the circle ( 
     for angle in range(0,180, increment):
@@ -391,10 +413,10 @@ def test_obscured(theta, horiz, increment):
         if pts:
             pass # intersects horizon at least once
         else:
-            obscura.append(angle) # no intersection
-            obscura.append( (180 + angle) % 360)
+            obscured_points.append(angle) # no intersection
+            obscured_points.append( (180 + angle) % 360)
 
-    return(np.array(obscura))
+    return(np.array(obscured_points))
 
 def rotate_horizon(az, hor, aspect, dip):
     """
@@ -424,15 +446,11 @@ def rotate_horizon(az, hor, aspect, dip):
     # put back in spherical coordinates
     coords = carte_to_horiz(rot[0], rot[1], rot[2])
     
+    
     # put negative horizons at 0 degrees (Assume self-shading)
     coords[1] = [x if x>=0 else 0 for x in coords[1]] 
-
-    # for overhanging points, flip the azimuth
-    overhanging = test_overhang(coords[0], coords[1])
-
-    coords[0][overhanging] = (180 + coords[0][overhanging]) % 360
-    coords[1][overhanging] = 180 - coords[1][overhanging]
     
     return(coords)
+
     
 
