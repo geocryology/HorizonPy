@@ -2,7 +2,8 @@ try:
     import gdal
     import ogr
 except ImportError:
-    warnings.ImportWarning("Could not import gdal / ogr")
+    import warnings
+    warnings.warn("Could not import gdal / ogr", ImportWarning)
     _has_gdal = False
 else:
     _has_gdal = True
