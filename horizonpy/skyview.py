@@ -16,21 +16,25 @@ except:  # Python 2.7
 
 def add_sky_plot(figure, *args, **kwargs):
     ax = figure.add_subplot(*args, **kwargs, projection='polar')
-    ax.set_theta_direction(-1)
+    ax.set_theta_direction(1)
     ax.set_theta_zero_location('N')
     ax.yaxis.set_visible(False)
     ax.set_ylim(0, 1)
     return ax
     
-def plot_rotated_points(azi, hor, asp, dip, ax):
-    rt = rotate_horizon(azi, hor, asp, dip)
-    x = np.radians(rt[0])
-    y = np.cos(np.radians(rt[1]))
-
-    x[y < 0] = np.pi + x[y < 0]
-    y[y < 0] = np.abs(y[y < 0])
+def plot_rotated_points(az, hor, asp, dip, ax):
     
-    p = ax.plot(x, y, 'r-')
+    rt = rotate_horizon(az, hor, asp, dip)
+    
+    # x = np.radians(rt[0])[np.argsort(rt[0])]
+    # y = np.cos(np.radians(rt[1]))[np.argsort(rt[0])]
+    # 
+    # x[y < 0] = np.pi + x[y < 0]
+    # y[y < 0] = np.abs(y[y < 0])
+    x,y = project_horizon_to_equirectangular(rt[0], rt[1])
+    r = np.sqrt(x**2 + y**2)
+    azimuth = np.mod(np.arctan2(x,y), 2 * np.pi) 
+    p = ax.plot(azimuth, r, 'r-')
     #ax.plot(np.pi + rt[0][rt[1] > np.pi/2], np.abs(np.cos(rt[1][rt[1] > np.pi/2])), 'rx')
     return p
     
@@ -42,6 +46,12 @@ def SVF_discretized(az, hor, aspect, dip, increment=2, plot=False):
     """
     # rotate horizon coordinates
     rt = rotate_horizon(az, hor, aspect, dip)
+    
+    # for overhanging points, flip the azimuth
+    overhanging = test_overhang(rt[0], rt[1])
+
+    rt[0][overhanging] = (180 + rt[0][overhanging]) % 360
+    rt[1][overhanging] = 180 - rt[1][overhanging]
     
     obs = test_obscured(rt[0], rt[1], increment)
 
@@ -56,7 +66,7 @@ def SVF_discretized(az, hor, aspect, dip, increment=2, plot=False):
     # add endpoints on either side of sequence so interpolation is good 
     xx = np.concatenate((xx[-2:] - 360, xx, xx[:2] + 360)) 
     yy = np.concatenate((yy[-2:], yy, yy[:2]))
-    FF = interp1d(x=xx, y=yy)
+    
 
     if plot:
         fig = plt.figure()
@@ -78,16 +88,19 @@ def SVF_discretized(az, hor, aspect, dip, increment=2, plot=False):
         # overhanging pts
         ax.plot(np.pi + ra(rt[0][rt[1] > 90]), np.abs(np.cos(ra(rt[1][rt[1] > 90]))), 'rx')
     
-    return(sky_view_factor(FF, increment))
+    FF = interp1d(x=xx, y=yy)
+    F_sky = svf_helbig_2009(FF, increment)
+    
+    return(F_sky)
 
-def sky_view_factor(f, delta_phi):
+def svf_helbig_2009(f, delta_phi):
     """
     Calculates sky view factors using the discretized form of the continuum equation 
     for sky view factor (eq 9.3 from Helbig, 2009).  The integral form of the
     sky view equation is given in equation 4.41 of the same thesis.
     
     args:
-        F a function that relates azimuth to horizon angle
+        f a function that relates azimuth to horizon angle
         delta phi: discretized azimuth width
     """
     # Measure horizon at evenly spaced interval using spline
@@ -113,8 +126,44 @@ def sky_view_factor(f, delta_phi):
     F_sky = (delta_phi / 360.) * np.sum(S)
     F_sky = np.round(F_sky, decimals = 5)
     return(F_sky)
+      
+
+def annulus(r_in, r_out):
+    C1 = Point(0,0).buffer(r_in)
+    C2 = Point(0,0).buffer(r_out)
+    return C2.difference(C1)
+
+
     
 
+# Steyn -
+def svf_steyn_1980(azimuth, horizon, n=36):
+    """
+    
+    """
+    if not (horizon[0] == horizon[-1] and azimuth[0] == azimuth[-1]):
+        horizon = np.append(horizon, horizon[0])
+        azimuth = np.append(azimuth, azimuth[0])
+
+    sky_x, sky_y = project_horizon_to_equirectangular(azimuth, horizon)
+
+    # make sky polygon
+    P = Polygon(p for p in zip(sky_x, sky_y))
+
+    L = list()
+
+    for i in np.arange(1, n+1):
+        # Calculate sky proportion of each annulus
+        A = annulus((i-1)/n, (i)/n )
+        ti = A.area
+        pi = P.intersection(A).area
+        annular_svf = np.sin(np.pi * (2 * i-1) / (2 * n)) * (pi / ti)
+        L.append(annular_svf)
+
+    F_sky = sum(L) * np.pi/(2*n)
+    F_sky = np.round(F_sky, 5)
+    return F_sky
+    
     
 def SVF_from_csv(horizon_file, plot=False):
     horizon = read_csv(horizon_file)
@@ -296,6 +345,31 @@ def test_overhang(theta, horiz):
 
     return(np.array(ohang))
 
+def project_horizon_to_equirectangular(azimuth, horizon, r0=1, degrees=True):
+    if degrees:
+        azimuth = np.radians(azimuth)
+        horizon = np.radians(horizon)
+        
+    offset = np.pi / 2
+    r =  (np.pi / 2 - horizon) * r0 / (np.pi/2)
+    
+    x = np.cos(offset - azimuth) * r
+    y = np.sin(offset - azimuth) * r
+    
+    return x,y   
+    
+def project_horizon_top_down(azimuth, horizon, r0=1, degrees=True):
+    if degrees:
+        azimuth = np.radians(azimuth)
+        horizon = np.radians(horizon)
+
+    offset = np.pi / 2
+        
+    x = np.cos(horizon) * np.cos(offset - azimuth)
+    y = np.cos(horizon) * np.sin(offset - azimuth) 
+    
+    return x,y   
+
 def test_obscured(theta, horiz, increment):
     """
     for a set of horizon points, detect which azimuth directions are completely
@@ -313,14 +387,13 @@ def test_obscured(theta, horiz, increment):
     horiz = np.asarray(horiz)
     
     #project the horizon and azimuth onto the x-y plane
-    xp = [np.cos(ra(h)) * np.cos(ra(90 - t)) for (t, h) in zip(theta, horiz)]
-    yp = [np.cos(ra(h)) * np.sin(ra(90 - t)) for (t, h) in zip(theta, horiz)]
+    xp, yp = project_horizon_top_down(theta, horiz)
     
     # Draw out the horizon line (we will test for intersections later)
     xy = np.array([[x,y] for (x,y) in zip(xp, yp)])
     L  = LinearRing(xy)  # horizon line
     
-    obscura = []
+    obscured_points = []
 
     # make test points halfway around the circle ( 
     for angle in range(0,180, increment):
@@ -336,10 +409,10 @@ def test_obscured(theta, horiz, increment):
         if pts:
             pass # intersects horizon at least once
         else:
-            obscura.append(angle) # no intersection
-            obscura.append( (180 + angle) % 360)
+            obscured_points.append(angle) # no intersection
+            obscured_points.append( (180 + angle) % 360)
 
-    return(np.array(obscura))
+    return(np.array(obscured_points))
 
 def rotate_horizon(az, hor, aspect, dip):
     """
@@ -369,121 +442,11 @@ def rotate_horizon(az, hor, aspect, dip):
     # put back in spherical coordinates
     coords = carte_to_horiz(rot[0], rot[1], rot[2])
     
-    # put negative horizons at 0 degrees
+    
+    # put negative horizons at 0 degrees (Assume self-shading)
     coords[1] = [x if x>=0 else 0 for x in coords[1]] 
-
-    # for overhanging points, flip the azimuth
-    overhanging = test_overhang(coords[0], coords[1])
-
-    coords[0][overhanging] = (180 + coords[0][overhanging]) % 360
-    coords[1][overhanging] = 180 - coords[1][overhanging]
     
     return(coords)
+
     
 
-
-# def SVF_discretized(azi, hor, plane_az, plane_dip, delta_phi, 
-#                     interpolation='linear'):
-#     """
-#     Calculates sky view factors using the discretized form of the continuum equation 
-#     for sky view factor (eq 9.3 from Helbig, 2009).  The integral form of the
-#     sky view equation is given in equation 4.41 of the same thesis.
-#     
-#     @param phi numpy array of azimuth 
-#     
-#     @param hor numpy array of horizon measurements with respect to a horizontal
-#     plane (such as those recovered from the horizon camera )
-#     
-#     @param plane_az The azimuth of the surface for which SVF is to be
-#     calculated (the direction of steepest descent)
-#     
-#     @param plane_dip The inclination of the surface for which SVF is to be
-#     calculated
-#     
-#     @param delta_phi discretization interval of azimuth in degrees
-#     
-#     @param interpolation passed to interp1d()
-#     """
-#     # Ensure correct data structure and sort arrays based on azimuth
-#     azi = np.array(azi) if type(azi) != np.ndarray and hasattr(azi, '__len__') else azi
-#     hor = np.array(hor) if type(hor) != np.ndarray and hasattr(hor, '__len__') else hor
-#     azi = azi[np.argsort(azi)]
-#     hor = hor[np.argsort(azi)] # sorting to order by azimuth
-#     
-#     # Create spline equation to obtain hor(az) for any azimuth
-#     # add endpoints on either side of sequence so interpolation is good 
-#     x = np.concatenate((azi[-2:] - 360, azi, azi[:2] + 360)) 
-#     y = np.concatenate((hor[-2:], hor, hor[:2]))
-# 
-#     f_hor = interp1d(x, y, kind = interpolation)
-# 
-#     # Measure horizon at evenly spaced interval using spline
-#     phi = np.array(range(0, 360, delta_phi))
-#     theta_h = f_hor(phi)
-#     
-#     # Check: don't allow horizons > 90 degrees that are opposite each other
-#     # This might not be a problem.
-#     theta_h = np.array([90 if y > 90 and f_hor((x + 180) % 360) > 90 else y 
-#                                           for (x, y) in izip(phi, theta_h)])
-#     
-#     # Calculate adjusted horizon angles relative to (possibly) non-horizontal surface
-#     theta_h_r = theta_h + angl_rotate(plane_dip, (phi - plane_az))
-#     
-#     #don't allow negative horizon angles
-#     theta_h_r = np.max(np.row_stack((theta_h_r, theta_h_r * 0)), axis=0)
-#     
-#     # calculate cos2(theta)
-#     cos2theta = np.power(np.cos(ra(theta_h_r)), 2)
-#     
-#     # To deal with overhanging terrain, take negative cos2() if the horizon
-#     # is greater than 90. This might be wrong... But otherwise overhanging 
-#     # terrain increases the skyview factor
-#     S = [y if x <= 90 else -y for (x, y) in izip(theta_h_r, cos2theta)] 
-#     
-#     F_sky = (delta_phi / 360.) * np.sum(S)
-#     
-#     plt.polar(ra(phi), np.cos(ra(theta_h_r)))
-#     plt.polar(ra(azi), np.cos(ra(hor)))
-#     # plt.plot(phi, cos2theta)
-#     # plt.plot(phi, S)
-#     print(theta_h_r)
-#     print([zip(azi, np.cos(ra(theta_h_r)))])
-#     plt.show()
-#     return(round(F_sky, 3))
-
-# def angl_rotate(dip, rot):
-#     """
-#     Gives the angle relative to horizontal of a vector rotated from the 
-#     direction of steepest decent.
-#     
-#     Can't deal with dips greater than 90 at the moment: The math stops working 
-#     properly and I'm not sure how to fix it. ( ie. f(90,0) = 90, f(100,0) should 
-#     be 100 but is actually equal to f(80,0).  
-#     """
-#     ## Don't allow dips > 90 degrees at the moment
-#     if dip > 90:
-#         raise ValueError("Dip must be between 0 and 90 degrees.")
-#     
-#     ## Handle different size vectors
-#     if (not hasattr(dip, '__len__') == hasattr(rot, '__len__')):
-#         if hasattr(rot, '__len__'):
-#             dip = np.array([dip]*len(rot))
-#             rot = np.array(rot) if type(rot) != np.ndarray else rot
-#         else:
-#             rot = np.array([rot]*len(dip))
-#             dip = np.array(dip) if type(dip) != np.ndarray else dip
-#     else:
-#         if hasattr(dip, '__len__'):
-#             if len(dip) != len(rot):
-#                 raise ValueError("Vectors must be of equal length")
-#             rot = np.array(rot) if type(rot) != np.ndarray else rot
-#             dip = np.array(dip) if type(dip) != np.ndarray else dip
-# 
-#     ## Do calculation        
-#     rotated_dip = (np.arcsin(np.sin(dip * np.pi / 180.) * np.cos(rot * np.pi / 180.))) 
-#     rotated_dip *= (180. / np.pi)
-#     rotated_dip = np.round(rotated_dip, 5)
-#     
-#     ## Account for dips greater than 90 degrees (overhanging surface)
-#     
-#     return(rotated_dip)  
