@@ -1,7 +1,9 @@
 import numpy as np
 import unittest
 
-from horizonpy.skyview import sky_view_factor, SVF_discretized
+from horizonpy.skyview import sky_view_factor, SVF_discretized, rotate_horizon
+
+from horizonpy.skyview import rotate_horizon
 
 
 class TestSkyView(unittest.TestCase):
@@ -20,5 +22,13 @@ class TestSkyView(unittest.TestCase):
 class TestDiscretizedSkyView(unittest.TestCase):
     pass
 
+
+class TestRotation(unittest.TestCase):
+
+    def rotated_horizons_positive(self):
+        rotate_horizon()
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
+
