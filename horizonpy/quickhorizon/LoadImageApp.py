@@ -469,7 +469,37 @@ class LoadImageApp(tk.Toplevel):
             self.drawDots(self.canvas)
         else:
             logging.info('No file selected')
+    
+    @hd.require_image_azimuth
+    @hd.require_grid
+    def open_geotop(self, file=None):
+        # Open a CSV file with previous XY coordinates
+        
+        if not file:
+            file = tkFileDialog.askopenfilename(**self.csv_opt)
 
+        if file:
+
+            # Delete  existing dots from canvas and data 
+            self.canvas.delete("dot")
+            del self.dots[:]
+
+            # start canvas with image file
+            f = open(file,'rt')
+            try:
+                reader = csv.reader(f)
+                next(reader) # skip header row
+
+                for row in reader:
+                    pass
+
+            finally:
+                f.close()
+
+            self.drawDots(self.canvas)
+        else:
+            logging.info('No file selected')
+            
     @hd.require_field_azimuth
     @hd.require_horizon_points
     def save_csv(self):
