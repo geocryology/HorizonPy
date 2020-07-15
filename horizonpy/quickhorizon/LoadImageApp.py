@@ -30,7 +30,7 @@ from horizonpy.quickhorizon.GridDialog import GridDialog
 from horizonpy.quickhorizon.AzimuthDialog import AzimuthDialog
 from horizonpy.quickhorizon.SkyViewFactorDialog import SkyViewFactorDialog
 import horizonpy.quickhorizon.HorizonDecorators as hd
-
+import horizonpy.quickhorizon.LensCalibrations as lens
 
 from horizonpy.quickhorizon.ArcSkyDialog import ArcSkyDialog # creates _has_gdal object
 
@@ -66,6 +66,7 @@ class LoadImageApp(tk.Toplevel):
         self.parent = root
         self.frame = tk.Frame(root, bg='black')
         self.imageFile = image_file
+        self.lens = lens.SunexCalibration
         self.field_azimuth = -1
         self.contrast_value = 1
         self.brightness_value = 1
@@ -1007,16 +1008,8 @@ class LoadImageApp(tk.Toplevel):
             return((azimuth + self.field_azimuth) % 360)
 
     def find_horizon(self, dot_radius, grid_radius):
-        
-        # Enter total field of view of Sunex camera (based on lens/camera model)
-        camera = 185   
-
-        # Adjust horizon elevation using calibration polynomial
-        elev = (camera/2) - ((dot_radius/grid_radius) * (camera/2))
-        
-        # Calculate Horizon Elevation
-        elev = (-0.00003 * (elev * elev)) + (1.0317 * (elev)) - 2.4902 # From Empey (2015)
-        return (max([elev,0]))
+        horizon = self.lens.horizon_from_radius(dot_radius, grid_radius)
+        return horizon
     
     @hd.require_horizon_points
     @hd.require_image_azimuth
