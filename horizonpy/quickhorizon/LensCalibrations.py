@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 
 
-class LensCalibration(ABC):
+class Lens(ABC):
 
     @staticmethod
     @abstractmethod
@@ -14,7 +14,7 @@ class LensCalibration(ABC):
     def radius_from_horizon(horizon, grid_radius):
         pass
 
-class SunexCalibration(LensCalibration):
+class SunexLens(Lens):
     """# From Empey (2015)"""
 
     NAME = "Sunex Calibration"
@@ -37,7 +37,7 @@ class SunexCalibration(LensCalibration):
         raise NotImplementedError
 
 
-class DefaultCalibration(LensCalibration):
+class DefaultLens(Lens):
     """ Equirectangular projection"""
 
     NAME = "Equirectangular (No Calibration)"
@@ -52,6 +52,6 @@ class DefaultCalibration(LensCalibration):
         dot_radius = (90 - horizon) * grid_radius / 90
         return dot_radius
 
-lenses = {"Sunex" : SunexCalibration,
-          "Default" : DefaultCalibration
+lenses = {"Sunex" : SunexLens,
+          "Default" : DefaultLens
          }

@@ -66,7 +66,7 @@ class LoadImageApp(tk.Toplevel):
         self.parent = root
         self.frame = tk.Frame(root, bg='black')
         self.imageFile = image_file
-        self.lens = lens.SunexCalibration
+        self.lens = lens.SunexLens
         self.field_azimuth = -1
         self.contrast_value = 1
         self.brightness_value = 1
@@ -699,6 +699,7 @@ class LoadImageApp(tk.Toplevel):
                 else:
                     tkMessageBox.showerror("Error!", "No overlay parameters have been set!")
     
+    @hd.require_image_file 
     @hd.require_grid
     def define_azimuth(self):
       # Enter azimuth definition mode
