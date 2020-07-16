@@ -29,6 +29,7 @@ from horizonpy.quickhorizon.ArcSkyDialog import ArcSkyDialog
 from horizonpy.quickhorizon.GridDialog import GridDialog
 from horizonpy.quickhorizon.AzimuthDialog import AzimuthDialog
 from horizonpy.quickhorizon.SkyViewFactorDialog import SkyViewFactorDialog
+from horizonpy.quickhorizon.LensSelectionDialog import LensSelectionDialog
 import horizonpy.quickhorizon.HorizonDecorators as hd
 import horizonpy.quickhorizon.LensCalibrations as lens
 
@@ -148,6 +149,7 @@ class LoadImageApp(tk.Toplevel):
         
         gridmenu.add_command(label="Define Image Azimuth", command=self.define_azimuth)
         gridmenu.add_command(label="Enter Field Azimuth", command=self.define_field_azimuth)
+        gridmenu.add_command(label="Select Lens", command=self.select_lens)
         menubar.add_cascade(label="Azimuth",menu=gridmenu)
 
         viewmenu = tk.Menu(menubar, tearoff=0)
@@ -1068,7 +1070,8 @@ class LoadImageApp(tk.Toplevel):
     def arcsky(self):
         skypoints = ArcSkyDialog(self)
         
-
+    def select_lens(self):
+        lens = LensSelectionDialog(self)
 
     
 
