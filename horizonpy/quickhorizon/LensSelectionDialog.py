@@ -43,19 +43,19 @@ class LensSelectionDialog(tkSimpleDialog.Dialog):
         self.wait_window(self)
 
     def body(self, master):
-        lens_var = tk.StringVar()
-        lens_var.set(self.default)
+        self.lens_var = tk.StringVar()
+        self.lens_var.set(self.default)
 
         def callback(*args):
-            print("variable changed!")
+            print("lens changed!")
 
-        lens_var.trace("w", callback)
+        self.lens_var.trace("w", callback)
 
         tk.Label(master, text="Select Lens").grid(row=0)
-        lens_selected = tk.OptionMenu(master, lens_var, *list(lenses.keys()))
+        lens_selected = tk.OptionMenu(master, self.lens_var, *list(lenses.keys()))
         lens_selected.grid(row=2)
 
         return lens_selected
 
     def apply(self):
-        pass
+        self.lens = lenses[self.lens_var.get()]

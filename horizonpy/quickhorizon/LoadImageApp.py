@@ -149,7 +149,7 @@ class LoadImageApp(tk.Toplevel):
         
         gridmenu.add_command(label="Define Image Azimuth", command=self.define_azimuth)
         gridmenu.add_command(label="Enter Field Azimuth", command=self.define_field_azimuth)
-        gridmenu.add_command(label="Select Lens", command=self.select_lens)
+        gridmenu.add_command(label="Select Lens Calibration", command=self.select_lens)
         menubar.add_cascade(label="Azimuth",menu=gridmenu)
 
         viewmenu = tk.Menu(menubar, tearoff=0)
@@ -1071,8 +1071,8 @@ class LoadImageApp(tk.Toplevel):
         skypoints = ArcSkyDialog(self)
         
     def select_lens(self):
-        lens = LensSelectionDialog(self.parent, default=self.lens.NAME)
-        
-    
+        lens_selection = LensSelectionDialog(self.parent, default=self.lens.NAME)
+        self.lens = lens_selection.lens
+        logging.info("Set lens calibration to {}".format(self.lens))
 
         
