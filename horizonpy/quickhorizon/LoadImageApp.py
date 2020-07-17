@@ -44,7 +44,7 @@ class LoadImageApp(tk.Toplevel):
     MAX_ZOOM = 100
     raw_image = None
     zoomed_image = None
-    showGrid = False
+    show_grid = False
     image_azimuth = -1  # Define an angle of image azimuth from anchor (degrees)
     image_azimuth_coords = (0, 0)   # Store image Azimuth coordinates (endpoint)
     anchor = (-999, -999)         # Store the anchor coordinate
@@ -155,9 +155,9 @@ class LoadImageApp(tk.Toplevel):
         viewmenu = tk.Menu(menubar, tearoff=0)
         viewmenu.add_command(label="Toggle Overlays (t)",
                              command=self.toggle_grid)
-        viewmenu.add_command(label="Zoom In", command=self.zoomin)
-        viewmenu.add_command(label="Zoom Out", command=self.zoomout)
-        viewmenu.add_command(label="Reset Zoom", command=self.zoomoriginal)
+        viewmenu.add_command(label="Zoom In", command=self.zoom_in)
+        viewmenu.add_command(label="Zoom Out", command=self.zoom_out)
+        viewmenu.add_command(label="Reset Zoom", command=self.zoom_original)
         menubar.add_cascade(label="View", menu=viewmenu)
 
         imagemenu = tk.Menu(menubar, tearoff=0)
@@ -197,8 +197,8 @@ class LoadImageApp(tk.Toplevel):
         self.canvas.bind("<ButtonPress-3>", self.b3down)
         self.canvas.bind("<ButtonRelease-3>", self.b3up)
         self.canvas.bind("<Configure>", self.resize_window)
-        self.canvas.bind("1", self.zoomin)
-        self.canvas.bind("2", self.zoomout)
+        self.canvas.bind("1", self.zoom_in)
+        self.canvas.bind("2", self.zoom_out)
         self.canvas.bind("o", self.increase_contrast)
         self.canvas.bind("p", self.decrease_contrast)
         self.canvas.bind("q", self.increase_brightness)
@@ -229,7 +229,7 @@ class LoadImageApp(tk.Toplevel):
         self.store_old_xy_event(None, None)
         self.viewport = (0, 0)
         self.zoomcycle = 0
-        self.showGrid = False
+        self.show_grid = False
         self.grid_set = False
 
         del self.dots[:]
@@ -265,7 +265,7 @@ class LoadImageApp(tk.Toplevel):
 
         self.p_img = ImageTk.PhotoImage(self.raw_image)
         self.canvas.create_image(0, 0, image=self.p_img, anchor="nw")
-        self.zoomcurrent()
+        self.zoom_current()
 
     @hd.require_image_file
     def adjust_contrast(self, increment, *args):
@@ -352,7 +352,7 @@ class LoadImageApp(tk.Toplevel):
         window_y = int(y * self.mux[self.zoomcycle]) - vy
         return (window_x, window_y)
 
-    def drawDots(self, my_canvas):
+    def draw_dots(self, my_canvas):
         for dot in self.dots:
 
             (x, y) = self.to_window((dot[0], dot[1]))
@@ -371,17 +371,17 @@ class LoadImageApp(tk.Toplevel):
 
             my_canvas.itemconfig(item, tags=("dot", str(dot[0]), str(dot[1])))
 
-            self.drawPatch(my_canvas)
+            self.draw_patch(my_canvas)
 
-    def drawPatch(self, my_canvas):
+    def draw_patch(self, my_canvas):
+        self.canvas.delete("sky_polygon")
         if len(self.dots) > 3:
-            self.canvas.delete("sky_polygon")
             scaled = [self.to_window((dot[0], dot[1])) for dot in self.dots]
             xy = [i for dot in scaled for i in dot[:2]]
             sky_polygon = my_canvas.create_polygon(*xy, fill="", outline='blue')
-            my_canvas.itemconfig(sky_polygon, tags=("sky_polygon", "dot"))
+            my_canvas.itemconfig(sky_polygon, tags=("sky_polygon"))
 
-    def drawGrid(self, my_canvas, center, radius, spoke_spacing=15):
+    def draw_grid(self, my_canvas, center, radius, spoke_spacing=15):
 
         # Remove old grid before drawing new one
         my_canvas.delete("grid")
@@ -404,10 +404,7 @@ class LoadImageApp(tk.Toplevel):
 
         self.grid_set = True
 
-    def drawAzimuth(self, my_canvas, center, radius, anchor):
-
-        logging.debug('drawAzimuth() -> center = %d, %d, radius = %d, azimuth = %d, anchor = %d, %d', center[0], center[1], radius, anchor[0], anchor[1])
-
+    def draw_azimuth(self, my_canvas, center, radius, anchor):
         # Find the angle for the anchor point from a standard ciricle (1,0) 0 degrees
         azimuth = self.find_angle(center, anchor, (center[0] + radius, center[1]))
         azimuth %= 360
@@ -415,7 +412,7 @@ class LoadImageApp(tk.Toplevel):
         my_canvas.delete("azimuth")
 
         ax, ay = self.to_window(anchor)
-        (wX, wY) = self.to_window(center)
+        wX, wY = self.to_window(center)
 
         # Draw the field azimuth in reference to the anchor point
         rX = center[0] + int(radius * np.cos(np.radians(azimuth)))
@@ -454,14 +451,14 @@ class LoadImageApp(tk.Toplevel):
 
         # Draw  saved dots
         if self.dots:
-            self.drawDots(my_canvas)
+            self.draw_dots(my_canvas)
 
-        if self.showGrid:
-            self.drawGrid(my_canvas, self.center, self.radius,
+        if self.show_grid:
+            self.draw_grid(my_canvas, self.center, self.radius,
                           self.spoke_spacing)
 
             if 0 <= self.image_azimuth <= 360:
-                self.drawAzimuth(my_canvas, self.center, self.radius,
+                self.draw_azimuth(my_canvas, self.center, self.radius,
                                  self.anchor)
 
     ########################################################
@@ -505,7 +502,7 @@ class LoadImageApp(tk.Toplevel):
             finally:
                 f.close()
 
-            self.drawDots(self.canvas)
+            self.draw_dots(self.canvas)
         else:
             logging.info('No file selected')
 
@@ -535,7 +532,7 @@ class LoadImageApp(tk.Toplevel):
             finally:
                 f.close()
 
-            self.drawDots(self.canvas)
+            self.draw_dots(self.canvas)
         else:
             logging.info('No file selected')
 
@@ -587,7 +584,7 @@ class LoadImageApp(tk.Toplevel):
             C.read(f_name)
             self.set_grid_from_config(C)
             self.set_azimuth_from_config(C)
-            self.showGrid = True
+            self.show_grid = True
 
     def set_grid_from_config(self, config):
         self.spokes = config.getint("Azimuth", "spokes")
@@ -595,7 +592,7 @@ class LoadImageApp(tk.Toplevel):
                        config.getint("Azimuth", "grid_centre_y"))
         
         self.radius = config.getint("Azimuth", "radius")
-        self.drawGrid(self.canvas, self.center, self.radius,
+        self.draw_grid(self.canvas, self.center, self.radius,
                       spoke_spacing=self.spokes)
 
     def set_azimuth_from_config(self, config):
@@ -606,7 +603,7 @@ class LoadImageApp(tk.Toplevel):
         self.field_azimuth = config.getfloat("Azimuth", "field_azimuth")
         self.image_azimuth = config.getfloat("Azimuth", "image_azimuth")
         
-        self.drawAzimuth(self.canvas, self.center, self.radius, self.anchor)
+        self.draw_azimuth(self.canvas, self.center, self.radius, self.anchor)
 
     @hd.require_field_azimuth
     @hd.require_horizon_points
@@ -674,14 +671,9 @@ class LoadImageApp(tk.Toplevel):
                               """
                               )
 
-    def delete_all(self, confirm=True):
-        delete = True
-        if confirm:
-            delete = tkMessageBox.askokcancel("Confirm deletion?",
-                                              "Press OK to delete all dots!")
-        if delete:
-            self.canvas.delete("dot")
-            self.dots = []
+    def delete_all(self):
+        selection = self.canvas.find_withtag("dot")
+        self.delete_dots(selection)
 
     def print_dots(self):
         text = "X , Y = "
@@ -695,7 +687,6 @@ class LoadImageApp(tk.Toplevel):
         return text
 
     def show_grid(self):
-
         # Get x,y coords and radius for of wheel
         if self.raw_image:
 
@@ -704,17 +695,17 @@ class LoadImageApp(tk.Toplevel):
                            spacing=self.spoke_spacing)
 
             self.canvas.focus_set()
-            logging.info("D = ", d, self.showGrid, d.result)
+            logging.info("D = ", d, self.show_grid, d.result)
 
             if d:
                 self.center = d.center
                 self.radius = d.radius
                 self.spoke_spacing = d.spoke_spacing
-                if not self.showGrid:
-                    self.showGrid = d.result
+                if not self.show_grid:
+                    self.show_grid = d.result
 
-                if self.showGrid:
-                    self.drawGrid(self.canvas, self.center, self.radius,
+                if self.show_grid:
+                    self.draw_grid(self.canvas, self.center, self.radius,
                                   self.spoke_spacing)
                     self.grid_set = True
 
@@ -724,26 +715,26 @@ class LoadImageApp(tk.Toplevel):
             self.center = center
             self.radius = radius
             self.grid_set = True
-            self.showGrid = True
-            self.drawGrid(self.canvas, self.center, self.radius,
+            self.show_grid = True
+            self.draw_grid(self.canvas, self.center, self.radius,
                           self.spoke_spacing)
 
     def toggle_grid(self, *args):
         if not self.raw_image:
             return
             
-        if self.showGrid:
-            self.showGrid = False
+        if self.show_grid:
+            self.show_grid = False
             self.canvas.delete("grid")
             self.canvas.delete("azimuth")
         else:
             if self.canvas and self.center and 0 <= self.radius <= 360:
-                self.showGrid = True
-                self.drawGrid(self.canvas, self.center, self.radius,
+                self.show_grid = True
+                self.draw_grid(self.canvas, self.center, self.radius,
                                 self.spoke_spacing)
 
                 if self.anchor[0] != -999:
-                    self.drawAzimuth(self.canvas, self.center, self.radius,
+                    self.draw_azimuth(self.canvas, self.center, self.radius,
                                         self.anchor)
             else:
                 tkMessageBox.showerror("Error!",
@@ -784,7 +775,7 @@ class LoadImageApp(tk.Toplevel):
         self.tool = "dot"
 
     @hd.require_image_file
-    def zoomin(self, *args):
+    def zoom_in(self, *args):
         if self.zoomcycle < self.MAX_ZOOM:
             self.zoomcycle += 1
             logging.info("zoom level is {}".format(self.zoomcycle))
@@ -795,7 +786,7 @@ class LoadImageApp(tk.Toplevel):
             logging.info("Max zoom reached!")
 
     @hd.require_image_file
-    def zoomout(self, *args):
+    def zoom_out(self, *args):
         if self.zoomcycle > self.MIN_ZOOM:
             self.zoomcycle -= 1
             logging.info("zoom level is {}".format(self.zoomcycle))
@@ -806,14 +797,14 @@ class LoadImageApp(tk.Toplevel):
             logging.info("Min zoom reached!")
 
     @hd.require_image_file
-    def zoomoriginal(self):
+    def zoom_original(self):
         self.zoomcycle = 0
         self.scale_image()
         self.viewport = (0, 0)
         self.display_region(self.canvas)
 
     @hd.require_image_file
-    def zoomcurrent(self, *args):
+    def zoom_current(self, *args):
         self.zoomcycle = self.zoomcycle
         self.scale_image()
         self.display_region(self.canvas)
@@ -858,17 +849,28 @@ class LoadImageApp(tk.Toplevel):
             if self.tool == "dot":
                 raw = self.to_raw((event.x, event.y))
                 self._define_new_dot(raw, overhanging=False)
-                self.drawDots(self.canvas)
+                self.draw_dots(self.canvas)
 
             else:
                 if self.tool == "azimuth":
-                    self.drawGrid(self.canvas, self.center, self.radius,
+                    self.draw_grid(self.canvas, self.center, self.radius,
                                     self.spoke_spacing)
                                       
                     self.anchor = self.to_raw((event.x, event.y))
-                    self.drawAzimuth(self.canvas, self.center, self.radius,
+                    self.draw_azimuth(self.canvas, self.center, self.radius,
                                      self.anchor)
+    
+    def select_dots_from_rectangle(self, event):
+        items = event.widget.find_enclosed(self.select_X, self.select_Y,
+                                            event.x, event.y)
 
+        rect = event.widget.find_withtag("selection_rectangle")
+        if rect:
+            event.widget.delete(rect)
+
+        selected = [x for x in items if event.widget.gettags(x)[0] == 'dot']
+        return selected
+        
     def b1up(self, event):
         self.button_1 = "up"
         logging.debug('b1up()-> tool = %s at (%d, %d)', 
@@ -879,53 +881,45 @@ class LoadImageApp(tk.Toplevel):
         self.store_old_xy_event(None, None)
 
         if self.tool == "select":
-            items = event.widget.find_enclosed(self.select_X, self.select_Y,
-                                               event.x, event.y)
-
-            rect = event.widget.find_withtag("selection_rectangle")
-            if rect:
-                event.widget.delete(rect)
-
-            selected = [x for x in items if event.widget.gettags(x)[0] == 'dot']
-
-            to_delete = {}
-            for i in selected:
-
-                # Change the color of the selected dots
-                event.widget.itemconfig(i, fill="red")
-
-                tags = event.widget.gettags(i)
-
-                to_delete[i] = (int(tags[1]), int(tags[2]))
-
-                logging.debug('Selected Item-> %d with tags %s, %s, %s', i,
-                              tags[0], tags[1], tags[2])
-
-            if to_delete:
-                confirm = tkMessageBox.askokcancel("Confirm deletion?", "Press OK to delete selected dot(s)!")
-
-                if confirm:
-                    # Delete the selected dots on the canvas, and remove it from list
-                    for i, coords in to_delete.items():
-                        logging.debug('Removing dot %d with coords: %d, %d', i,
-                                      coords[0], coords[1])
-
-                        for dot in self.dots:
-                            if coords == tuple(dot[0:2]):
-                                self.dots.remove(dot)
-
-                        event.widget.delete(i)
-
-                else:
-                    logging.info('Dot deletion cancelled!')
-                    self.drawDots(self.canvas)
+            selected_dots = self.select_dots_from_rectangle(event)
+            self.delete_dots(selected_dots)
 
         elif self.tool == "azimuth":
             self.azimuth_calculation(self.center, self.radius,
                                      self.image_azimuth_coords)
             if self.field_azimuth == -1:
                 self.define_field_azimuth()
+    
+    def delete_dots(self, selected_dots):
+        to_delete = {}
+        for i in selected_dots:
+            self.canvas.itemconfig(i, fill="red", outline="red")
 
+            tags = self.canvas.gettags(i)
+            to_delete[i] = (int(tags[1]), int(tags[2]))
+
+            logging.debug('Selected Item-> %d with tags %s, %s, %s', i,
+                            tags[0], tags[1], tags[2])
+
+        if to_delete:
+            confirm = tkMessageBox.askokcancel("Confirm deletion?", "Press OK to delete selected dot(s)!")
+
+            if confirm:
+                for i, coords in to_delete.items():
+
+
+                    for dot in self.dots:
+                        if coords == tuple(dot[0:2]):
+                            self.dots.remove(dot)
+                    logging.debug('Removing dot %d with coords: %d, %d', i,
+                                    coords[0], coords[1])
+                    self.canvas.delete(i)
+
+            else:
+                logging.info('Dot deletion cancelled!')
+            
+        self.display_region(self.canvas)
+                
     def b2down(self, event):
         self.button_2 = "down"
 
@@ -940,10 +934,10 @@ class LoadImageApp(tk.Toplevel):
             if self.tool == "dot":
                 raw = self.to_raw((event.x, event.y))
                 self._define_new_dot(raw, overhanging=True)
-                self.drawDots(self.canvas)
+                self.draw_dots(self.canvas)
 
     def _define_new_dot(self, raw, overhanging=False):
-        if self.showGrid and (0 <= self.image_azimuth <= 360):
+        if self.grid_set and (0 <= self.image_azimuth <= 360):
 
             azimuth = self.find_angle(self.center, self.image_azimuth_coords,
                                       (raw[0], raw[1]))
@@ -973,7 +967,7 @@ class LoadImageApp(tk.Toplevel):
     def b3up(self, event):
         pass
     
-    def _zoom_wheel_viewport(self, event):
+    def _update_viewport(self, event):
         view_x = self.viewport[0] - (event.x - self.xold)
         view_y = self.viewport[1] - (event.y - self.yold)
         self.viewport = (view_x, view_y)
@@ -985,23 +979,22 @@ class LoadImageApp(tk.Toplevel):
         # Button 2 pans no matter what
         if self.raw_image and self.button_2 == "down":
             if self.xold is not None and self.yold is not None:
-                self._zoom_wheel_viewport(event)
+                self._update_viewport(event)
             
-
         # Conditional on button 1 depressed
         if self.raw_image and self.button_1 == "down":
             if self.xold is not None and self.yold is not None:
 
                 if self.tool == "move":     # Panning
-                    self._zoom_wheel_viewport(event)
+                    self._update_viewport(event)
 
                 elif self.tool == "select":
-                    self.zoom_wheel_selection_rectange(event)
+                    self.update_selection_rectangle(event)
                                                   
         self.store_old_xy_event(event.x, event.y)
         self.update_status_bar(event)
     
-    def update_selection_rectange(self, event):
+    def update_selection_rectangle(self, event):
         rect = event.widget.find_withtag("selection_rectangle")
         if rect:
             event.widget.delete(rect)
@@ -1055,7 +1048,7 @@ class LoadImageApp(tk.Toplevel):
             new_dots.append(new_dot)
 
         self.dots = new_dots
-        self.drawDots(self.canvas)
+        self.draw_dots(self.canvas)
 
     def find_angle(self, C, P2, P3):
 
