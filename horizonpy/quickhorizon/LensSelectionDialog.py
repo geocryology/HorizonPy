@@ -14,16 +14,16 @@ from horizonpy.quickhorizon.LensCalibrations import lenses
 ####################################################################
 class LensSelectionDialog(tkSimpleDialog.Dialog):
 
-    def __init__(self,parent,azimuth=0):
+    def __init__(self, parent, default):
 
-        tk.Toplevel.__init__(self, parent.frame)
+        tk.Toplevel.__init__(self, parent)
 
-        self.transient(parent.frame)
+        self.transient(parent)
 
-        self.title("Field Azimuth")
-
+        self.title("Lens selection")
+        self.default = default
         self.parent = parent
-        self.lens = parent.lens
+        self.lens = None
 
 
         body = tk.Frame(self)
@@ -43,13 +43,19 @@ class LensSelectionDialog(tkSimpleDialog.Dialog):
         self.wait_window(self)
 
     def body(self, master):
-        lens_selection = tk.StringVar()
+        lens_var = tk.StringVar()
+        lens_var.set(self.default)
+
+        def callback(*args):
+            print("variable changed!")
+
+        lens_var.trace("w", callback)
+
         tk.Label(master, text="Select Lens").grid(row=0)
-        w = tk.OptionMenu(master, lens_selection, "one", "two", "three")
-        w.grid(row=2)
+        lens_selected = tk.OptionMenu(master, lens_var, *list(lenses.keys()))
+        lens_selected.grid(row=2)
 
-
-        return w
+        return lens_selected
 
     def apply(self):
         pass

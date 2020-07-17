@@ -1071,8 +1071,8 @@ class LoadImageApp(tk.Toplevel):
         skypoints = ArcSkyDialog(self)
         
     def select_lens(self):
-        lens = LensSelectionDialog(self)
-
+        lens = LensSelectionDialog(self.parent, default=self.lens.NAME)
+        
     
 
         

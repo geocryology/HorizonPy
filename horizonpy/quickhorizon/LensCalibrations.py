@@ -17,7 +17,7 @@ class Lens(ABC):
 class SunexLens(Lens):
     """# From Empey (2015)"""
 
-    NAME = "Sunex Calibration"
+    NAME = "Sunex Lens"
 
     @staticmethod
     def horizon_from_radius(dot_radius, grid_radius):
@@ -40,7 +40,7 @@ class SunexLens(Lens):
 class DefaultLens(Lens):
     """ Equirectangular projection"""
 
-    NAME = "Equirectangular (No Calibration)"
+    NAME = "Equirectangular Projection (No Calibration)"
 
     @staticmethod
     def horizon_from_radius(dot_radius, grid_radius):
@@ -52,6 +52,5 @@ class DefaultLens(Lens):
         dot_radius = (90 - horizon) * grid_radius / 90
         return dot_radius
 
-lenses = {"Sunex" : SunexLens,
-          "Default" : DefaultLens
-         }
+lenses = {lens.NAME:lens for lens in [SunexLens,
+                                      DefaultLens]}
