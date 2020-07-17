@@ -188,7 +188,7 @@ class LoadImageApp(tk.Toplevel):
         self.status.pack(side=tk.BOTTOM, fill=tk.X)
 
         # Events
-        self.canvas.bind("<MouseWheel>", self.zoomer)
+        self.canvas.bind("<MouseWheel>", self.zoom_wheel)
         self.canvas.bind("<Motion>", self.motion)
         self.canvas.bind("<ButtonPress-1>", self.b1down)
         self.canvas.bind("<ButtonRelease-1>", self.b1up)
@@ -413,10 +413,6 @@ class LoadImageApp(tk.Toplevel):
         azimuth %= 360
 
         my_canvas.delete("azimuth")
-
-        old_anchor = my_canvas.find_withtag("anchor")
-        if old_anchor:
-            my_canvas.delete(old_anchor)
 
         ax, ay = self.to_window(anchor)
         (wX, wY) = self.to_window(center)
@@ -829,8 +825,11 @@ class LoadImageApp(tk.Toplevel):
     def store_old_xy_event(self, event_x, event_y):
         self.xold = event_x
         self.yold = event_y
-
-    def zoomer(self, event):
+    
+    def store_xy_selection(self, event):
+        self.select_X, self.select_Y = event.x, event.y
+        
+    def zoom_wheel(self, event):
 
         if self.raw_image:
             (x, y) = self.to_raw((event.x, event.y))
@@ -852,6 +851,8 @@ class LoadImageApp(tk.Toplevel):
 
     def b1down(self, event):
         logging.debug('b1down() at ({},{})'.format(event.x, event.y))
+        self.store_xy_selection(event)
+        self.button_1 = "down"
         
         if self.raw_image:
             if self.tool == "dot":
@@ -860,34 +861,21 @@ class LoadImageApp(tk.Toplevel):
                 self.drawDots(self.canvas)
 
             else:
-                self.select_X, self.select_Y = event.x, event.y
-                self.button_1 = "down"
-
                 if self.tool == "azimuth":
-                    if not self.showGrid:
-                        self.showGrid = True
-                        self.drawGrid(self.canvas, self.center, self.radius,
-                                      self.spoke_spacing)
-                    old_anchor = event.widget.find_withtag("anchor")
-                    
-                    if old_anchor:
-                        event.widget.delete(old_anchor)
-
-                    # save the anchor
+                    self.drawGrid(self.canvas, self.center, self.radius,
+                                    self.spoke_spacing)
+                                      
                     self.anchor = self.to_raw((event.x, event.y))
-                    # event.widget.itemconfig(item, tags=("anchor"))
-
                     self.drawAzimuth(self.canvas, self.center, self.radius,
                                      self.anchor)
 
     def b1up(self, event):
-
+        self.button_1 = "up"
         logging.debug('b1up()-> tool = %s at (%d, %d)', 
                       self.tool, event.x, event.y)
         if not self.raw_image:
             return
 
-        self.button_1 = "up"
         self.store_old_xy_event(None, None)
 
         if self.tool == "select":
@@ -985,7 +973,7 @@ class LoadImageApp(tk.Toplevel):
     def b3up(self, event):
         pass
     
-    def _update_viewport(self, event):
+    def _zoom_wheel_viewport(self, event):
         view_x = self.viewport[0] - (event.x - self.xold)
         view_y = self.viewport[1] - (event.y - self.yold)
         self.viewport = (view_x, view_y)
@@ -997,30 +985,30 @@ class LoadImageApp(tk.Toplevel):
         # Button 2 pans no matter what
         if self.raw_image and self.button_2 == "down":
             if self.xold is not None and self.yold is not None:
-                self._update_viewport(event)
+                self._zoom_wheel_viewport(event)
             
-            self.store_old_xy_event(event.x, event.y)
 
         # Conditional on button 1 depressed
         if self.raw_image and self.button_1 == "down":
             if self.xold is not None and self.yold is not None:
 
                 if self.tool == "move":     # Panning
-                    self._update_viewport(event)
+                    self._zoom_wheel_viewport(event)
 
                 elif self.tool == "select":
-                    # Draw a dotted rectangle to show the area selected
-                    rect = event.widget.find_withtag("selection_rectangle")
-                    if rect:
-                        event.widget.delete(rect)
-                    event.widget.create_rectangle(self.select_X, self.select_Y, 
-                                                  event.x, event.y, fill="", 
-                                                  dash=(4, 2), 
-                                                  tag="selection_rectangle")
+                    self.zoom_wheel_selection_rectange(event)
                                                   
-            self.store_old_xy_event(event.x, event.y)
-        
+        self.store_old_xy_event(event.x, event.y)
         self.update_status_bar(event)
+    
+    def update_selection_rectange(self, event):
+        rect = event.widget.find_withtag("selection_rectangle")
+        if rect:
+            event.widget.delete(rect)
+        event.widget.create_rectangle(self.select_X, self.select_Y, 
+                                        event.x, event.y, fill="", 
+                                        dash=(4, 2), 
+                                        tag="selection_rectangle")
 
     def update_status_bar(self, event):
         coordinate = self.to_raw((event.x, event.y))
@@ -1035,9 +1023,10 @@ class LoadImageApp(tk.Toplevel):
         if self.raw_image:
             try:
                 img_value = self.raw_image.getpixel(coordinate)
+                img_value = "({:03d}, {:03d}, {:03d})".format(*img_value) 
             except IndexError:
-                img_value = "NA"
-            output += "Image value: {}".format(str(img_value)).ljust(25)
+                img_value = "(---, ---, ---)"
+            output += "Image value: {}".format(img_value).ljust(25)
         
         self.status.config(text=output)
         
