@@ -1072,7 +1072,10 @@ class LoadImageApp(tk.Toplevel):
         
     def select_lens(self):
         lens_selection = LensSelectionDialog(self.parent, default=self.lens.NAME)
-        self.lens = lens_selection.lens
-        logging.info("Set lens calibration to {}".format(self.lens))
-
+        if lens_selection:
+            self.lens = lens_selection.lens
+            logging.info("Set lens calibration to {}".format(self.lens.NAME))
+        
+        if self.center:
+            self.azimuth_calculation(self.center, self.radius, self.image_azimuth_coords)
         

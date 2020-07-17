@@ -21,7 +21,7 @@ class LensSelectionDialog(tkSimpleDialog.Dialog):
         self.transient(parent)
 
         self.title("Lens selection")
-        self.default = default
+        self.default = lenses[default]
         self.parent = parent
         self.lens = None
 
@@ -42,18 +42,27 @@ class LensSelectionDialog(tkSimpleDialog.Dialog):
         self.initial_focus.focus_set()
         self.wait_window(self)
 
+    def change_infobox(self, *args):
+        self.infobox.config(state='normal')
+        self.infobox.delete(1.0, "end")
+        self.infobox.insert("end", lenses[self.lens_var.get()].INFO)
+        self.infobox.config(state='disabled')
+
     def body(self, master):
+
+        self.infobox = tk.Text(master, height=5, width=35)
+        self.infobox.insert("end", self.default.INFO)
+        self.infobox.grid(row=3, rowspan=3, columnspan=2)
+        self.infobox.config(state='disabled')
+
         self.lens_var = tk.StringVar()
-        self.lens_var.set(self.default)
+        self.lens_var.set(self.default.NAME)
 
-        def callback(*args):
-            print("lens changed!")
-
-        self.lens_var.trace("w", callback)
+        self.lens_var.trace("w", self.change_infobox)
 
         tk.Label(master, text="Select Lens").grid(row=0)
         lens_selected = tk.OptionMenu(master, self.lens_var, *list(lenses.keys()))
-        lens_selected.grid(row=2)
+        lens_selected.grid(row=2, columnspan=4)
 
         return lens_selected
 
