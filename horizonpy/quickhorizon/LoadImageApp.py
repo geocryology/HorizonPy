@@ -29,8 +29,9 @@ from horizonpy.quickhorizon.ArcSkyDialog import ArcSkyDialog
 from horizonpy.quickhorizon.GridDialog import GridDialog
 from horizonpy.quickhorizon.AzimuthDialog import AzimuthDialog
 from horizonpy.quickhorizon.SkyViewFactorDialog import SkyViewFactorDialog
+from horizonpy.quickhorizon.LensSelectionDialog import LensSelectionDialog
 import horizonpy.quickhorizon.HorizonDecorators as hd
-
+import horizonpy.quickhorizon.LensCalibrations as lens
 
 from horizonpy.quickhorizon.ArcSkyDialog import ArcSkyDialog # creates _has_gdal object
 
@@ -66,6 +67,7 @@ class LoadImageApp(tk.Toplevel):
         self.parent = root
         self.frame = tk.Frame(root, bg='black')
         self.imageFile = image_file
+        self.lens = lens.SunexLens
         self.field_azimuth = -1
         self.contrast_value = 1
         self.brightness_value = 1
@@ -147,6 +149,7 @@ class LoadImageApp(tk.Toplevel):
         
         gridmenu.add_command(label="Define Image Azimuth", command=self.define_azimuth)
         gridmenu.add_command(label="Enter Field Azimuth", command=self.define_field_azimuth)
+        gridmenu.add_command(label="Select Lens Calibration", command=self.select_lens)
         menubar.add_cascade(label="Azimuth",menu=gridmenu)
 
         viewmenu = tk.Menu(menubar, tearoff=0)
@@ -469,7 +472,37 @@ class LoadImageApp(tk.Toplevel):
             self.drawDots(self.canvas)
         else:
             logging.info('No file selected')
+    
+    @hd.require_image_azimuth
+    @hd.require_grid
+    def open_geotop(self, file=None):
+        # Open a CSV file with previous XY coordinates
+        
+        if not file:
+            file = tkFileDialog.askopenfilename(**self.csv_opt)
 
+        if file:
+
+            # Delete  existing dots from canvas and data 
+            self.canvas.delete("dot")
+            del self.dots[:]
+
+            # start canvas with image file
+            f = open(file,'rt')
+            try:
+                reader = csv.reader(f)
+                next(reader) # skip header row
+
+                for row in reader:
+                    pass
+
+            finally:
+                f.close()
+
+            self.drawDots(self.canvas)
+        else:
+            logging.info('No file selected')
+            
     @hd.require_field_azimuth
     @hd.require_horizon_points
     def save_csv(self):
@@ -668,6 +701,7 @@ class LoadImageApp(tk.Toplevel):
                 else:
                     tkMessageBox.showerror("Error!", "No overlay parameters have been set!")
     
+    @hd.require_image_file 
     @hd.require_grid
     def define_azimuth(self):
       # Enter azimuth definition mode
@@ -977,16 +1011,8 @@ class LoadImageApp(tk.Toplevel):
             return((azimuth + self.field_azimuth) % 360)
 
     def find_horizon(self, dot_radius, grid_radius):
-        
-        # Enter total field of view of Sunex camera (based on lens/camera model)
-        camera = 185   
-
-        # Adjust horizon elevation using calibration polynomial
-        elev = (camera/2) - ((dot_radius/grid_radius) * (camera/2))
-        
-        # Calculate Horizon Elevation
-        elev = (-0.00003 * (elev * elev)) + (1.0317 * (elev)) - 2.4902 # From Empey (2015)
-        return (max([elev,0]))
+        horizon = self.lens.horizon_from_radius(dot_radius, grid_radius)
+        return horizon
     
     @hd.require_horizon_points
     @hd.require_image_azimuth
@@ -1044,8 +1070,12 @@ class LoadImageApp(tk.Toplevel):
     def arcsky(self):
         skypoints = ArcSkyDialog(self)
         
-
-
-    
-
+    def select_lens(self):
+        lens_selection = LensSelectionDialog(self.parent, default=self.lens.NAME)
+        if lens_selection:
+            self.lens = lens_selection.lens
+            logging.info("Set lens calibration to {}".format(self.lens.NAME))
+        
+        if self.center:
+            self.azimuth_calculation(self.center, self.radius, self.image_azimuth_coords)
         
