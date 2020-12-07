@@ -457,11 +457,11 @@ class LoadImageApp(tk.Toplevel):
 
         if self.show_grid:
             self.draw_grid(my_canvas, self.center, self.radius,
-                          self.spoke_spacing)
+                           self.spoke_spacing)
 
             if 0 <= self.image_azimuth <= 360:
                 self.draw_azimuth(my_canvas, self.center, self.radius,
-                                 self.anchor)
+                                  self.anchor)
 
     ########################################################
     # Menu options
@@ -517,7 +517,6 @@ class LoadImageApp(tk.Toplevel):
             file = tkFileDialog.askopenfilename(**self.csv_opt)
 
         if file:
-
             # Delete  existing dots from canvas and data
             self.canvas.delete("dot")
             self.points.delete_all()
@@ -637,7 +636,7 @@ class LoadImageApp(tk.Toplevel):
         self.tool = "select"
 
     def show_dots(self):
-        tkMessageBox.showinfo("Dot Info", self.print_dots())
+        tkMessageBox.showinfo("Dot Info", self.points.print_dots())
 
     def about(self):
         tkMessageBox.showinfo("About QuickHorizon",
@@ -653,17 +652,6 @@ class LoadImageApp(tk.Toplevel):
     def delete_all(self):
         selection = self.canvas.find_withtag("dot")
         self.delete_dots(selection)
-
-    def print_dots(self):
-        text = "X , Y = "
-
-        rows = len(self.points.get_dots())
-        for row in range(rows):
-            i = self.points.get_dots()[row]
-
-            text = text + "(" + str(i[0]) + " , " + str(i[1]) + "), "
-
-        return text
 
     def show_grid(self):
         # Get x,y coords and radius for of wheel
@@ -885,13 +873,9 @@ class LoadImageApp(tk.Toplevel):
 
             if confirm:
                 for i, coords in to_delete.items():
-
-
-                    for dot in self.points.get_dots():
-                        if coords == tuple(dot[0:2]):
-                            self.points.dots.remove(dot)
+                    self.points.del_point_with_coordinates(coords)
                     logging.debug('Removing dot %d with coords: %d, %d', i,
-                                    coords[0], coords[1])
+                                  coords[0], coords[1])
                     self.canvas.delete(i)
 
             else:

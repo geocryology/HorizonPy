@@ -5,6 +5,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 from horizonpy.quickhorizon.geometry import calculate_true_azimuth, find_angle
 
+
 class HorizonPoints:
 
     def __init__(self):
@@ -103,6 +104,16 @@ class HorizonPoints:
 
     def update_image_azimuth(self, image_azimuth):
         pass
+
+    def del_point_with_coordinates(self, coords):
+        """ Delete point with specified raw coordinates 
+        
+        coords: tuple
+            Raw (x,y) coordiantes of horizon point
+        """
+        for dot in self.dots:
+            if coords == tuple(dot[0:2]):
+                self.dots.remove(dot)
 
     def update_field_azimuth(self, field_azimuth):
         self.dots = [x + [calculate_true_azimuth(x[3], field_azimuth)] for x in self.get_dots()]
