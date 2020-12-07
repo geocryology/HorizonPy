@@ -609,41 +609,19 @@ class LoadImageApp(tk.Toplevel):
 
     @hd.require_field_azimuth
     @hd.require_horizon_points
-    def save_geotop_hrzn(self, delta=3):
-        # Save the dots to CSV file
-        # delta = discretization interval for azimuth
-
-        az = np.array([calculate_true_azimuth(x[3], self.field_azimuth) for x in self.points.get_dots()])
-        hor = np.array([x[2] for x in self.points.get_dots()])
-        if np.any(hor > 90):
-            if not tkMessageBox.askokcancel("Warning!",
-                                            """Horizon angles greater than 90 degrees are not
-                                            compatible with geotop horizon files. They will be reduced
-                                            to 90 degrees. Click OK to continue or Cancel to abort"""):
-                return
-            hor[hor >= 90] = 90
-
-        az = az[np.argsort(az)]
-        hor = hor[np.argsort(az)]  # sorting to order by azimuth
-
-        # Create spline equation to obtain hor(az) for any azimuth
-        # add endpoints on either side of sequence so interpolation is good
-        x = np.concatenate((az[-2:] - 360, az, az[:2] + 360))
-        y = np.concatenate((hor[-2:], hor, hor[:2]))
-        f_hor = interp1d(x, y, kind='linear')
-
-        # Interpolate horizon at evenly spaced interval using spline
-        phi = np.array(range(0, 360, delta))
-        theta_h = f_hor(phi)
+    def save_geotop_hrzn(self):
+        # Save the horizon points to CSV file
+        if not tkMessageBox.askokcancel("Warning!",
+                                        "Horizon angles greater than 90 degrees are not "
+                                        "compatible with geotop horizon files. They will be reduced "
+                                        "to 90 degrees. Click OK to continue or Cancel to abort"):
+            return
 
         try:
             f_name = tkFileDialog.asksaveasfilename(defaultextension=".txt")
 
             if f_name:
-                df = zip(phi, ["{:.2f}".format(t) for t in theta_h])
-                df = pd.DataFrame(df)
-                df.columns = ('azimuth_deg', 'horizon_ele_deg')
-                df.to_csv(f_name, index=False)
+                self.points.export_to_geotop(f_name, self.field_azimuth, delta=3)
 
         except PermissionError as e:
             tkMessageBox.showerror("Error!",

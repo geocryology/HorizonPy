@@ -1,5 +1,9 @@
 import csv
+import pandas as pd
 import logging
+import numpy as np
+from scipy.interpolate import interp1d
+from horizonpy.quickhorizon.geometry import calculate_true_azimuth, find_angle
 
 class HorizonPoints:
 
@@ -32,8 +36,32 @@ class HorizonPoints:
     def __get_import_method(self, data_type):
         pass
 
-    def export_to_geotop():
-        pass
+    def export_to_geotop(self, f_name, field_azimuth, delta):
+        # Save the horizon points to a geotop CSV file
+        # delta = discretization interval for azimuth
+
+        az = np.array([calculate_true_azimuth(x[3], field_azimuth) for x in self.get_dots()])
+        hor = np.array([x[2] for x in self.get_dots()])
+ 
+        hor[hor >= 90] = 90
+
+        az = az[np.argsort(az)]
+        hor = hor[np.argsort(az)]  # sorting to order by azimuth
+
+        # Create spline equation to obtain hor(az) for any azimuth
+        # add endpoints on either side of sequence so interpolation is good
+        x = np.concatenate((az[-2:] - 360, az, az[:2] + 360))
+        y = np.concatenate((hor[-2:], hor, hor[:2]))
+        f_hor = interp1d(x, y, kind='linear')
+
+        # Interpolate horizon at evenly spaced interval using spline
+        phi = np.array(range(0, 360, delta))
+        theta_h = f_hor(phi)
+
+        df = zip(phi, ["{:.2f}".format(t) for t in theta_h])
+        df = pd.DataFrame(df)
+        df.columns = ('azimuth_deg', 'horizon_ele_deg')
+        df.to_csv(f_name, index=False)
 
     def export_to_horizon_csv(self):
         pass
@@ -55,3 +83,10 @@ class HorizonPoints:
             return True
         else:
             return False
+
+    def update_image_azimuth(self):
+        pass
+
+    def update_true_azimuth(self):
+        pass
+
