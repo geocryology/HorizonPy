@@ -355,8 +355,8 @@ class LoadImageApp(tk.Toplevel):
         window_y = int(y * self.mux[self.zoomcycle]) - vy
         return (window_x, window_y)
 
-    def draw_dots(self, my_canvas):
-        for dot in self.points.get_dots():
+    def draw_dots(self, my_canvas, horizon_points):
+        for dot in horizon_points.get_dots():
 
             (x, y) = self.to_window((dot[0], dot[1]))
 
@@ -453,7 +453,7 @@ class LoadImageApp(tk.Toplevel):
 
         # Draw  saved dots
         if self.points.any_defined():
-            self.draw_dots(my_canvas)
+            self.draw_dots(my_canvas, self.points)
 
         if self.show_grid:
             self.draw_grid(my_canvas, self.center, self.radius,
@@ -504,7 +504,7 @@ class LoadImageApp(tk.Toplevel):
             finally:
                 f.close()
 
-            self.draw_dots(self.canvas)
+            self.draw_dots(self.canvas, self.points)
         else:
             logging.info('No file selected')
 
@@ -533,7 +533,7 @@ class LoadImageApp(tk.Toplevel):
             finally:
                 f.close()
 
-            self.draw_dots(self.canvas)
+            self.draw_dots(self.canvas, self.points)
         else:
             logging.info('No file selected')
 
@@ -816,7 +816,7 @@ class LoadImageApp(tk.Toplevel):
             if self.tool == "dot":
                 raw = self.to_raw((event.x, event.y))
                 self._define_new_dot(raw, overhanging=False)
-                self.draw_dots(self.canvas)
+                self.draw_dots(self.canvas, self.points)
 
             else:
                 if self.tool == "azimuth":
@@ -897,7 +897,7 @@ class LoadImageApp(tk.Toplevel):
             if self.tool == "dot":
                 raw = self.to_raw((event.x, event.y))
                 self._define_new_dot(raw, overhanging=True)
-                self.draw_dots(self.canvas)
+                self.draw_dots(self.canvas, self.points)
 
     def _define_new_dot(self, raw, overhanging=False):
         if self.grid_set and (0 <= self.image_azimuth <= 360):
@@ -1011,7 +1011,7 @@ class LoadImageApp(tk.Toplevel):
             new_dots.append(new_dot)
 
         self.points.dots = new_dots
-        self.draw_dots(self.canvas)
+        self.draw_dots(self.canvas, self.points)
 
     def find_horizon(self, dot_radius, grid_radius):
         horizon = self.lens.horizon_from_radius(dot_radius, grid_radius)
