@@ -27,6 +27,8 @@ from horizonpy.quickhorizon.GridDialog import GridDialog
 from horizonpy.quickhorizon.AzimuthDialog import AzimuthDialog
 from horizonpy.quickhorizon.SkyViewFactorDialog import SkyViewFactorDialog
 from horizonpy.quickhorizon.LensSelectionDialog import LensSelectionDialog
+from horizonpy.quickhorizon.HorizonPoints import HorizonPoints
+from horizonpy.quickhorizon.geometry import calculate_true_azimuth
 import horizonpy.quickhorizon.HorizonDecorators as hd
 import horizonpy.quickhorizon.LensCalibrations as lens
 
@@ -62,6 +64,7 @@ class LoadImageApp(tk.Toplevel):
         self.field_azimuth = -1
         self.contrast_value = 1
         self.brightness_value = 1
+        self.points = HorizonPoints()
 
         # zoom
         self.mux = {0: 1.0}
@@ -540,7 +543,7 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_horizon_points
     def save_csv(self):
         # Save the dots to CSV file
-        self.dots = [x + [self.calculate_true_azimuth(x[3])] for x in self.dots]
+        self.dots = [x + [calculate_true_azimuth(x[3], self.field_azimuth)] for x in self.dots]
         logging.debug(self.dots)
         try:
             f_name = tkFileDialog.asksaveasfilename(**self.csv_opt)
@@ -611,7 +614,7 @@ class LoadImageApp(tk.Toplevel):
         # Save the dots to CSV file
         # delta = discretization interval for azimuth
 
-        az = np.array([self.calculate_true_azimuth(x[3]) for x in self.dots])
+        az = np.array([calculate_true_azimuth(x[3], self.field_azimuth) for x in self.dots])
         hor = np.array([x[2] for x in self.dots])
         if np.any(hor > 90):
             if not tkMessageBox.askokcancel("Warning!",
@@ -1059,12 +1062,6 @@ class LoadImageApp(tk.Toplevel):
             angle_in_degrees += 360
 
         return angle_in_degrees
-
-    def calculate_true_azimuth(self, azimuth):
-        if self.field_azimuth == -1:
-            return(-1)
-        else:
-            return((azimuth + self.field_azimuth) % 360)
 
     def find_horizon(self, dot_radius, grid_radius):
         horizon = self.lens.horizon_from_radius(dot_radius, grid_radius)
