@@ -1,11 +1,13 @@
 try: # python 3
     import tkinter.simpledialog as tkSimpleDialog
-except:  # python 2
+except ImportError:  # python 2
     import tkSimpleDialog
 try:
     import Tkinter as tk
+    import tkMessageBox
 except ImportError:
     import tkinter as tk
+    import tkinter.messagebox as tkMessageBox
 ####################################################################
 # FieldAzimuth Dialog (green line)
 ####################################################################
@@ -36,8 +38,8 @@ class AzimuthDialog(tkSimpleDialog.Dialog):
 
         self.protocol("WM_DELETE_WINDOW", self.cancel)
 
-        self.geometry("+%d+%d" % (parent.winfo_rootx()+50,
-                                  parent.winfo_rooty()+50))
+        self.geometry("+%d+%d" % (parent.winfo_rootx() + 50,
+                                  parent.winfo_rooty() + 50))
 
         self.initial_focus.focus_set()
         self.wait_window(self)

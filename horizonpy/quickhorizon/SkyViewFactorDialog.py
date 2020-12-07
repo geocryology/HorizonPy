@@ -10,13 +10,15 @@ import matplotlib as mpl
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from horizonpy.skyview import SVF_discretized, add_sky_plot, plot_rotated_points, svf_steyn_1980, rotate_horizon, project_horizon_to_equirectangular
 from shapely.errors import TopologicalError
-
+from horizonpy.quickhorizon.geometry import calculate_true_azimuth
 ####################################################################
 # Skyview factor popup
 ####################################################################
 #http://www-acc.kek.jp/kekb/control/Activity/Python/TkIntro/introduction/intro09.htm
+
+
 class SkyViewFactorDialog(tk.Toplevel):
-    def __init__(self, parent):
+    def __init__(self, parent, horizon_points, field_azimuth):
 
         tk.Toplevel.__init__(self, parent.frame)
         self.transient(parent.frame)
@@ -24,8 +26,8 @@ class SkyViewFactorDialog(tk.Toplevel):
         self.title("Sky View Calculator")
         self.parent = parent.frame
 
-        self.pts_az = np.array([parent.calculate_true_azimuth(x[3]) for x in parent.dots])
-        self.pts_hor = np.array([x[2] for x in parent.dots])
+        self.pts_az = np.array([calculate_true_azimuth(x[3], field_azimuth) for x in horizon_points.get_dots()])
+        self.pts_hor = np.array([x[2] for x in horizon_points.get_dots()])
 
         self.pts_az = np.append(self.pts_az, self.pts_az[0])
         self.pts_hor = np.append(self.pts_hor, self.pts_hor[0])
@@ -60,7 +62,6 @@ class SkyViewFactorDialog(tk.Toplevel):
         self.canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self.draw_unrotated()
 
-
     def draw_unrotated(self):
         x,y = project_horizon_to_equirectangular(self.pts_az, self.pts_hor)
         r = np.sqrt(x**2 + y**2)
@@ -73,7 +74,7 @@ class SkyViewFactorDialog(tk.Toplevel):
         if hasattr(self, 'rot'):
             self.rot.remove()
         self.apply()
-        #self.ax.plot(np.arange(0,360,30), np.random.random(12))
+        # self.ax.plot(np.arange(0,360,30), np.random.random(12))
         self.rot, = plot_rotated_points(self.pts_az, self.pts_hor, self.surface_asp, self.surface_dip, self.ax)
 
         self.canvas.draw()
@@ -90,7 +91,6 @@ class SkyViewFactorDialog(tk.Toplevel):
         w = tk.Button(box, text="Exit", width=10, command=self.cancel)
         w.pack(side=tk.LEFT, padx=5, pady=5)
 
-
         self.bind("<Return>", self.ok)
         self.bind("<Escape>", self.cancel)
         box.pack()
@@ -98,7 +98,7 @@ class SkyViewFactorDialog(tk.Toplevel):
     # standard button semantics
     def ok(self, event=None):
         if self.apply():
-            #F_sky = SVF_discretized(self.pts_az, self.pts_hor, self.surface_asp, self.surface_dip, 1)
+            # F_sky = SVF_discretized(self.pts_az, self.pts_hor, self.surface_asp, self.surface_dip, 1)
             self.redraw()
             rotated_horizon = rotate_horizon(self.pts_az, self.pts_hor, self.surface_asp, self.surface_dip)
             try:
@@ -151,6 +151,7 @@ class SkyViewFactorDialog(tk.Toplevel):
                 self.surface_dip = DIP
                 self.surface_asp = AZ
                 return True
+
         except:
             tkMessageBox.showerror("Error!", "Numeric values only, please")
             return False

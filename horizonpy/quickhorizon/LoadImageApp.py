@@ -716,6 +716,7 @@ class LoadImageApp(tk.Toplevel):
             self.tool = "azimuth"
 
     @hd.require_image_file
+    @hd.require_image_azimuth
     def define_field_azimuth(self):
         if self.warn_dots:
             d = AzimuthDialog(self.parent, azimuth=self.field_azimuth)
@@ -1040,10 +1041,10 @@ class LoadImageApp(tk.Toplevel):
 
     @hd.require_horizon_points
     def svf(self):
-        SkyViewFactorDialog(self)
+        SkyViewFactorDialog(self, self.points, self.field_azimuth)
 
     def arcsky(self):
-        skypoints = ArcSkyDialog(self)
+        _ = ArcSkyDialog(self)
 
     def select_lens(self):
         lens_selection = LensSelectionDialog(self.parent, default=self.lens.NAME)
