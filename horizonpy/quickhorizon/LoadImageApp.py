@@ -235,7 +235,7 @@ class LoadImageApp(tk.Toplevel):
         self.show_grid = False
         self.grid_set = False
 
-        del self.dots[:]
+        del self.points.dots[:]
 
         if image_file:
             self.load_image(canvas, image_file)
@@ -356,7 +356,7 @@ class LoadImageApp(tk.Toplevel):
         return (window_x, window_y)
 
     def draw_dots(self, my_canvas):
-        for dot in self.dots:
+        for dot in self.points.dots:
 
             (x, y) = self.to_window((dot[0], dot[1]))
 
@@ -378,8 +378,8 @@ class LoadImageApp(tk.Toplevel):
 
     def draw_patch(self, my_canvas):
         self.canvas.delete("sky_polygon")
-        if len(self.dots) > 3:
-            scaled = [self.to_window((dot[0], dot[1])) for dot in self.dots]
+        if len(self.points.dots) > 3:
+            scaled = [self.to_window((dot[0], dot[1])) for dot in self.points.dots]
             xy = [i for dot in scaled for i in dot[:2]]
             sky_polygon = my_canvas.create_polygon(*xy, fill="", outline='blue')
             my_canvas.itemconfig(sky_polygon, tags=("sky_polygon"))
@@ -452,7 +452,7 @@ class LoadImageApp(tk.Toplevel):
         my_canvas.create_image(0, 0, image=self.p_img, anchor="nw")
 
         # Draw  saved dots
-        if self.dots:
+        if self.points.dots:
             self.draw_dots(my_canvas)
 
         if self.show_grid:
@@ -488,7 +488,7 @@ class LoadImageApp(tk.Toplevel):
 
             # Delete  existing dots from canvas and data
             self.canvas.delete("dot")
-            del self.dots[:]
+            del self.points.dots[:]
 
             # start canvas with image file
             f = open(file, 'rt')
@@ -520,7 +520,7 @@ class LoadImageApp(tk.Toplevel):
 
             # Delete  existing dots from canvas and data
             self.canvas.delete("dot")
-            del self.dots[:]
+            del self.points.dots[:]
 
             # start canvas with image file
             f = open(file, 'rt')
@@ -542,12 +542,12 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_horizon_points
     def save_csv(self):
         # Save the dots to CSV file
-        self.dots = [x + [calculate_true_azimuth(x[3], self.field_azimuth)] for x in self.dots]
-        logging.debug(self.dots)
+        self.points.dots = [x + [calculate_true_azimuth(x[3], self.field_azimuth)] for x in self.points.dots]
+        logging.debug(self.points.dots)
         try:
             f_name = tkFileDialog.asksaveasfilename(**self.csv_opt)
             if f_name:
-                df = pd.DataFrame(self.dots)
+                df = pd.DataFrame(self.points.dots)
                 df.columns = ('X', 'Y', 'Horizon',
                               'Image Azimuth', 'True Azimuth')
                 df.to_csv(f_name, index=False)
@@ -613,8 +613,8 @@ class LoadImageApp(tk.Toplevel):
         # Save the dots to CSV file
         # delta = discretization interval for azimuth
 
-        az = np.array([calculate_true_azimuth(x[3], self.field_azimuth) for x in self.dots])
-        hor = np.array([x[2] for x in self.dots])
+        az = np.array([calculate_true_azimuth(x[3], self.field_azimuth) for x in self.points.dots])
+        hor = np.array([x[2] for x in self.points.dots])
         if np.any(hor > 90):
             if not tkMessageBox.askokcancel("Warning!",
                                             """Horizon angles greater than 90 degrees are not
@@ -680,9 +680,9 @@ class LoadImageApp(tk.Toplevel):
     def print_dots(self):
         text = "X , Y = "
 
-        rows = len(self.dots)
+        rows = len(self.points.dots)
         for row in range(rows):
-            i = self.dots[row]
+            i = self.points.dots[row]
 
             text = text + "(" + str(i[0]) + " , " + str(i[1]) + "), "
 
@@ -760,7 +760,7 @@ class LoadImageApp(tk.Toplevel):
                 self.field_azimuth = d.azimuth
 
     def warn_dots(self):
-        if len(self.dots) > 0:
+        if len(self.points.dots) > 0:
             dialog = tkMessageBox.askokcancel("Warning!", 
                                               """Are you sure you want to 
                                               change this parameter? calculated 
@@ -910,9 +910,9 @@ class LoadImageApp(tk.Toplevel):
                 for i, coords in to_delete.items():
 
 
-                    for dot in self.dots:
+                    for dot in self.points.dots:
                         if coords == tuple(dot[0:2]):
-                            self.dots.remove(dot)
+                            self.points.dots.remove(dot)
                     logging.debug('Removing dot %d with coords: %d, %d', i,
                                     coords[0], coords[1])
                     self.canvas.delete(i)
@@ -961,10 +961,10 @@ class LoadImageApp(tk.Toplevel):
                     azimuth = (180 + azimuth) % 360
 
             new_dot = [raw[0], raw[1], round(horizon, 5), round(azimuth, 5)]
-            self.dots.append(new_dot)
+            self.points.dots.append(new_dot)
 
         else:
-            self.dots.append(raw + (-998, -999))
+            self.points.dots.append(raw + (-998, -999))
 
     def b3up(self, event):
         pass
@@ -1032,7 +1032,7 @@ class LoadImageApp(tk.Toplevel):
     def azimuth_calculation(self, center, radius, azimuth):
         new_dots = []
 
-        for dot in self.dots:
+        for dot in self.points.dots:
             azimuth = find_angle(center, self.image_azimuth_coords, (dot[0], dot[1]))
 
             dot_radius = np.sqrt(np.power(dot[0] - center[0], 2) + np.power(dot[1] - center[1], 2))
@@ -1049,7 +1049,7 @@ class LoadImageApp(tk.Toplevel):
             new_dot = [dot[0], dot[1], round(horizon, 5), round(azimuth, 5)]
             new_dots.append(new_dot)
 
-        self.dots = new_dots
+        self.points.dots = new_dots
         self.draw_dots(self.canvas)
 
     def find_horizon(self, dot_radius, grid_radius):
@@ -1060,7 +1060,7 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_image_azimuth
     def plothorizon(self, show=True):
         fig, ax = mpl.pyplot.subplots(1, 1, sharex=True)
-        plot_dots = self.dots
+        plot_dots = self.points.dots
         plot_dots.sort(key=lambda x: x[3])  # sort dots using image azimuth
         image_azim = [x[3] for x in plot_dots]
         image_azim.insert(0, (image_azim[-1] - 360))
