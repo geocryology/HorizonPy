@@ -30,3 +30,5 @@ class HorizonPoints:
     def get_dots(self):
         pass
 
+    def display_dots(self):
+        pass
