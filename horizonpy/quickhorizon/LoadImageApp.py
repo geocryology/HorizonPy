@@ -356,7 +356,7 @@ class LoadImageApp(tk.Toplevel):
         return (window_x, window_y)
 
     def draw_dots(self, my_canvas):
-        for dot in self.points.dots:
+        for dot in self.points.get_dots():
 
             (x, y) = self.to_window((dot[0], dot[1]))
 
@@ -378,8 +378,8 @@ class LoadImageApp(tk.Toplevel):
 
     def draw_patch(self, my_canvas):
         self.canvas.delete("sky_polygon")
-        if len(self.points.dots) > 3:
-            scaled = [self.to_window((dot[0], dot[1])) for dot in self.points.dots]
+        if len(self.points.get_dots()) > 3:
+            scaled = [self.to_window((dot[0], dot[1])) for dot in self.points.get_dots()]
             xy = [i for dot in scaled for i in dot[:2]]
             sky_polygon = my_canvas.create_polygon(*xy, fill="", outline='blue')
             my_canvas.itemconfig(sky_polygon, tags=("sky_polygon"))
@@ -542,12 +542,12 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_horizon_points
     def save_csv(self):
         # Save the dots to CSV file
-        self.points.dots = [x + [calculate_true_azimuth(x[3], self.field_azimuth)] for x in self.points.dots]
-        logging.debug(self.points.dots)
+        self.points.dots = [x + [calculate_true_azimuth(x[3], self.field_azimuth)] for x in self.points.get_dots()]
+        logging.debug(self.points.get_dots())
         try:
             f_name = tkFileDialog.asksaveasfilename(**self.csv_opt)
             if f_name:
-                df = pd.DataFrame(self.points.dots)
+                df = pd.DataFrame(self.points.get_dots())
                 df.columns = ('X', 'Y', 'Horizon',
                               'Image Azimuth', 'True Azimuth')
                 df.to_csv(f_name, index=False)
@@ -613,8 +613,8 @@ class LoadImageApp(tk.Toplevel):
         # Save the dots to CSV file
         # delta = discretization interval for azimuth
 
-        az = np.array([calculate_true_azimuth(x[3], self.field_azimuth) for x in self.points.dots])
-        hor = np.array([x[2] for x in self.points.dots])
+        az = np.array([calculate_true_azimuth(x[3], self.field_azimuth) for x in self.points.get_dots()])
+        hor = np.array([x[2] for x in self.points.get_dots()])
         if np.any(hor > 90):
             if not tkMessageBox.askokcancel("Warning!",
                                             """Horizon angles greater than 90 degrees are not
@@ -680,9 +680,9 @@ class LoadImageApp(tk.Toplevel):
     def print_dots(self):
         text = "X , Y = "
 
-        rows = len(self.points.dots)
+        rows = len(self.points.get_dots())
         for row in range(rows):
-            i = self.points.dots[row]
+            i = self.points.get_dots()[row]
 
             text = text + "(" + str(i[0]) + " , " + str(i[1]) + "), "
 
@@ -760,7 +760,7 @@ class LoadImageApp(tk.Toplevel):
                 self.field_azimuth = d.azimuth
 
     def warn_dots(self):
-        if len(self.points.dots) > 0:
+        if self.points.any_defined():
             dialog = tkMessageBox.askokcancel("Warning!", 
                                               """Are you sure you want to 
                                               change this parameter? calculated 
@@ -910,7 +910,7 @@ class LoadImageApp(tk.Toplevel):
                 for i, coords in to_delete.items():
 
 
-                    for dot in self.points.dots:
+                    for dot in self.points.get_dots():
                         if coords == tuple(dot[0:2]):
                             self.points.dots.remove(dot)
                     logging.debug('Removing dot %d with coords: %d, %d', i,
@@ -1060,7 +1060,7 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_image_azimuth
     def plothorizon(self, show=True):
         fig, ax = mpl.pyplot.subplots(1, 1, sharex=True)
-        plot_dots = self.points.dots
+        plot_dots = self.points.get_dots()
         plot_dots.sort(key=lambda x: x[3])  # sort dots using image azimuth
         image_azim = [x[3] for x in plot_dots]
         image_azim.insert(0, (image_azim[-1] - 360))
