@@ -1,12 +1,21 @@
+import numpy as np
 
+def find_angle(C, P2, P3):
+    """ Find angle created by three points
 
-def find_angle(self, C, P2, P3):
+    Finds the angle P2-C-P3 
 
+    C: tuple
+        (x,y) image coordinate corresponding to 
+    P2: tuple
+        (x,y) image coordinate corresponding to 
+    P3: tuple
+        (x,y) image coordinate corresponding to 
+    """
     angle = np.arctan2(P2[1] - C[1], P2[0] - C[0]) - np.arctan2(P3[1] - C[1], P3[0] - C[0])
     angle_in_degrees = np.degrees(angle)
 
-    if angle_in_degrees < 0:
-        angle_in_degrees += 360
+    angle_in_degrees %= 360
 
     return angle_in_degrees
 

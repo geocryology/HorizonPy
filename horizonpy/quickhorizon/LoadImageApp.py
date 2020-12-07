@@ -28,7 +28,7 @@ from horizonpy.quickhorizon.AzimuthDialog import AzimuthDialog
 from horizonpy.quickhorizon.SkyViewFactorDialog import SkyViewFactorDialog
 from horizonpy.quickhorizon.LensSelectionDialog import LensSelectionDialog
 from horizonpy.quickhorizon.HorizonPoints import HorizonPoints
-from horizonpy.quickhorizon.geometry import calculate_true_azimuth
+from horizonpy.quickhorizon.geometry import calculate_true_azimuth, find_angle
 import horizonpy.quickhorizon.HorizonDecorators as hd
 import horizonpy.quickhorizon.LensCalibrations as lens
 
@@ -409,8 +409,7 @@ class LoadImageApp(tk.Toplevel):
 
     def draw_azimuth(self, my_canvas, center, radius, anchor):
         # Find the angle for the anchor point from a standard ciricle (1,0) 0 degrees
-        azimuth = self.find_angle(center, anchor, (center[0] + radius, center[1]))
-        azimuth %= 360
+        azimuth = find_angle(center, anchor, (center[0] + radius, center[1]))
 
         my_canvas.delete("azimuth")
 
@@ -942,7 +941,7 @@ class LoadImageApp(tk.Toplevel):
     def _define_new_dot(self, raw, overhanging=False):
         if self.grid_set and (0 <= self.image_azimuth <= 360):
 
-            azimuth = self.find_angle(self.center, self.image_azimuth_coords,
+            azimuth = find_angle(self.center, self.image_azimuth_coords,
                                       (raw[0], raw[1]))
 
             dx = raw[0] - self.center[0]
@@ -1034,7 +1033,7 @@ class LoadImageApp(tk.Toplevel):
         new_dots = []
 
         for dot in self.dots:
-            azimuth = self.find_angle(center, self.image_azimuth_coords, (dot[0], dot[1]))
+            azimuth = find_angle(center, self.image_azimuth_coords, (dot[0], dot[1]))
 
             dot_radius = np.sqrt(np.power(dot[0] - center[0], 2) + np.power(dot[1] - center[1], 2))
             horizon = self.find_horizon(dot_radius, radius)
@@ -1052,16 +1051,6 @@ class LoadImageApp(tk.Toplevel):
 
         self.dots = new_dots
         self.draw_dots(self.canvas)
-
-    def find_angle(self, C, P2, P3):
-
-        angle = np.arctan2(P2[1] - C[1], P2[0] - C[0]) - np.arctan2(P3[1] - C[1], P3[0] - C[0])
-        angle_in_degrees = np.degrees(angle)
-
-        if angle_in_degrees < 0:
-            angle_in_degrees += 360
-
-        return angle_in_degrees
 
     def find_horizon(self, dot_radius, grid_radius):
         horizon = self.lens.horizon_from_radius(dot_radius, grid_radius)
