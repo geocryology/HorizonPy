@@ -84,8 +84,16 @@ class HorizonPoints:
     def get_dots(self):
         return self.dots
 
-    def display_dots(self):
-        pass
+    def print_dots(self):
+        text = "X , Y = "
+
+        rows = len(self.dots())
+        for row in range(rows):
+            i = self.dots[row]
+
+            text = text + "(" + str(i[0]) + " , " + str(i[1]) + "), "
+
+        return text
 
     def any_defined(self):
         if len(self.dots) > 0:
