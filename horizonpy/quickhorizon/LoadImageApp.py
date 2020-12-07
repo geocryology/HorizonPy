@@ -235,7 +235,7 @@ class LoadImageApp(tk.Toplevel):
         self.show_grid = False
         self.grid_set = False
 
-        del self.points.dots[:]
+        self.points.delete_all()
 
         if image_file:
             self.load_image(canvas, image_file)
@@ -452,7 +452,7 @@ class LoadImageApp(tk.Toplevel):
         my_canvas.create_image(0, 0, image=self.p_img, anchor="nw")
 
         # Draw  saved dots
-        if self.points.dots:
+        if self.points.any_defined():
             self.draw_dots(my_canvas)
 
         if self.show_grid:
@@ -488,7 +488,7 @@ class LoadImageApp(tk.Toplevel):
 
             # Delete  existing dots from canvas and data
             self.canvas.delete("dot")
-            del self.points.dots[:]
+            self.points.delete_all()
 
             # start canvas with image file
             f = open(file, 'rt')
@@ -520,7 +520,7 @@ class LoadImageApp(tk.Toplevel):
 
             # Delete  existing dots from canvas and data
             self.canvas.delete("dot")
-            del self.points.dots[:]
+            self.points.delete_all()
 
             # start canvas with image file
             f = open(file, 'rt')

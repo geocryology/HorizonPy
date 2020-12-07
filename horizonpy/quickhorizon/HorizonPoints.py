@@ -1,9 +1,10 @@
 import csv
+import logging
 
 class HorizonPoints:
 
     def __init__(self):
-        pass
+        self.dots = list()
     
     def import_horizon_csv(self, file):
         del self.dots[:]
@@ -38,7 +39,7 @@ class HorizonPoints:
         pass
 
     def delete_all(self):
-        pass
+        del self.dots[:]
 
     def add_dot(self):
         pass
@@ -48,3 +49,9 @@ class HorizonPoints:
 
     def display_dots(self):
         pass
+
+    def any_defined(self):
+        if len(self.dots) > 0:
+            return True
+        else:
+            return False

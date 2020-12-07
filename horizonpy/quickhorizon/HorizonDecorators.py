@@ -11,7 +11,7 @@ except:  # python 2
 def require_horizon_points(func):
     @wraps(func)
     def wrapper(self, *args, **kw):
-        if not self.dots:
+        if not self.points.any_defined():
             tkMessageBox.showerror("Error!", "No horizon points have been specified.")
             logging.info("Attempted to call function {} without horizon points".format(func))
         else:
