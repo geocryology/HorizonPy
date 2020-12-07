@@ -36,11 +36,16 @@ class HorizonPoints:
     def __get_import_method(self, data_type):
         pass
 
-    def export_to_geotop(self, f_name, field_azimuth, delta):
-        # Save the horizon points to a geotop CSV file
-        # delta = discretization interval for azimuth
+    def export_to_geotop(self, f_name, delta): 
+        """ Save the horizon points to a geotop CSV file 
+        
+        f_name : str
+            file path
 
-        az = np.array([calculate_true_azimuth(x[3], field_azimuth) for x in self.get_dots()])
+        delta : int
+            Discretization interval for azimuth spline
+        """
+        az = np.array([x[4] for x in self.get_dots()])
         hor = np.array([x[2] for x in self.get_dots()])
  
         hor[hor >= 90] = 90
@@ -63,8 +68,12 @@ class HorizonPoints:
         df.columns = ('azimuth_deg', 'horizon_ele_deg')
         df.to_csv(f_name, index=False)
 
-    def export_to_horizon_csv(self):
-        pass
+    def export_to_horizon_csv(self, f_name):
+        """ Save the dots to CSV file 
+        """                
+        df = pd.DataFrame(self.get_dots())
+        df.columns = ('X', 'Y', 'Horizon', 'Image Azimuth', 'True Azimuth')
+        df.to_csv(f_name, index=False)
 
     def delete_all(self):
         del self.dots[:]
@@ -84,9 +93,9 @@ class HorizonPoints:
         else:
             return False
 
-    def update_image_azimuth(self):
+    def update_image_azimuth(self, image_azimuth):
         pass
 
-    def update_true_azimuth(self):
-        pass
+    def update_field_azimuth(self, field_azimuth):
+        self.dots = [x + [calculate_true_azimuth(x[3], field_azimuth)] for x in self.get_dots()]
 

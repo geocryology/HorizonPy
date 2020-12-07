@@ -542,19 +542,40 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_horizon_points
     def save_csv(self):
         # Save the dots to CSV file
-        self.points.dots = [x + [calculate_true_azimuth(x[3], self.field_azimuth)] for x in self.points.get_dots()]
-        logging.debug(self.points.get_dots())
+        self.points.update_field_azimuth(self.field_azimuth)
+        
         try:
             f_name = tkFileDialog.asksaveasfilename(**self.csv_opt)
             if f_name:
-                df = pd.DataFrame(self.points.get_dots())
-                df.columns = ('X', 'Y', 'Horizon',
-                              'Image Azimuth', 'True Azimuth')
-                df.to_csv(f_name, index=False)
+                self.points.export_to_horizon_csv(f_name)
 
         except PermissionError as e:
             tkMessageBox.showerror("Error!",
                                    "Could not access file. Maybe it is already open?")
+            logging.error(e)
+
+    @hd.require_field_azimuth
+    @hd.require_horizon_points
+    def save_geotop_hrzn(self):
+        # Save the horizon points to CSV file
+        
+        if not tkMessageBox.askokcancel("Warning!",
+                                        "Horizon angles greater than 90 degrees are not "
+                                        "compatible with geotop horizon files. They will be reduced "
+                                        "to 90 degrees. Click OK to continue or Cancel to abort"):
+            return
+
+        self.points.update_field_azimuth(self.field_azimuth)
+        
+        try:
+            f_name = tkFileDialog.asksaveasfilename(defaultextension=".txt")
+
+            if f_name:
+                self.points.export_to_geotop(f_name, delta=3)
+
+        except PermissionError as e:
+            tkMessageBox.showerror("Error!",
+                            "Could not access file.  Maybe it is already open?")
             logging.error(e)
 
     @hd.require_field_azimuth
@@ -606,27 +627,6 @@ class LoadImageApp(tk.Toplevel):
         self.image_azimuth = config.getfloat("Azimuth", "image_azimuth")
         
         self.draw_azimuth(self.canvas, self.center, self.radius, self.anchor)
-
-    @hd.require_field_azimuth
-    @hd.require_horizon_points
-    def save_geotop_hrzn(self):
-        # Save the horizon points to CSV file
-        if not tkMessageBox.askokcancel("Warning!",
-                                        "Horizon angles greater than 90 degrees are not "
-                                        "compatible with geotop horizon files. They will be reduced "
-                                        "to 90 degrees. Click OK to continue or Cancel to abort"):
-            return
-
-        try:
-            f_name = tkFileDialog.asksaveasfilename(defaultextension=".txt")
-
-            if f_name:
-                self.points.export_to_geotop(f_name, self.field_azimuth, delta=3)
-
-        except PermissionError as e:
-            tkMessageBox.showerror("Error!",
-                            "Could not access file.  Maybe it is already open?")
-            logging.error(e)
 
     def exit_app(self):
         self.parent.destroy()
