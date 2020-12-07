@@ -1,15 +1,31 @@
+import csv
+
 class HorizonPoints:
 
     def __init__(self):
-        self.dots = list()
+        pass
     
-    def import_horizon_csv():
-        pass
+    def import_horizon_csv(self, file):
+        del self.dots[:]
 
-    def import_geotop_csv():
-        pass
+        # start canvas with image file
+        f = open(file, 'rt')
+        try:
+            reader = csv.reader(f)
+            next(reader)  # skip header row
 
-    def import_data(self, data_type="horizon")
+            for row in reader:
+                raw = (int(row[0]), int(row[1]))
+                overhang = float(row[2]) > 90
+                self._define_new_dot(raw, overhanging=overhang)
+
+        finally:
+            f.close()
+
+    def import_geotop_csv(): 
+        raise NotImplementedError
+
+    def import_data(self, data_type="horizon"):
         pass
 
     def __get_import_method(self, data_type):
@@ -28,7 +44,7 @@ class HorizonPoints:
         pass
 
     def get_dots(self):
-        pass
+        return self.dots
 
     def display_dots(self):
         pass
