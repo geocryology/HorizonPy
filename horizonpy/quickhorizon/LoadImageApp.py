@@ -50,7 +50,6 @@ class LoadImageApp(tk.Toplevel):
     image_azimuth = -1  # Define an angle of image azimuth from anchor (degrees)
     image_azimuth_coords = (0, 0)   # Store image Azimuth coordinates (endpoint)
     anchor = (-999, -999)         # Store the anchor coordinate
-    dots = []  # list of digitized dots.  Columns contain X, Y, Elevation, Az
 
     ####################################################################
     # Function: __init__
@@ -900,32 +899,8 @@ class LoadImageApp(tk.Toplevel):
                 self.draw_dots(self.canvas, self.points)
 
     def _define_new_dot(self, raw, overhanging=False):
-        if self.grid_set and (0 <= self.image_azimuth <= 360):
-
-            azimuth = find_angle(self.center, self.image_azimuth_coords,
-                                      (raw[0], raw[1]))
-
-            dx = raw[0] - self.center[0]
-            dy = raw[1] - self.center[1]
-            dot_radius = np.sqrt(np.power(dx, 2) + np.power(dy, 2))
-            horizon = self.find_horizon(dot_radius, self.radius)
-            
-            logging.info('Dot ({},{}) has Horizon Elevation = {:.1f}, Azimuth = {:.1f}'.format(
-                         raw[0], raw[1], horizon, azimuth))
-
-            if overhanging:
-                # modify coordinates so that the point is 'overhanging'
-                if horizon == 0:  # if horizon is exactly 0, make it a 90 deg point
-                    horizon = 90
-                else:
-                    horizon = 180 - horizon
-                    azimuth = (180 + azimuth) % 360
-
-            new_dot = [raw[0], raw[1], round(horizon, 5), round(azimuth, 5)]
-            self.points.dots.append(new_dot)
-
-        else:
-            self.points.dots.append(raw + (-998, -999))
+        self.points.add_raw(raw[0], raw[1], self.center, self.radius, self.image_azimuth_coords,
+                            self.lens, overhanging)
 
     def b3up(self, event):
         pass

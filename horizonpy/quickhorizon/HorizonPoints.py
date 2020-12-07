@@ -9,12 +9,11 @@ from horizonpy.quickhorizon.geometry import calculate_true_azimuth, find_angle
 class HorizonPoints:
 
     def __init__(self):
-        self.dots = list()
+        self.dots = list()  # list of digitized dots.  Columns contain X, Y, Elevation, Az
     
     def import_horizon_csv(self, file):
-        del self.dots[:]
+        self.delete_all()
 
-        # start canvas with image file
         f = open(file, 'rt')
         try:
             reader = csv.reader(f)
@@ -79,8 +78,25 @@ class HorizonPoints:
     def delete_all(self):
         del self.dots[:]
 
-    def add_dot(self):
-        pass
+    def add_raw(self, raw_x, raw_y, img_ctr, grid_radius, image_azimuth_coords, lens, overhanging):
+        azimuth = find_angle(img_ctr, image_azimuth_coords, (raw_x, raw_y))
+        dx = raw_x - img_ctr[0]
+        dy = raw_y - img_ctr[1]
+        dot_radius = np.sqrt(np.power(dx, 2) + np.power(dy, 2))
+        horizon = lens.horizon_from_radius(dot_radius, grid_radius)
+
+        if overhanging:
+            #  modify coordinates so that the point is 'overhanging'
+            if horizon == 0:  # if horizon is exactly 0, make it a 90 deg point
+                horizon = 90
+            else:
+                horizon = 180 - horizon
+                azimuth = (180 + azimuth) % 360
+
+        new_dot = [raw_x, raw_y, round(horizon, 5), round(azimuth, 5)]
+        self.dots.append(new_dot)
+        logging.info('Dot ({},{}) has Horizon Elevation = {:.1f}, Azimuth = {:.1f}'.format(
+                     raw_x, raw_y, horizon, azimuth))
 
     def get_dots(self):
         return self.dots
@@ -102,9 +118,6 @@ class HorizonPoints:
         else:
             return False
 
-    def update_image_azimuth(self, image_azimuth):
-        pass
-
     def del_point_with_coordinates(self, coords):
         """ Delete point with specified raw coordinates 
         
@@ -115,6 +128,10 @@ class HorizonPoints:
             if coords == tuple(dot[0:2]):
                 self.dots.remove(dot)
 
+    def update_image_azimuth(self, image_azimuth):
+        pass
+
     def update_field_azimuth(self, field_azimuth):
+        """ Recalculate true azimuth for all dots """
         self.dots = [x + [calculate_true_azimuth(x[3], field_azimuth)] for x in self.get_dots()]
 
