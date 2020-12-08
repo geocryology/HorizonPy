@@ -18,6 +18,7 @@ class ImageState:
         self.viewport = self.DEFAULT_VIEWPORT  # Used for zoom and pan
         self.image_azimuth_coords = (0,0)
         self.reset_image_azimuth()
+        self.anchor = (-999, -999)  # Azimuth anchor
 
     @property
     def contrast_value(self):

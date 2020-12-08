@@ -41,7 +41,6 @@ class LoadImageApp(tk.Toplevel):
     tool = "move"
     raw_image = None
     zoomed_image = None
-    anchor = (-999, -999)         # Store the anchor coordinate
 
     ####################################################################
     # Function: __init__
@@ -304,7 +303,7 @@ class LoadImageApp(tk.Toplevel):
 
         # Find center of image and radius
         self.center = (int(width / 2), int(height / 2))
-        self.radius = int(np.sqrt(self.center[0] ** 2 + self.center[1] ** 2))
+        self.image_state.radius = int(np.sqrt(self.center[0] ** 2 + self.center[1] ** 2))
         self.spoke_spacing = 15
         self.image_state.reset_image_azimuth()
         logging.info("Loaded image {}".format(self.imageFile))
@@ -426,12 +425,12 @@ class LoadImageApp(tk.Toplevel):
             self.draw_dots(my_canvas, self.points)
 
         if self.image_state.show_grid:
-            self.draw_grid(my_canvas, self.center, self.radius,
+            self.draw_grid(my_canvas, self.center, self.image_state.radius,
                            self.spoke_spacing)
 
             if 0 <= self.image_state.image_azimuth <= 360:
-                self.draw_azimuth(my_canvas, self.center, self.radius,
-                                  self.anchor)
+                self.draw_azimuth(my_canvas, self.center, self.image_state.radius,
+                                  self.image_state.anchor)
 
     ########################################################
     # Menu options
@@ -521,10 +520,10 @@ class LoadImageApp(tk.Toplevel):
         C.add_section("Azimuth")
         C.set("Azimuth", "grid_centre_x", str(self.center[0]))
         C.set("Azimuth", "grid_centre_y", str(self.center[1]))
-        C.set("Azimuth", "anchor_x", str(self.anchor[0]))
-        C.set("Azimuth", "anchor_y", str(self.anchor[1]))
+        C.set("Azimuth", "anchor_x", str(self.image_state.anchor[0]))
+        C.set("Azimuth", "anchor_y", str(self.image_state.anchor[1]))
         C.set("Azimuth", "grid_centre_y", str(self.center[1]))
-        C.set("Azimuth", "radius", str(self.radius))
+        C.set("Azimuth", "radius", str(self.image_state.radius))
         C.set("Azimuth", "spokes", str(self.spoke_spacing))
         C.set("Azimuth", "image_azimuth", str(self.image_state.image_azimuth))
         C.set("Azimuth", "field_azimuth", str(self.field_azimuth))
@@ -550,19 +549,19 @@ class LoadImageApp(tk.Toplevel):
         self.center = (config.getint("Azimuth", "grid_centre_x"),
                        config.getint("Azimuth", "grid_centre_y"))
         
-        self.radius = config.getint("Azimuth", "radius")
-        self.draw_grid(self.canvas, self.center, self.radius,
+        self.image_state.radius = config.getint("Azimuth", "radius")
+        self.draw_grid(self.canvas, self.center, self.image_state.radius,
                        spoke_spacing=self.spokes)
 
     def set_azimuth_from_config(self, config):
-        self.anchor = (config.getint("Azimuth", "anchor_x"),
-                       config.getint("Azimuth", "anchor_y"))
+        self.image_state.anchor = (config.getint("Azimuth", "anchor_x"),
+                                   config.getint("Azimuth", "anchor_y"))
         
-        self.radius = config.getint("Azimuth", "radius")
+        self.image_state.radius = config.getint("Azimuth", "radius")
         self.field_azimuth = config.getfloat("Azimuth", "field_azimuth")
         self.image_state.image_azimuth = config.getfloat("Azimuth", "image_azimuth")
         
-        self.draw_azimuth(self.canvas, self.center, self.radius, self.anchor)
+        self.draw_azimuth(self.canvas, self.center, self.image_state.radius, self.image_state.anchor)
 
     def exit_app(self):
         self.parent.destroy()
@@ -596,7 +595,7 @@ class LoadImageApp(tk.Toplevel):
         if self.raw_image:
 
             d = GridDialog(self.parent, title="Wheel Preferences",
-                           center=self.center, radius=self.radius,
+                           center=self.center, radius=self.image_state.radius,
                            spacing=self.spoke_spacing)
 
             self.canvas.focus_set()
@@ -604,13 +603,13 @@ class LoadImageApp(tk.Toplevel):
 
             if d:
                 self.center = d.center
-                self.radius = d.radius
+                self.image_state.radius = d.radius
                 self.spoke_spacing = d.spoke_spacing
                 if not self.image_state.show_grid:
                     self.image_state.show_grid = d.result
 
                 if self.image_state.show_grid:
-                    self.draw_grid(self.canvas, self.center, self.radius,
+                    self.draw_grid(self.canvas, self.center, self.image_state.radius,
                                    self.spoke_spacing)
                     self.grid_set = True
 
@@ -618,10 +617,10 @@ class LoadImageApp(tk.Toplevel):
         if self.raw_image:
             self.spoke_spacing = spoke_spacing
             self.center = center
-            self.radius = radius
+            self.image_state.radius = radius
             self.grid_set = True
             self.image_state.turn_on_grid()
-            self.draw_grid(self.canvas, self.center, self.radius,
+            self.draw_grid(self.canvas, self.center, self.image_state.radius,
                            self.spoke_spacing)
 
     def toggle_grid(self, *args):
@@ -633,14 +632,14 @@ class LoadImageApp(tk.Toplevel):
             self.canvas.delete("grid")
             self.canvas.delete("azimuth")
         else:
-            if self.canvas and self.center and 0 <= self.radius <= 360:
+            if self.canvas and self.center and self.image_state.radius:
                 self.image_state.turn_on_grid()
-                self.draw_grid(self.canvas, self.center, self.radius,
+                self.draw_grid(self.canvas, self.center, self.image_state.radius,
                                self.spoke_spacing)
 
-                if self.anchor[0] != -999:
-                    self.draw_azimuth(self.canvas, self.center, self.radius,
-                                      self.anchor)
+                if self.image_state.anchor[0] != -999:
+                    self.draw_azimuth(self.canvas, self.center, self.image_state.radius,
+                                      self.image_state.anchor)
             else:
                 tkMessageBox.showerror("Error!",
                                        "No overlay parameters have been set!")
@@ -756,12 +755,12 @@ class LoadImageApp(tk.Toplevel):
 
             else:
                 if self.tool == "azimuth":
-                    self.draw_grid(self.canvas, self.center, self.radius,
+                    self.draw_grid(self.canvas, self.center, self.image_state.radius,
                                    self.spoke_spacing)
                                       
-                    self.anchor = self.to_raw((event.x, event.y))
-                    self.draw_azimuth(self.canvas, self.center, self.radius,
-                                      self.anchor)
+                    self.image_state.anchor = self.to_raw((event.x, event.y))
+                    self.draw_azimuth(self.canvas, self.center, self.image_state.radius,
+                                      self.image_state.anchor)
     
     def select_dots_from_rectangle(self, event):
         items = event.widget.find_enclosed(self.select_X, self.select_Y,
@@ -788,7 +787,7 @@ class LoadImageApp(tk.Toplevel):
             self.delete_dots(selected_dots)
 
         elif self.tool == "azimuth":
-            self.azimuth_calculation(self.center, self.radius,
+            self.azimuth_calculation(self.center, self.image_state.radius,
                                      self.image_state.image_azimuth_coords)
             if self.field_azimuth == -1:
                 self.define_field_azimuth()
@@ -836,7 +835,7 @@ class LoadImageApp(tk.Toplevel):
                 self.draw_dots(self.canvas, self.points)
 
     def _define_new_dot(self, raw, overhanging=False):
-        self.points.add_raw(raw[0], raw[1], self.center, self.radius, 
+        self.points.add_raw(raw[0], raw[1], self.center, self.image_state.radius, 
                             self.image_state.image_azimuth_coords,
                             self.lens, overhanging)
 
@@ -959,5 +958,5 @@ class LoadImageApp(tk.Toplevel):
             logging.info("Set lens calibration to {}".format(self.lens.NAME))
 
         if self.imageFile:
-            self.azimuth_calculation(self.center, self.radius,
+            self.azimuth_calculation(self.center, self.image_state.radius,
                                      self.image_state.image_azimuth_coords)
