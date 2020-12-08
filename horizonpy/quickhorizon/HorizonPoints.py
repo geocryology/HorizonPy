@@ -45,8 +45,8 @@ class HorizonPoints:
         delta : int
             Discretization interval for azimuth spline
         """
-        az = np.array([x[4] for x in self.get_dots()])
-        hor = np.array([x[2] for x in self.get_dots()])
+        az = np.array([x[4] for x in self.get()])
+        hor = np.array([x[2] for x in self.get()])
  
         hor[hor >= 90] = 90
 
@@ -71,7 +71,7 @@ class HorizonPoints:
     def export_to_horizon_csv(self, f_name):
         """ Save the dots to CSV file 
         """                
-        df = pd.DataFrame(self.get_dots())
+        df = pd.DataFrame(self.get())
         df.columns = ('X', 'Y', 'Horizon', 'Image Azimuth', 'True Azimuth')
         df.to_csv(f_name, index=False)
 
@@ -98,7 +98,7 @@ class HorizonPoints:
         logging.info('Dot ({},{}) has Horizon Elevation = {:.1f}, Azimuth = {:.1f}'.format(
                      raw_x, raw_y, horizon, azimuth))
 
-    def get_dots(self):
+    def get(self):
         return self.dots
 
     def print_dots(self):
@@ -152,5 +152,5 @@ class HorizonPoints:
 
     def update_field_azimuth(self, field_azimuth):
         """ Recalculate true azimuth for all dots """
-        self.dots = [x + [calculate_true_azimuth(x[3], field_azimuth)] for x in self.get_dots()]
+        self.dots = [x + [calculate_true_azimuth(x[3], field_azimuth)] for x in self.get()]
 

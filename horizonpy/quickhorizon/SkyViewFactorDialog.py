@@ -26,8 +26,8 @@ class SkyViewFactorDialog(tk.Toplevel):
         self.title("Sky View Calculator")
         self.parent = parent.frame
 
-        self.pts_az = np.array([calculate_true_azimuth(x[3], field_azimuth) for x in horizon_points.get_dots()])
-        self.pts_hor = np.array([x[2] for x in horizon_points.get_dots()])
+        self.pts_az = np.array([calculate_true_azimuth(x[3], field_azimuth) for x in horizon_points.get()])
+        self.pts_hor = np.array([x[2] for x in horizon_points.get()])
 
         self.pts_az = np.append(self.pts_az, self.pts_az[0])
         self.pts_hor = np.append(self.pts_hor, self.pts_hor[0])

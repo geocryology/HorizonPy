@@ -355,7 +355,7 @@ class LoadImageApp(tk.Toplevel):
         return (window_x, window_y)
 
     def draw_dots(self, my_canvas, horizon_points):
-        for dot in horizon_points.get_dots():
+        for dot in horizon_points.get():
 
             (x, y) = self.to_window((dot[0], dot[1]))
 
@@ -377,8 +377,8 @@ class LoadImageApp(tk.Toplevel):
 
     def draw_patch(self, my_canvas):
         self.canvas.delete("sky_polygon")
-        if len(self.points.get_dots()) > 3:
-            scaled = [self.to_window((dot[0], dot[1])) for dot in self.points.get_dots()]
+        if len(self.points.get()) > 3:
+            scaled = [self.to_window((dot[0], dot[1])) for dot in self.points.get()]
             xy = [i for dot in scaled for i in dot[:2]]
             sky_polygon = my_canvas.create_polygon(*xy, fill="", outline='blue')
             my_canvas.itemconfig(sky_polygon, tags=("sky_polygon"))
@@ -488,28 +488,6 @@ class LoadImageApp(tk.Toplevel):
             self.draw_dots(self.canvas, self.points)
         else:
             logging.info('No file selected')
-        """
-        
-
-            # Delete  existing dots from canvas and data
-            self.canvas.delete("dot")
-            self.points.delete_all()
-
-            # start canvas with image file
-            f = open(file, 'rt')
-            try:
-                reader = csv.reader(f)
-                next(reader)  # skip header row
-
-                for row in reader:
-                    raw = (int(row[0]), int(row[1]))
-                    overhang = float(row[2]) > 90
-                    self._define_new_dot(raw, overhanging=overhang)
-
-            finally:
-                f.close()
-            """
-
 
     @hd.require_image_azimuth
     @hd.require_grid
@@ -520,23 +498,9 @@ class LoadImageApp(tk.Toplevel):
             file = tkFileDialog.askopenfilename(**self.csv_opt)
 
         if file:
-            # Delete  existing dots from canvas and data
-            self.canvas.delete("dot")
-            self.points.delete_all()
-
-            # start canvas with image file
-            f = open(file, 'rt')
-            try:
-                reader = csv.reader(f)
-                next(reader)  # skip header row
-
-                for row in reader:
-                    pass
-
-            finally:
-                f.close()
-
+            self.points.import_geotop_csv(file)
             self.draw_dots(self.canvas, self.points)
+            
         else:
             logging.info('No file selected')
 
@@ -983,7 +947,7 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_image_azimuth
     def plothorizon(self, show=True):
         fig, ax = mpl.pyplot.subplots(1, 1, sharex=True)
-        plot_dots = self.points.get_dots()
+        plot_dots = self.points.get()
         plot_dots.sort(key=lambda x: x[3])  # sort dots using image azimuth
         image_azim = [x[3] for x in plot_dots]
         image_azim.insert(0, (image_azim[-1] - 360))
