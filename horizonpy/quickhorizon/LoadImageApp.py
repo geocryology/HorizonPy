@@ -26,6 +26,7 @@ from horizonpy.quickhorizon.SkyViewFactorDialog import SkyViewFactorDialog
 from horizonpy.quickhorizon.LensSelectionDialog import LensSelectionDialog
 from horizonpy.quickhorizon.HorizonPoints import HorizonPoints
 from horizonpy.quickhorizon.ImageState import ImageState, EventState
+from horizonpy.quickhorizon.View import StatusBar
 from horizonpy.quickhorizon.geometry import find_angle
 import horizonpy.quickhorizon.HorizonDecorators as hd
 import horizonpy.quickhorizon.LensCalibrations as lens
@@ -168,10 +169,8 @@ class LoadImageApp(tk.Toplevel):
         # Attach menu bar to interface
         root.config(menu=menubar)
 
-        # Show XY coords in in bottom left
-        self.status = tk.Label(root, text="X,Y", bd=1, relief=tk.SUNKEN, 
-                               anchor=tk.W)
-        self.status.pack(side=tk.BOTTOM, fill=tk.X)
+        # Show status bar
+        self.status_bar = StatusBar(root)
 
         # Events
         self.canvas.bind("<MouseWheel>", self.zoom_wheel)
@@ -881,24 +880,14 @@ class LoadImageApp(tk.Toplevel):
                                       tag="selection_rectangle")
 
     def update_status_bar(self, event):
-        coordinate = self.to_raw((event.x, event.y))
-        output = "Cursor = {}".format(str(coordinate)).ljust(25)
+        cursor_loc = self.to_raw((event.x, event.y))
+ 
+        try:
+            img_value = self.raw_image.getpixel(cursor_loc)
+        except (IndexError, AttributeError):
+            img_value = None
         
-        if 0 <= self.image_azimuth <= 360:
-            output += "Image Azimuth = {:.1f}".format(360 - self.image_azimuth).ljust(25)
-        
-        if 0 <= self.field_azimuth <= 360:
-            output += "Field Azimuth = {:.1f}".format(self.field_azimuth).ljust(25)
-        
-        if self.raw_image:
-            try:
-                img_value = self.raw_image.getpixel(coordinate)
-                img_value = "({:03d}, {:03d}, {:03d})".format(*img_value) 
-            except IndexError:
-                img_value = "(---, ---, ---)"
-            output += "Image value: {}".format(img_value).ljust(25)
-        
-        self.status.config(text=output)
+        self.status_bar.display(cursor_loc, self.image_azimuth, self.field_azimuth, img_value)
         
     def resize_window(self, event):
         if self.zoomed_image:
