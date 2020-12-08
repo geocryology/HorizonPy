@@ -27,6 +27,8 @@ from horizonpy.quickhorizon.GridDialog import GridDialog
 from horizonpy.quickhorizon.AzimuthDialog import AzimuthDialog
 from horizonpy.quickhorizon.SkyViewFactorDialog import SkyViewFactorDialog
 from horizonpy.quickhorizon.LensSelectionDialog import LensSelectionDialog
+from horizonpy.quickhorizon.HorizonPoints import HorizonPoints
+from horizonpy.quickhorizon.geometry import calculate_true_azimuth, find_angle
 import horizonpy.quickhorizon.HorizonDecorators as hd
 import horizonpy.quickhorizon.LensCalibrations as lens
 
@@ -48,7 +50,6 @@ class LoadImageApp(tk.Toplevel):
     image_azimuth = -1  # Define an angle of image azimuth from anchor (degrees)
     image_azimuth_coords = (0, 0)   # Store image Azimuth coordinates (endpoint)
     anchor = (-999, -999)         # Store the anchor coordinate
-    dots = []  # list of digitized dots.  Columns contain X, Y, Elevation, Az
 
     ####################################################################
     # Function: __init__
@@ -62,6 +63,7 @@ class LoadImageApp(tk.Toplevel):
         self.field_azimuth = -1
         self.contrast_value = 1
         self.brightness_value = 1
+        self.points = HorizonPoints()
 
         # zoom
         self.mux = {0: 1.0}
@@ -232,7 +234,7 @@ class LoadImageApp(tk.Toplevel):
         self.show_grid = False
         self.grid_set = False
 
-        del self.dots[:]
+        self.points.delete_all()
 
         if image_file:
             self.load_image(canvas, image_file)
@@ -352,8 +354,8 @@ class LoadImageApp(tk.Toplevel):
         window_y = int(y * self.mux[self.zoomcycle]) - vy
         return (window_x, window_y)
 
-    def draw_dots(self, my_canvas):
-        for dot in self.dots:
+    def draw_dots(self, my_canvas, horizon_points):
+        for dot in horizon_points.get():
 
             (x, y) = self.to_window((dot[0], dot[1]))
 
@@ -375,8 +377,8 @@ class LoadImageApp(tk.Toplevel):
 
     def draw_patch(self, my_canvas):
         self.canvas.delete("sky_polygon")
-        if len(self.dots) > 3:
-            scaled = [self.to_window((dot[0], dot[1])) for dot in self.dots]
+        if len(self.points.get()) > 3:
+            scaled = [self.to_window((dot[0], dot[1])) for dot in self.points.get()]
             xy = [i for dot in scaled for i in dot[:2]]
             sky_polygon = my_canvas.create_polygon(*xy, fill="", outline='blue')
             my_canvas.itemconfig(sky_polygon, tags=("sky_polygon"))
@@ -406,8 +408,7 @@ class LoadImageApp(tk.Toplevel):
 
     def draw_azimuth(self, my_canvas, center, radius, anchor):
         # Find the angle for the anchor point from a standard ciricle (1,0) 0 degrees
-        azimuth = self.find_angle(center, anchor, (center[0] + radius, center[1]))
-        azimuth %= 360
+        azimuth = find_angle(center, anchor, (center[0] + radius, center[1]))
 
         my_canvas.delete("azimuth")
 
@@ -450,16 +451,16 @@ class LoadImageApp(tk.Toplevel):
         my_canvas.create_image(0, 0, image=self.p_img, anchor="nw")
 
         # Draw  saved dots
-        if self.dots:
-            self.draw_dots(my_canvas)
+        if self.points.any_defined():
+            self.draw_dots(my_canvas, self.points)
 
         if self.show_grid:
             self.draw_grid(my_canvas, self.center, self.radius,
-                          self.spoke_spacing)
+                           self.spoke_spacing)
 
             if 0 <= self.image_azimuth <= 360:
                 self.draw_azimuth(my_canvas, self.center, self.radius,
-                                 self.anchor)
+                                  self.anchor)
 
     ########################################################
     # Menu options
@@ -481,28 +482,10 @@ class LoadImageApp(tk.Toplevel):
 
         if not file:
             file = tkFileDialog.askopenfilename(**self.csv_opt)
-
+        
         if file:
-
-            # Delete  existing dots from canvas and data
-            self.canvas.delete("dot")
-            del self.dots[:]
-
-            # start canvas with image file
-            f = open(file, 'rt')
-            try:
-                reader = csv.reader(f)
-                next(reader)  # skip header row
-
-                for row in reader:
-                    raw = (int(row[0]), int(row[1]))
-                    overhang = float(row[2]) > 90
-                    self._define_new_dot(raw, overhanging=overhang)
-
-            finally:
-                f.close()
-
-            self.draw_dots(self.canvas)
+            self.points.import_horizon_csv(file)
+            self.draw_dots(self.canvas, self.points)
         else:
             logging.info('No file selected')
 
@@ -515,24 +498,9 @@ class LoadImageApp(tk.Toplevel):
             file = tkFileDialog.askopenfilename(**self.csv_opt)
 
         if file:
-
-            # Delete  existing dots from canvas and data
-            self.canvas.delete("dot")
-            del self.dots[:]
-
-            # start canvas with image file
-            f = open(file, 'rt')
-            try:
-                reader = csv.reader(f)
-                next(reader)  # skip header row
-
-                for row in reader:
-                    pass
-
-            finally:
-                f.close()
-
-            self.draw_dots(self.canvas)
+            self.points.import_geotop_csv(file)
+            self.draw_dots(self.canvas, self.points)
+            
         else:
             logging.info('No file selected')
 
@@ -540,19 +508,39 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_horizon_points
     def save_csv(self):
         # Save the dots to CSV file
-        self.dots = [x + [self.calculate_true_azimuth(x[3])] for x in self.dots]
-        logging.debug(self.dots)
+        self.points.update_field_azimuth(self.field_azimuth)
+        
         try:
             f_name = tkFileDialog.asksaveasfilename(**self.csv_opt)
             if f_name:
-                df = pd.DataFrame(self.dots)
-                df.columns = ('X', 'Y', 'Horizon',
-                              'Image Azimuth', 'True Azimuth')
-                df.to_csv(f_name, index=False)
+                self.points.export_to_horizon_csv(f_name)
 
         except PermissionError as e:
             tkMessageBox.showerror("Error!",
                                    "Could not access file. Maybe it is already open?")
+            logging.error(e)
+
+    @hd.require_field_azimuth
+    @hd.require_horizon_points
+    def save_geotop_hrzn(self):
+        # Save the horizon points to CSV file
+
+        if not tkMessageBox.askokcancel("Warning!",
+                                        "Horizon angles greater than 90 degrees are not "
+                                        "compatible with geotop horizon files. They will be reduced "
+                                        "to 90 degrees. Click OK to continue or Cancel to abort"):
+            return
+
+        self.points.update_field_azimuth(self.field_azimuth)
+
+        try:
+            f_name = tkFileDialog.asksaveasfilename(defaultextension=".txt")
+
+            if f_name:
+                self.points.export_to_geotop(f_name, delta=3)
+
+        except PermissionError as e:
+            tkMessageBox.showerror("Error!", "Could not access file.  Maybe it is already open?")
             logging.error(e)
 
     @hd.require_field_azimuth
@@ -593,7 +581,7 @@ class LoadImageApp(tk.Toplevel):
         
         self.radius = config.getint("Azimuth", "radius")
         self.draw_grid(self.canvas, self.center, self.radius,
-                      spoke_spacing=self.spokes)
+                       spoke_spacing=self.spokes)
 
     def set_azimuth_from_config(self, config):
         self.anchor = (config.getint("Azimuth", "anchor_x"),
@@ -605,49 +593,6 @@ class LoadImageApp(tk.Toplevel):
         
         self.draw_azimuth(self.canvas, self.center, self.radius, self.anchor)
 
-    @hd.require_field_azimuth
-    @hd.require_horizon_points
-    def save_geotop_hrzn(self, delta=3):
-        # Save the dots to CSV file
-        # delta = discretization interval for azimuth
-
-        az = np.array([self.calculate_true_azimuth(x[3]) for x in self.dots])
-        hor = np.array([x[2] for x in self.dots])
-        if np.any(hor > 90):
-            if not tkMessageBox.askokcancel("Warning!",
-                                            """Horizon angles greater than 90 degrees are not
-                                            compatible with geotop horizon files. They will be reduced
-                                            to 90 degrees. Click OK to continue or Cancel to abort"""):
-                return
-            hor[hor >= 90] = 90
-
-        az = az[np.argsort(az)]
-        hor = hor[np.argsort(az)]  # sorting to order by azimuth
-
-        # Create spline equation to obtain hor(az) for any azimuth
-        # add endpoints on either side of sequence so interpolation is good
-        x = np.concatenate((az[-2:] - 360, az, az[:2] + 360))
-        y = np.concatenate((hor[-2:], hor, hor[:2]))
-        f_hor = interp1d(x, y, kind='linear')
-
-        # Interpolate horizon at evenly spaced interval using spline
-        phi = np.array(range(0, 360, delta))
-        theta_h = f_hor(phi)
-
-        try:
-            f_name = tkFileDialog.asksaveasfilename(defaultextension=".txt")
-
-            if f_name:
-                df = zip(phi, ["{:.2f}".format(t) for t in theta_h])
-                df = pd.DataFrame(df)
-                df.columns = ('azimuth_deg', 'horizon_ele_deg')
-                df.to_csv(f_name, index=False)
-
-        except PermissionError as e:
-            tkMessageBox.showerror("Error!",
-                            "Could not access file.  Maybe it is already open?")
-            logging.error(e)
-
     def exit_app(self):
         self.parent.destroy()
 
@@ -658,7 +603,7 @@ class LoadImageApp(tk.Toplevel):
         self.tool = "select"
 
     def show_dots(self):
-        tkMessageBox.showinfo("Dot Info", self.print_dots())
+        tkMessageBox.showinfo("Dot Info", self.points.print_dots())
 
     def about(self):
         tkMessageBox.showinfo("About QuickHorizon",
@@ -674,17 +619,6 @@ class LoadImageApp(tk.Toplevel):
     def delete_all(self):
         selection = self.canvas.find_withtag("dot")
         self.delete_dots(selection)
-
-    def print_dots(self):
-        text = "X , Y = "
-
-        rows = len(self.dots)
-        for row in range(rows):
-            i = self.dots[row]
-
-            text = text + "(" + str(i[0]) + " , " + str(i[1]) + "), "
-
-        return text
 
     def show_grid(self):
         # Get x,y coords and radius for of wheel
@@ -706,7 +640,7 @@ class LoadImageApp(tk.Toplevel):
 
                 if self.show_grid:
                     self.draw_grid(self.canvas, self.center, self.radius,
-                                  self.spoke_spacing)
+                                   self.spoke_spacing)
                     self.grid_set = True
 
     def create_grid_based_on_lens(self, center, radius, spoke_spacing):
@@ -717,7 +651,7 @@ class LoadImageApp(tk.Toplevel):
             self.grid_set = True
             self.show_grid = True
             self.draw_grid(self.canvas, self.center, self.radius,
-                          self.spoke_spacing)
+                           self.spoke_spacing)
 
     def toggle_grid(self, *args):
         if not self.raw_image:
@@ -738,7 +672,7 @@ class LoadImageApp(tk.Toplevel):
                                         self.anchor)
             else:
                 tkMessageBox.showerror("Error!",
-                                        "No overlay parameters have been set!")
+                                       "No overlay parameters have been set!")
 
     @hd.require_image_file
     @hd.require_grid
@@ -750,6 +684,7 @@ class LoadImageApp(tk.Toplevel):
             self.tool = "azimuth"
 
     @hd.require_image_file
+    @hd.require_image_azimuth
     def define_field_azimuth(self):
         if self.warn_dots:
             d = AzimuthDialog(self.parent, azimuth=self.field_azimuth)
@@ -758,7 +693,7 @@ class LoadImageApp(tk.Toplevel):
                 self.field_azimuth = d.azimuth
 
     def warn_dots(self):
-        if len(self.dots) > 0:
+        if self.points.any_defined():
             dialog = tkMessageBox.askokcancel("Warning!", 
                                               """Are you sure you want to 
                                               change this parameter? calculated 
@@ -849,7 +784,7 @@ class LoadImageApp(tk.Toplevel):
             if self.tool == "dot":
                 raw = self.to_raw((event.x, event.y))
                 self._define_new_dot(raw, overhanging=False)
-                self.draw_dots(self.canvas)
+                self.draw_dots(self.canvas, self.points)
 
             else:
                 if self.tool == "azimuth":
@@ -906,13 +841,9 @@ class LoadImageApp(tk.Toplevel):
 
             if confirm:
                 for i, coords in to_delete.items():
-
-
-                    for dot in self.dots:
-                        if coords == tuple(dot[0:2]):
-                            self.dots.remove(dot)
+                    self.points.del_point_with_coordinates(coords)
                     logging.debug('Removing dot %d with coords: %d, %d', i,
-                                    coords[0], coords[1])
+                                  coords[0], coords[1])
                     self.canvas.delete(i)
 
             else:
@@ -934,35 +865,11 @@ class LoadImageApp(tk.Toplevel):
             if self.tool == "dot":
                 raw = self.to_raw((event.x, event.y))
                 self._define_new_dot(raw, overhanging=True)
-                self.draw_dots(self.canvas)
+                self.draw_dots(self.canvas, self.points)
 
     def _define_new_dot(self, raw, overhanging=False):
-        if self.grid_set and (0 <= self.image_azimuth <= 360):
-
-            azimuth = self.find_angle(self.center, self.image_azimuth_coords,
-                                      (raw[0], raw[1]))
-
-            dx = raw[0] - self.center[0]
-            dy = raw[1] - self.center[1]
-            dot_radius = np.sqrt(np.power(dx, 2) + np.power(dy, 2))
-            horizon = self.find_horizon(dot_radius, self.radius)
-            
-            logging.info('Dot ({},{}) has Horizon Elevation = {:.1f}, Azimuth = {:.1f}'.format(
-                         raw[0], raw[1], horizon, azimuth))
-
-            if overhanging:
-                # modify coordinates so that the point is 'overhanging'
-                if horizon == 0:  # if horizon is exactly 0, make it a 90 deg point
-                    horizon = 90
-                else:
-                    horizon = 180 - horizon
-                    azimuth = (180 + azimuth) % 360
-
-            new_dot = [raw[0], raw[1], round(horizon, 5), round(azimuth, 5)]
-            self.dots.append(new_dot)
-
-        else:
-            self.dots.append(raw + (-998, -999))
+        self.points.add_raw(raw[0], raw[1], self.center, self.radius, self.image_azimuth_coords,
+                            self.lens, overhanging)
 
     def b3up(self, event):
         pass
@@ -999,9 +906,9 @@ class LoadImageApp(tk.Toplevel):
         if rect:
             event.widget.delete(rect)
         event.widget.create_rectangle(self.select_X, self.select_Y, 
-                                        event.x, event.y, fill="", 
-                                        dash=(4, 2), 
-                                        tag="selection_rectangle")
+                                      event.x, event.y, fill="", 
+                                      dash=(4, 2), 
+                                      tag="selection_rectangle")
 
     def update_status_bar(self, event):
         coordinate = self.to_raw((event.x, event.y))
@@ -1028,43 +935,9 @@ class LoadImageApp(tk.Toplevel):
             self.display_region(self.canvas)
 
     def azimuth_calculation(self, center, radius, azimuth):
-        new_dots = []
-
-        for dot in self.dots:
-            azimuth = self.find_angle(center, self.image_azimuth_coords, (dot[0], dot[1]))
-
-            dot_radius = np.sqrt(np.power(dot[0] - center[0], 2) + np.power(dot[1] - center[1], 2))
-            horizon = self.find_horizon(dot_radius, radius)
-
-            if dot[2] == -998 or dot[2] > 90:
-                if horizon == 0:  # if horizon is exactly 0, make it a 90 deg point
-                    horizon = 90
-                else:
-                    horizon = 180 - horizon
-                    azimuth = (180 + azimuth) % 360
-
-            logging.info('Dot (%d,%d) has Horizon Elevation = %f, Azimuth = %f', dot[0], dot[1], horizon, azimuth)
-            new_dot = [dot[0], dot[1], round(horizon, 5), round(azimuth, 5)]
-            new_dots.append(new_dot)
-
-        self.dots = new_dots
-        self.draw_dots(self.canvas)
-
-    def find_angle(self, C, P2, P3):
-
-        angle = np.arctan2(P2[1] - C[1], P2[0] - C[0]) - np.arctan2(P3[1] - C[1], P3[0] - C[0])
-        angle_in_degrees = np.degrees(angle)
-
-        if angle_in_degrees < 0:
-            angle_in_degrees += 360
-
-        return angle_in_degrees
-
-    def calculate_true_azimuth(self, azimuth):
-        if self.field_azimuth == -1:
-            return(-1)
-        else:
-            return((azimuth + self.field_azimuth) % 360)
+        self.points.update_image_azimuth(center, radius, azimuth, 
+                                         self.image_azimuth_coords, self.lens)
+        self.draw_dots(self.canvas, self.points)
 
     def find_horizon(self, dot_radius, grid_radius):
         horizon = self.lens.horizon_from_radius(dot_radius, grid_radius)
@@ -1074,7 +947,7 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_image_azimuth
     def plothorizon(self, show=True):
         fig, ax = mpl.pyplot.subplots(1, 1, sharex=True)
-        plot_dots = self.dots
+        plot_dots = self.points.get()
         plot_dots.sort(key=lambda x: x[3])  # sort dots using image azimuth
         image_azim = [x[3] for x in plot_dots]
         image_azim.insert(0, (image_azim[-1] - 360))
@@ -1118,10 +991,10 @@ class LoadImageApp(tk.Toplevel):
 
     @hd.require_horizon_points
     def svf(self):
-        SkyViewFactorDialog(self)
+        SkyViewFactorDialog(self, self.points, self.field_azimuth)
 
     def arcsky(self):
-        skypoints = ArcSkyDialog(self)
+        _ = ArcSkyDialog(self)
 
     def select_lens(self):
         lens_selection = LensSelectionDialog(self.parent, default=self.lens.NAME)
