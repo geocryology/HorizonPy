@@ -1,5 +1,7 @@
 import logging
 import configparser
+from PIL import Image
+
 
 class ImageState:
 
@@ -16,11 +18,16 @@ class ImageState:
         self.build_zoom_levels()
         self._show_grid = False
         self.viewport = self.DEFAULT_VIEWPORT  # Used for zoom and pan
+        
         self.image_azimuth_coords = (0,0)
         self.reset_image_azimuth()
         self.anchor = (-999, -999)  # Azimuth anchor
         self.radius = 0
         self.field_azimuth = -1
+
+        self.raw_image = None
+        self.zoomed_image = None
+
 
     @property
     def contrast_value(self):
@@ -171,8 +178,16 @@ class ImageState:
         window_y = int(y * self.zoomcoefficient) - vy
         
         return (window_x, window_y)
-        
-        
+    
+    def scale_image(self):
+        # Resize image
+        raw_x, raw_y = self.raw_image.size
+        new_w = int(raw_x * self.zoomcoefficient)
+        new_h = int(raw_y * self.zoomcoefficient)
+
+        self.zoomed_image = self.raw_image.resize((new_w, new_h),
+                                                  Image.ANTIALIAS)
+
 class EventState:
 
     NOEVENT = (None, None)

@@ -46,9 +46,7 @@ class LoadImageApp(tk.Toplevel):
         self.event_state = EventState()
         self.points = HorizonPoints()
         self.tool = "move"
-        self.raw_image = None
-        self.zoomed_image = None
-
+  
         # File associations
         self.file_opt = options = {}
         options['defaultextension'] = '.gif'
@@ -224,15 +222,15 @@ class LoadImageApp(tk.Toplevel):
     def reload_image(self):
         # Create objects to adjust brightness and contrast
 
-        self.raw_image = self.apply_enhancement(self.orig_img,
+        self.image_state.raw_image = self.apply_enhancement(self.orig_img,
                                                 ImageEnhance.Contrast,
                                                 self.image_state.contrast_value)
        
-        self.raw_image = self.apply_enhancement(self.raw_image,
+        self.image_state.raw_image = self.apply_enhancement(self.image_state.raw_image,
                                                 ImageEnhance.Brightness,
                                                 self.image_state.brightness_value)
 
-        self.p_img = ImageTk.PhotoImage(self.raw_image)
+        self.p_img = ImageTk.PhotoImage(self.image_state.raw_image)
         self.canvas.create_image(0, 0, image=self.p_img, anchor="nw")
         self.zoom_current()
 
@@ -268,23 +266,23 @@ class LoadImageApp(tk.Toplevel):
     def load_image(self, canvas, image_file):
         self.imageFile = image_file
         self.imageDir = os.path.dirname(image_file)
-        self.raw_image = Image.open(image_file)
+        self.image_state.raw_image = Image.open(image_file)
         self.orig_img = Image.open(image_file)
-        (width, height) = self.raw_image.size
+        (width, height) = self.image_state.raw_image.size
         self.image_state.reset_image_azimuth()
         self.set_file_locations()
 
         # Image larger than 1000 pixels, resize to 800 x 600
         if (width > 1000) or (height > 1000):
             self.orig_img.thumbnail((800, 600), Image.ANTIALIAS)
-            self.raw_image.thumbnail((800, 600), Image.ANTIALIAS)
-            (width, height) = self.raw_image.size
+            self.image_state.raw_image.thumbnail((800, 600), Image.ANTIALIAS)
+            (width, height) = self.image_state.raw_image.size
             logging.info("Resizing image to {} x {}".format(width, height))
 
-        self.zoomed_image = self.raw_image
+        self.image_state.zoomed_image = self.image_state.raw_image
 
         # Save reference to the image object in order to show it.
-        self.p_img = ImageTk.PhotoImage(self.raw_image)
+        self.p_img = ImageTk.PhotoImage(self.image_state.raw_image)
 
         # Change size of canvas to new width and height
         canvas.config(width=width, height=height)
@@ -373,15 +371,6 @@ class LoadImageApp(tk.Toplevel):
                               fill="green", width=3)
         self.image_state.image_azimuth = azimuth
 
-    def scale_image(self):
-        # Resize image
-        raw_x, raw_y = self.raw_image.size
-        new_w = int(raw_x * self.image_state.zoomcoefficient)
-        new_h = int(raw_y * self.image_state.zoomcoefficient)
-
-        self.zoomed_image = self.raw_image.resize((new_w, new_h),
-                                                  Image.ANTIALIAS)
-
     def display_region(self, my_canvas):
         my_canvas.delete("all")
 
@@ -390,7 +379,7 @@ class LoadImageApp(tk.Toplevel):
         w = self.frame.winfo_width()
         h = self.frame.winfo_height()
 
-        tmp = self.zoomed_image.crop((x, y, x + w, y + h))
+        tmp = self.image_state.zoomed_image.crop((x, y, x + w, y + h))
 
         self.p_img = ImageTk.PhotoImage(tmp)
         my_canvas.config(bg="gray50")
@@ -538,7 +527,7 @@ class LoadImageApp(tk.Toplevel):
 
     def show_grid(self):
         # Get x,y coords and radius for of wheel
-        if self.raw_image:
+        if self.image_state.raw_image:
 
             d = GridDialog(self.parent, title="Wheel Preferences",
                            center=self.image_state.image_center, radius=self.image_state.radius,
@@ -560,7 +549,7 @@ class LoadImageApp(tk.Toplevel):
                     self.grid_set = True
 
     def create_grid_based_on_lens(self, center, radius, spoke_spacing):
-        if self.raw_image:
+        if self.image_state.raw_image:
             self.image_state.spoke_spacing = spoke_spacing
             self.image_state.image_center = center
             self.image_state.radius = radius
@@ -570,7 +559,7 @@ class LoadImageApp(tk.Toplevel):
                            self.image_state.spoke_spacing)
 
     def toggle_grid(self, *args):
-        if not self.raw_image:
+        if not self.image_state.raw_image:
             return
             
         if self.image_state.show_grid:
@@ -596,7 +585,7 @@ class LoadImageApp(tk.Toplevel):
         if not self.grid_set:
             tkMessageBox.showerror("Error!", "")
             return
-        if self.raw_image:
+        if self.image_state.raw_image:
             self.tool = "azimuth"
 
     @hd.require_image_file
@@ -629,7 +618,7 @@ class LoadImageApp(tk.Toplevel):
     def zoom_in(self, *args):
         try:
             self.image_state.zoom_level += 1
-            self.scale_image()
+            self.image_state.scale_image()
             self.display_region(self.canvas)
         
         except ValueError:
@@ -639,7 +628,7 @@ class LoadImageApp(tk.Toplevel):
     def zoom_out(self, *args):
         try:
             self.image_state.zoom_level -= 1
-            self.scale_image()
+            self.image_state.scale_image()
             self.display_region(self.canvas)
         
         except ValueError:
@@ -648,12 +637,12 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_image_file
     def zoom_original(self):
         self.image_state.reset_zoom()
-        self.scale_image()
+        self.image_state.scale_image()
         self.display_region(self.canvas)
 
     @hd.require_image_file
     def zoom_current(self, *args):
-        self.scale_image()
+        self.image_state.scale_image()
         self.display_region(self.canvas)
 
     #######################################################
@@ -665,7 +654,7 @@ class LoadImageApp(tk.Toplevel):
         
     def zoom_wheel(self, event):
 
-        if self.raw_image:
+        if self.image_state.raw_image:
             (x, y) = self.image_state.to_raw((event.x, event.y))
 
             if event.delta > 0:
@@ -681,7 +670,7 @@ class LoadImageApp(tk.Toplevel):
                 logging.info('Zoom limit reached!')
                 return
 
-            self.scale_image()
+            self.image_state.scale_image()
 
             view_x = int(x * self.image_state.zoomcoefficient) - x
             view_y = int(y * self.image_state.zoomcoefficient) - y
@@ -693,7 +682,7 @@ class LoadImageApp(tk.Toplevel):
         self.store_xy_selection(event)
         self.event_state.button_1 = "down"
         
-        if self.raw_image:
+        if self.image_state.raw_image:
             if self.tool == "dot":
                 raw = self.image_state.to_raw((event.x, event.y))
                 self._define_new_dot(raw, overhanging=False)
@@ -723,7 +712,7 @@ class LoadImageApp(tk.Toplevel):
         self.event_state.button_1 = "up"
         logging.debug('b1up()-> tool = %s at (%d, %d)', 
                       self.tool, event.x, event.y)
-        if not self.raw_image:
+        if not self.image_state.raw_image:
             return
 
         self.event_state.reset_event()
@@ -774,7 +763,7 @@ class LoadImageApp(tk.Toplevel):
     def b3down(self, event):
         logging.debug('b3down() at ({},{})'.format(event.x, event.y))
 
-        if self.raw_image:
+        if self.image_state.raw_image:
             if self.tool == "dot":
                 raw = self.image_state.to_raw((event.x, event.y))
                 self._define_new_dot(raw, overhanging=True)
@@ -798,11 +787,11 @@ class LoadImageApp(tk.Toplevel):
     def motion(self, event):
 
         # Button 2 pans no matter what
-        if self.raw_image and self.event_state.button_2 == "down":
+        if self.image_state.raw_image and self.event_state.button_2 == "down":
             self.pan(event)
             
         # Conditional on button 1 depressed
-        if self.raw_image and self.event_state.button_1 == "down":
+        if self.image_state.raw_image and self.event_state.button_1 == "down":
             if self.tool == "move":     # Panning
                 self.pan(event)
 
@@ -825,14 +814,14 @@ class LoadImageApp(tk.Toplevel):
         cursor_loc = self.image_state.to_raw((event.x, event.y))
  
         try:
-            img_value = self.raw_image.getpixel(cursor_loc)
+            img_value = self.image_state.raw_image.getpixel(cursor_loc)
         except (IndexError, AttributeError):
             img_value = None
         
         self.status_bar.display(cursor_loc, self.image_state.image_azimuth, self.image_state.field_azimuth, img_value)
         
     def resize_window(self, event):
-        if self.zoomed_image:
+        if self.image_state.zoomed_image:
             self.display_region(self.canvas)
 
     def azimuth_calculation(self, center, radius, azimuth):
