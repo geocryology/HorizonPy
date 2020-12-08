@@ -37,8 +37,7 @@ import horizonpy.quickhorizon.LensCalibrations as lens
 class LoadImageApp(tk.Toplevel):
 
     tool = "move"
-    xold, yold = None, None
-    viewport = (0, 0)       # Used for zoom and pan
+    xold, yold = None, None   
     raw_image = None
     zoomed_image = None
     image_azimuth = -1  # Define an angle of image azimuth from anchor (degrees)
@@ -214,7 +213,6 @@ class LoadImageApp(tk.Toplevel):
         self.button_3 = "up"
         self.tool = "move"
         self.store_old_xy_event(None, None)
-        self.viewport = (0, 0)
         self.grid_set = False
 
         self.points.delete_all()
@@ -320,7 +318,7 @@ class LoadImageApp(tk.Toplevel):
     def to_raw(self, p):
         x, y = p
         # Translate the x,y coordinate from window to raw image coordinate
-        (vx, vy) = self.viewport
+        (vx, vy) = self.image_state.viewport
         raw_x = int((x + vx) / self.image_state.zoomcoefficient)
         raw_y = int((y + vy) / self.image_state.zoomcoefficient)
         return (raw_x, raw_y)
@@ -328,7 +326,7 @@ class LoadImageApp(tk.Toplevel):
     def to_window(self, p):
         x, y = p
         # Translate the x,y coordinate from raw image coordinate to window coordinate
-        (vx, vy) = self.viewport
+        (vx, vy) = self.image_state.viewport
         window_x = int(x * self.image_state.zoomcoefficient) - vx
         window_y = int(y * self.image_state.zoomcoefficient) - vy
         return (window_x, window_y)
@@ -419,7 +417,7 @@ class LoadImageApp(tk.Toplevel):
         my_canvas.delete("all")
 
         # Display the region of the zoomed image starting at viewport and window size
-        x, y = self.viewport
+        x, y = self.image_state.viewport
         w = self.frame.winfo_width()
         h = self.frame.winfo_height()
 
@@ -712,7 +710,6 @@ class LoadImageApp(tk.Toplevel):
     def zoom_original(self):
         self.image_state.reset_zoom()
         self.scale_image()
-        self.viewport = (0, 0)
         self.display_region(self.canvas)
 
     @hd.require_image_file
@@ -753,7 +750,7 @@ class LoadImageApp(tk.Toplevel):
 
             view_x = int(x * self.image_state.zoomcoefficient) - x
             view_y = int(y * self.image_state.zoomcoefficient) - y
-            self.viewport = (view_x, view_y)
+            self.image_state.viewport = (view_x, view_y)
             self.display_region(self.canvas)
 
     def b1down(self, event):
@@ -856,9 +853,9 @@ class LoadImageApp(tk.Toplevel):
         pass
     
     def _update_viewport(self, event):
-        view_x = self.viewport[0] - (event.x - self.xold)
-        view_y = self.viewport[1] - (event.y - self.yold)
-        self.viewport = (view_x, view_y)
+        view_x = self.image_state.viewport[0] - (event.x - self.xold)
+        view_y = self.image_state.viewport[1] - (event.y - self.yold)
+        self.image_state.viewport = (view_x, view_y)
         self.display_region(self.canvas)
         
     # Handles mouse

@@ -6,6 +6,7 @@ class ImageState:
     DEFAULT_ZOOM = 0
     MIN_ZOOM = 0
     MAX_ZOOM = 10
+    DEFAULT_VIEWPORT = (0,0)
 
     def __init__(self):
         self._contrast_value = 1
@@ -13,6 +14,7 @@ class ImageState:
         self._zoom_level = self.DEFAULT_ZOOM
         self.build_zoom_levels()
         self._show_grid = False
+        self.viewport = self.DEFAULT_VIEWPORT  # Used for zoom and pan
 
     @property
     def contrast_value(self):
@@ -53,6 +55,7 @@ class ImageState:
 
     def reset_zoom(self):
         self._zoom_level = self.DEFAULT_ZOOM
+        self.viewport = self.DEFAULT_VIEWPORT
 
     def build_zoom_levels(self):
         self.mux = {0: 1.0}
@@ -85,3 +88,5 @@ class ImageState:
         if not isinstance(value, bool):
             raise ValueError("must be True or False")
         self._show_grid = value
+
+    
