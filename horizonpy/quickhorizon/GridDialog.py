@@ -12,7 +12,7 @@ except ImportError:
 ####################################################################
 class GridDialog(tkSimpleDialog.Dialog):
 
-    def __init__(self,parent,title=None,center=(0,0),radius=0, spacing=15):
+    def __init__(self, parent, title=None, center=(0,0), radius=0, spacing=15):
 
         tk.Toplevel.__init__(self, parent)
         self.transient(parent)

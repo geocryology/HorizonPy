@@ -315,7 +315,7 @@ class LoadImageApp(tk.Toplevel):
 
         x, y, wR = grid_data['oval']
         canvas.create_oval(x, y, x + (2 * wR), y + (2 * wR),
-                              outline="red", tag="grid")
+                           outline="red", tag="grid")
 
         for s in grid_data['spokes']:
             wX, wY, pX, pY = s
@@ -328,11 +328,9 @@ class LoadImageApp(tk.Toplevel):
         wX, wY, pX, pY = azimuth_data
         canvas.delete("azimuth")
         canvas.create_line(wX, wY, pX, pY, tag="azimuth",
-                              fill="green", width=3)
+                           fill="green", width=3)
     
-    def draw_azimuth(self, canvas, center, radius, anchor):
-        # Find the angle for the anchor point from a standard ciricle (1,0) 0 degrees
-        self.set_azimuth(anchor)
+    def draw_azimuth(self, canvas):
         azimuth_data = self.image_state.get_plottable_azimuth()
         self.plot_azimuth_data(canvas, azimuth_data)
 
@@ -358,8 +356,7 @@ class LoadImageApp(tk.Toplevel):
             self.draw_grid(canvas)
 
             if 0 <= self.image_state.image_azimuth <= 360:
-                self.draw_azimuth(canvas, self.image_state.image_center, self.image_state.radius,
-                                  self.image_state.anchor)
+                self.draw_azimuth(canvas)
 
     ########################################################
     # Menu options
@@ -457,8 +454,7 @@ class LoadImageApp(tk.Toplevel):
             self.image_state.load_azimuth_config(f_name)
             self.draw_grid(self.canvas)
             self.image_state.grid_set = True
-            self.draw_azimuth(self.canvas, self.image_state.image_center,
-                              self.image_state.radius, self.image_state.anchor)
+            self.draw_azimuth(self.canvas)
             self.image_state.turn_on_grid()
         
     def exit_app(self):
@@ -497,9 +493,9 @@ class LoadImageApp(tk.Toplevel):
                            spacing=self.image_state.spoke_spacing)
 
             self.canvas.focus_set()
-            logging.info("D = ", d, self.image_state.show_grid, d.result)
 
-            if d:
+            if d.result:
+                logging.info("Set grid properties")
                 self.image_state.image_center = d.center
                 self.image_state.radius = d.radius
                 self.image_state.spoke_spacing = d.spoke_spacing
@@ -528,8 +524,7 @@ class LoadImageApp(tk.Toplevel):
                 self.draw_grid(self.canvas)
 
                 if self.image_state.anchor[0] != -999:
-                    self.draw_azimuth(self.canvas, self.image_state.image_center, self.image_state.radius,
-                                      self.image_state.anchor)
+                    self.draw_azimuth(self.canvas)
             else:
                 tkMessageBox.showerror("Error!",
                                        "No overlay parameters have been set!")
@@ -643,9 +638,8 @@ class LoadImageApp(tk.Toplevel):
                 if self.tool == "azimuth":
                     self.draw_grid(self.canvas)
                                       
-                    self.image_state.anchor = self.image_state.to_raw((event.x, event.y))
-                    self.draw_azimuth(self.canvas, self.image_state.image_center, self.image_state.radius,
-                                      self.image_state.anchor)
+                    self.image_state.set_anchor(event)
+                    self.draw_azimuth(self.canvas)
     
     def select_dots_from_rectangle(self, event):
         items = event.widget.find_enclosed(self.select_X, self.select_Y,

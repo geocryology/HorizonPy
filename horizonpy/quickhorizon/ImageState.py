@@ -202,6 +202,10 @@ class ImageState:
         self.image_azimuth = C.getfloat("Azimuth", "image_azimuth")
         self.update_azimuth(self.anchor)
 
+    def set_anchor(self, event):
+        self.anchor = self.to_raw((event.x, event.y))
+        self.update_azimuth(self.anchor)
+
     def set_grid_from_lens(self, center, radius, spoke_spacing):
         if self.raw_image:
             self.spoke_spacing = spoke_spacing
