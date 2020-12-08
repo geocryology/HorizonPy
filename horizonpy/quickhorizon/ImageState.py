@@ -101,7 +101,7 @@ class EventState:
 
     def __init__(self):
         self.reset_event()
-    
+
     def store_event(self, x, y):
         self.old_event = (x, y)
 

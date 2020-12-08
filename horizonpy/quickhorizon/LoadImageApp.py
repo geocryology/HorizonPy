@@ -847,11 +847,10 @@ class LoadImageApp(tk.Toplevel):
     def b3up(self, event):
         pass
     
-    def _update_viewport(self, event):
+    def pan(self, event):
         xold, yold = self.event_state.old_event
-        view_x = self.image_state.viewport[0] - (event.x - xold)
-        view_y = self.image_state.viewport[1] - (event.y - yold)
-        self.image_state.viewport = (view_x, view_y)
+        self.image_state.update_viewport(event.x, event.y,
+                                         xold, yold)
         self.display_region(self.canvas)
         
     # Handles mouse
@@ -859,20 +858,15 @@ class LoadImageApp(tk.Toplevel):
 
         # Button 2 pans no matter what
         if self.raw_image and self.button_2 == "down":
-            xold, yold = self.event_state.old_event
-            if all((xold, yold)):
-                self._update_viewport(event)
+            self.pan(event)
             
         # Conditional on button 1 depressed
         if self.raw_image and self.button_1 == "down":
-            xold, yold = self.event_state.old_event
-            if all((xold, yold)):
+            if self.tool == "move":     # Panning
+                self.pan(event)
 
-                if self.tool == "move":     # Panning
-                    self._update_viewport(event)
-
-                elif self.tool == "select":
-                    self.update_selection_rectangle(event)
+            elif self.tool == "select":
+                self.update_selection_rectangle(event)
                                                   
         self.event_state.store_event(event.x, event.y)
         self.update_status_bar(event)
