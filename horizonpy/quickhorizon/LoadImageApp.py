@@ -676,7 +676,7 @@ class LoadImageApp(tk.Toplevel):
 
                 if self.show_grid:
                     self.draw_grid(self.canvas, self.center, self.radius,
-                                  self.spoke_spacing)
+                                   self.spoke_spacing)
                     self.grid_set = True
 
     def create_grid_based_on_lens(self, center, radius, spoke_spacing):
@@ -687,7 +687,7 @@ class LoadImageApp(tk.Toplevel):
             self.grid_set = True
             self.show_grid = True
             self.draw_grid(self.canvas, self.center, self.radius,
-                          self.spoke_spacing)
+                           self.spoke_spacing)
 
     def toggle_grid(self, *args):
         if not self.raw_image:
@@ -708,7 +708,7 @@ class LoadImageApp(tk.Toplevel):
                                         self.anchor)
             else:
                 tkMessageBox.showerror("Error!",
-                                        "No overlay parameters have been set!")
+                                       "No overlay parameters have been set!")
 
     @hd.require_image_file
     @hd.require_grid
@@ -942,9 +942,9 @@ class LoadImageApp(tk.Toplevel):
         if rect:
             event.widget.delete(rect)
         event.widget.create_rectangle(self.select_X, self.select_Y, 
-                                        event.x, event.y, fill="", 
-                                        dash=(4, 2), 
-                                        tag="selection_rectangle")
+                                      event.x, event.y, fill="", 
+                                      dash=(4, 2), 
+                                      tag="selection_rectangle")
 
     def update_status_bar(self, event):
         coordinate = self.to_raw((event.x, event.y))
@@ -971,26 +971,8 @@ class LoadImageApp(tk.Toplevel):
             self.display_region(self.canvas)
 
     def azimuth_calculation(self, center, radius, azimuth):
-        new_dots = []
-
-        for dot in self.points.dots:
-            azimuth = find_angle(center, self.image_azimuth_coords, (dot[0], dot[1]))
-
-            dot_radius = np.sqrt(np.power(dot[0] - center[0], 2) + np.power(dot[1] - center[1], 2))
-            horizon = self.find_horizon(dot_radius, radius)
-
-            if dot[2] == -998 or dot[2] > 90:
-                if horizon == 0:  # if horizon is exactly 0, make it a 90 deg point
-                    horizon = 90
-                else:
-                    horizon = 180 - horizon
-                    azimuth = (180 + azimuth) % 360
-
-            logging.info('Dot (%d,%d) has Horizon Elevation = %f, Azimuth = %f', dot[0], dot[1], horizon, azimuth)
-            new_dot = [dot[0], dot[1], round(horizon, 5), round(azimuth, 5)]
-            new_dots.append(new_dot)
-
-        self.points.dots = new_dots
+        self.points.update_image_azimuth(center, radius, azimuth, 
+                                         self.image_azimuth_coords, self.lens)
         self.draw_dots(self.canvas, self.points)
 
     def find_horizon(self, dot_radius, grid_radius):

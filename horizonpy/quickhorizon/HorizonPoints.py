@@ -104,7 +104,7 @@ class HorizonPoints:
     def print_dots(self):
         text = "X , Y = "
 
-        rows = len(self.dots())
+        rows = len(self.dots)
         for row in range(rows):
             i = self.dots[row]
 
@@ -128,8 +128,27 @@ class HorizonPoints:
             if coords == tuple(dot[0:2]):
                 self.dots.remove(dot)
 
-    def update_image_azimuth(self, image_azimuth):
-        pass
+    def update_image_azimuth(self, center, grid_radius, image_azimuth, image_azimuth_coords, lens):
+        new_dots = []
+
+        for dot in self.dots:
+            azimuth = find_angle(center, image_azimuth_coords, (dot[0], dot[1]))
+
+            dot_radius = np.sqrt(np.power(dot[0] - center[0], 2) + np.power(dot[1] - center[1], 2))
+            horizon = lens.horizon_from_radius(dot_radius, grid_radius) 
+
+            if dot[2] == -998 or dot[2] > 90:
+                if horizon == 0:  # if horizon is exactly 0, make it a 90 deg point
+                    horizon = 90
+                else:
+                    horizon = 180 - horizon
+                    azimuth = (180 + azimuth) % 360
+
+            logging.info('Dot (%d,%d) has Horizon Elevation = %f, Azimuth = %f', dot[0], dot[1], horizon, azimuth)
+            new_dot = [dot[0], dot[1], round(horizon, 5), round(azimuth, 5)]
+            new_dots.append(new_dot)
+
+        self.dots = new_dots
 
     def update_field_azimuth(self, field_azimuth):
         """ Recalculate true azimuth for all dots """
