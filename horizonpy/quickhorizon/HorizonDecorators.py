@@ -55,7 +55,7 @@ def require_image_file(func):
 def require_grid(func):
     @wraps(func)
     def wrapper(self, *args, **kw):
-        if not self.grid_set:
+        if not self.image_state.grid_set:
             tkMessageBox.showerror("Error!", "No grid parameters have been set! Please define azimuth grid first")
             logging.info("Attempted to call function {} without a horizon grid".format(func))
         else:

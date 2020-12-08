@@ -25,7 +25,8 @@ class ImageState:
         self.anchor = (-999, -999)  # Azimuth anchor
         self.radius = 0
         self.field_azimuth = -1
-
+        self.grid_set = False
+        
         self.raw_image = None
         self.zoomed_image = None
 
@@ -161,7 +162,15 @@ class ImageState:
         self.radius = C.getint("Azimuth", "radius")
         self.field_azimuth = C.getfloat("Azimuth", "field_azimuth")
         self.image_azimuth = C.getfloat("Azimuth", "image_azimuth")
-        
+    
+    def set_grid_from_lens(self, center, radius, spoke_spacing):
+        if self.raw_image:
+            self.spoke_spacing = spoke_spacing
+            self.image_center = center
+            self.radius = radius
+            self.grid_set = True
+            self.turn_on_grid()
+
     def to_raw(self, p):
         x, y = p
         # Translate the x,y coordinate from window to raw image coordinate

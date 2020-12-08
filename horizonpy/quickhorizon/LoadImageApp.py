@@ -197,7 +197,7 @@ class LoadImageApp(tk.Toplevel):
 
         # Reset when a new image opened
         self.event_state.reset_buttons()
-        self.grid_set = False
+        self.image_state.grid_set = False
 
         self.points.delete_all()
 
@@ -327,7 +327,7 @@ class LoadImageApp(tk.Toplevel):
             pX, pY = self.image_state.to_window((rX, rY))
             my_canvas.create_line(wX, wY, pX, pY, fill="red", tag="grid")
 
-        self.grid_set = True
+        self.image_state.grid_set = True
 
     def draw_azimuth(self, my_canvas, center, radius, anchor):
         # Find the angle for the anchor point from a standard ciricle (1,0) 0 degrees
@@ -525,17 +525,12 @@ class LoadImageApp(tk.Toplevel):
                 if self.image_state.show_grid:
                     self.draw_grid(self.canvas, self.image_state.image_center, self.image_state.radius,
                                    self.image_state.spoke_spacing)
-                    self.grid_set = True
+                    self.image_state.grid_set = True
 
     def create_grid_based_on_lens(self, center, radius, spoke_spacing):
-        if self.image_state.raw_image:
-            self.image_state.spoke_spacing = spoke_spacing
-            self.image_state.image_center = center
-            self.image_state.radius = radius
-            self.grid_set = True
-            self.image_state.turn_on_grid()
-            self.draw_grid(self.canvas, self.image_state.image_center, self.image_state.radius,
-                           self.image_state.spoke_spacing)
+        self.image_state.set_grid_from_lens(center, radius, spoke_spacing)
+        self.draw_grid(self.canvas, self.image_state.image_center, self.image_state.radius,
+                       self.image_state.spoke_spacing)
 
     def toggle_grid(self, *args):
         if not self.image_state.raw_image:
@@ -561,11 +556,7 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_image_file
     @hd.require_grid
     def define_azimuth(self):
-        if not self.grid_set:
-            tkMessageBox.showerror("Error!", "")
-            return
-        if self.image_state.raw_image:
-            self.tool = "azimuth"
+        self.tool = "azimuth"
 
     @hd.require_image_file
     @hd.require_image_azimuth
