@@ -1,7 +1,7 @@
 import logging
 
 
-class ModelState:
+class ImageState:
 
     DEFAULT_ZOOM = 0
     MIN_ZOOM = 0
@@ -12,6 +12,7 @@ class ModelState:
         self._brightness_value = 1
         self._zoom_level = self.DEFAULT_ZOOM
         self.build_zoom_levels()
+        self._show_grid = False
 
     @property
     def contrast_value(self):
@@ -68,3 +69,19 @@ class ModelState:
     @zoomcoefficient.setter
     def zoomcoefficient(self):
         raise RuntimeError("You can't set this property")
+
+    def turn_off_grid(self):
+        self._show_grid = False
+
+    def turn_on_grid(self):
+        self._show_grid = True
+    
+    @property
+    def show_grid(self):
+        return self._show_grid
+
+    @show_grid.setter
+    def show_grid(self, value):
+        if not isinstance(value, bool):
+            raise ValueError("must be True or False")
+        self._show_grid = value

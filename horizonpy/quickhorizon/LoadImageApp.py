@@ -11,15 +11,12 @@ except ImportError:  # python 2
     izip = zip
 
 import configparser
-import csv
 import logging
 import matplotlib as mpl
 import numpy as np
 import os
-import pandas as pd
 
 from PIL import Image, ImageTk, ImageEnhance
-from scipy.interpolate import interp1d
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from horizonpy.quickhorizon.ArcSkyDialog import ArcSkyDialog
@@ -28,8 +25,8 @@ from horizonpy.quickhorizon.AzimuthDialog import AzimuthDialog
 from horizonpy.quickhorizon.SkyViewFactorDialog import SkyViewFactorDialog
 from horizonpy.quickhorizon.LensSelectionDialog import LensSelectionDialog
 from horizonpy.quickhorizon.HorizonPoints import HorizonPoints
-from horizonpy.quickhorizon.ModelState import ModelState
-from horizonpy.quickhorizon.geometry import calculate_true_azimuth, find_angle
+from horizonpy.quickhorizon.ImageState import ImageState
+from horizonpy.quickhorizon.geometry import find_angle
 import horizonpy.quickhorizon.HorizonDecorators as hd
 import horizonpy.quickhorizon.LensCalibrations as lens
 
@@ -42,11 +39,8 @@ class LoadImageApp(tk.Toplevel):
     tool = "move"
     xold, yold = None, None
     viewport = (0, 0)       # Used for zoom and pan
-    MIN_ZOOM = 0
-    MAX_ZOOM = 100
     raw_image = None
     zoomed_image = None
-    show_grid = False
     image_azimuth = -1  # Define an angle of image azimuth from anchor (degrees)
     image_azimuth_coords = (0, 0)   # Store image Azimuth coordinates (endpoint)
     anchor = (-999, -999)         # Store the anchor coordinate
@@ -61,7 +55,7 @@ class LoadImageApp(tk.Toplevel):
         self.imageFile = image_file
         self.lens = lens.SunexLens
         self.field_azimuth = -1
-        self.state = ModelState()
+        self.image_state = ImageState()
         self.points = HorizonPoints()
 
         # File associations
@@ -221,7 +215,6 @@ class LoadImageApp(tk.Toplevel):
         self.tool = "move"
         self.store_old_xy_event(None, None)
         self.viewport = (0, 0)
-        self.show_grid = False
         self.grid_set = False
 
         self.points.delete_all()
@@ -249,11 +242,11 @@ class LoadImageApp(tk.Toplevel):
 
         self.raw_image = self.apply_enhancement(self.orig_img,
                                                 ImageEnhance.Contrast,
-                                                self.state.contrast_value)
+                                                self.image_state.contrast_value)
        
         self.raw_image = self.apply_enhancement(self.raw_image,
                                                 ImageEnhance.Brightness,
-                                                self.state.brightness_value)
+                                                self.image_state.brightness_value)
 
         self.p_img = ImageTk.PhotoImage(self.raw_image)
         self.canvas.create_image(0, 0, image=self.p_img, anchor="nw")
@@ -261,7 +254,7 @@ class LoadImageApp(tk.Toplevel):
 
     @hd.require_image_file
     def adjust_contrast(self, increment, *args):
-        self.state.contrast_value += increment
+        self.image_state.contrast_value += increment
         self.reload_image()
         
     def increase_contrast(self, event=None, increment=0.1):
@@ -272,7 +265,7 @@ class LoadImageApp(tk.Toplevel):
 
     @hd.require_image_file
     def adjust_brightness(self, increment, *args):
-        self.state.brightness_value += increment
+        self.image_state.brightness_value += increment
         self.reload_image()
 
     def increase_brightness(self, event=None, increment=0.1):
@@ -328,16 +321,16 @@ class LoadImageApp(tk.Toplevel):
         x, y = p
         # Translate the x,y coordinate from window to raw image coordinate
         (vx, vy) = self.viewport
-        raw_x = int((x + vx) / self.state.zoomcoefficient)
-        raw_y = int((y + vy) / self.state.zoomcoefficient)
+        raw_x = int((x + vx) / self.image_state.zoomcoefficient)
+        raw_y = int((y + vy) / self.image_state.zoomcoefficient)
         return (raw_x, raw_y)
 
     def to_window(self, p):
         x, y = p
         # Translate the x,y coordinate from raw image coordinate to window coordinate
         (vx, vy) = self.viewport
-        window_x = int(x * self.state.zoomcoefficient) - vx
-        window_y = int(y * self.state.zoomcoefficient) - vy
+        window_x = int(x * self.image_state.zoomcoefficient) - vx
+        window_y = int(y * self.image_state.zoomcoefficient) - vy
         return (window_x, window_y)
 
     def draw_dots(self, my_canvas, horizon_points):
@@ -375,7 +368,7 @@ class LoadImageApp(tk.Toplevel):
         my_canvas.delete("grid")
 
         (wX, wY) = self.to_window(center)
-        wR = radius * self.state.zoomcoefficient
+        wR = radius * self.image_state.zoomcoefficient
 
         x = wX - wR
         y = wY - wR
@@ -416,8 +409,8 @@ class LoadImageApp(tk.Toplevel):
     def scale_image(self):
         # Resize image
         raw_x, raw_y = self.raw_image.size
-        new_w = int(raw_x * self.state.zoomcoefficient)
-        new_h = int(raw_y * self.state.zoomcoefficient)
+        new_w = int(raw_x * self.image_state.zoomcoefficient)
+        new_h = int(raw_y * self.image_state.zoomcoefficient)
 
         self.zoomed_image = self.raw_image.resize((new_w, new_h),
                                                   Image.ANTIALIAS)
@@ -440,7 +433,7 @@ class LoadImageApp(tk.Toplevel):
         if self.points.any_defined():
             self.draw_dots(my_canvas, self.points)
 
-        if self.show_grid:
+        if self.image_state.show_grid:
             self.draw_grid(my_canvas, self.center, self.radius,
                            self.spoke_spacing)
 
@@ -558,7 +551,7 @@ class LoadImageApp(tk.Toplevel):
             C.read(f_name)
             self.set_grid_from_config(C)
             self.set_azimuth_from_config(C)
-            self.show_grid = True
+            self.image_state.turn_on_grid()
 
     def set_grid_from_config(self, config):
         self.spokes = config.getint("Azimuth", "spokes")
@@ -615,16 +608,16 @@ class LoadImageApp(tk.Toplevel):
                            spacing=self.spoke_spacing)
 
             self.canvas.focus_set()
-            logging.info("D = ", d, self.show_grid, d.result)
+            logging.info("D = ", d, self.image_state.show_grid, d.result)
 
             if d:
                 self.center = d.center
                 self.radius = d.radius
                 self.spoke_spacing = d.spoke_spacing
-                if not self.show_grid:
-                    self.show_grid = d.result
+                if not self.image_state.show_grid:
+                    self.image_state.show_grid = d.result
 
-                if self.show_grid:
+                if self.image_state.show_grid:
                     self.draw_grid(self.canvas, self.center, self.radius,
                                    self.spoke_spacing)
                     self.grid_set = True
@@ -635,7 +628,7 @@ class LoadImageApp(tk.Toplevel):
             self.center = center
             self.radius = radius
             self.grid_set = True
-            self.show_grid = True
+            self.image_state.turn_on_grid()
             self.draw_grid(self.canvas, self.center, self.radius,
                            self.spoke_spacing)
 
@@ -643,13 +636,13 @@ class LoadImageApp(tk.Toplevel):
         if not self.raw_image:
             return
             
-        if self.show_grid:
-            self.show_grid = False
+        if self.image_state.show_grid:
+            self.image_state.turn_off_grid()
             self.canvas.delete("grid")
             self.canvas.delete("azimuth")
         else:
             if self.canvas and self.center and 0 <= self.radius <= 360:
-                self.show_grid = True
+                self.image_state.turn_on_grid()
                 self.draw_grid(self.canvas, self.center, self.radius,
                                 self.spoke_spacing)
 
@@ -698,7 +691,7 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_image_file
     def zoom_in(self, *args):
         try:
-            self.state.zoom_level += 1
+            self.image_state.zoom_level += 1
             self.scale_image()
             self.display_region(self.canvas)
         
@@ -708,7 +701,7 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_image_file
     def zoom_out(self, *args):
         try:
-            self.state.zoom_level -= 1
+            self.image_state.zoom_level -= 1
             self.scale_image()
             self.display_region(self.canvas)
         
@@ -717,7 +710,7 @@ class LoadImageApp(tk.Toplevel):
 
     @hd.require_image_file
     def zoom_original(self):
-        self.state.reset_zoom()
+        self.image_state.reset_zoom()
         self.scale_image()
         self.viewport = (0, 0)
         self.display_region(self.canvas)
@@ -751,15 +744,15 @@ class LoadImageApp(tk.Toplevel):
                 return
             
             try:
-                self.state.zoom_level += increment
+                self.image_state.zoom_level += increment
             except ValueError:
-                logging.info('Zoom limit reached!')               
+                logging.info('Zoom limit reached!')
                 return
 
             self.scale_image()
 
-            view_x = int(x * self.state.zoomcoefficient) - x
-            view_y = int(y * self.state.zoomcoefficient) - y
+            view_x = int(x * self.image_state.zoomcoefficient) - x
+            view_y = int(y * self.image_state.zoomcoefficient) - y
             self.viewport = (view_x, view_y)
             self.display_region(self.canvas)
 
