@@ -52,7 +52,6 @@ class LoadImageApp(tk.Toplevel):
         self.frame = tk.Frame(root, bg='black')
         self.imageFile = image_file
         self.lens = lens.SunexLens
-        self.image_azimuth = -1
         self.field_azimuth = -1
         self.image_state = ImageState()
         self.event_state = EventState()
@@ -281,7 +280,7 @@ class LoadImageApp(tk.Toplevel):
         self.orig_img = Image.open(image_file)
         (width, height) = self.raw_image.size
         self.field_azimuth = -1
-        self.image_azimuth = -1
+        self.image_state.reset_image_azimuth()
         self.set_file_locations()
 
         # Image larger than 1000 pixels, resize to 800 x 600
@@ -307,7 +306,7 @@ class LoadImageApp(tk.Toplevel):
         self.center = (int(width / 2), int(height / 2))
         self.radius = int(np.sqrt(self.center[0] ** 2 + self.center[1] ** 2))
         self.spoke_spacing = 15
-        self.image_azimuth = -1
+        self.image_state.reset_image_azimuth()
         logging.info("Loaded image {}".format(self.imageFile))
 
     def to_raw(self, p):
@@ -397,7 +396,7 @@ class LoadImageApp(tk.Toplevel):
         pX, pY = self.to_window((rX, rY))
         my_canvas.create_line(wX, wY, pX, pY, tag="azimuth",
                               fill="green", width=3)
-        self.image_azimuth = azimuth
+        self.image_state.image_azimuth = azimuth
 
     def scale_image(self):
         # Resize image
@@ -430,7 +429,7 @@ class LoadImageApp(tk.Toplevel):
             self.draw_grid(my_canvas, self.center, self.radius,
                            self.spoke_spacing)
 
-            if 0 <= self.image_azimuth <= 360:
+            if 0 <= self.image_state.image_azimuth <= 360:
                 self.draw_azimuth(my_canvas, self.center, self.radius,
                                   self.anchor)
 
@@ -527,7 +526,7 @@ class LoadImageApp(tk.Toplevel):
         C.set("Azimuth", "grid_centre_y", str(self.center[1]))
         C.set("Azimuth", "radius", str(self.radius))
         C.set("Azimuth", "spokes", str(self.spoke_spacing))
-        C.set("Azimuth", "image_azimuth", str(self.image_azimuth))
+        C.set("Azimuth", "image_azimuth", str(self.image_state.image_azimuth))
         C.set("Azimuth", "field_azimuth", str(self.field_azimuth))
 
         f_name = tkFileDialog.asksaveasfilename(**self.azm_opt)
@@ -561,7 +560,7 @@ class LoadImageApp(tk.Toplevel):
         
         self.radius = config.getint("Azimuth", "radius")
         self.field_azimuth = config.getfloat("Azimuth", "field_azimuth")
-        self.image_azimuth = config.getfloat("Azimuth", "image_azimuth")
+        self.image_state.image_azimuth = config.getfloat("Azimuth", "image_azimuth")
         
         self.draw_azimuth(self.canvas, self.center, self.radius, self.anchor)
 
@@ -885,7 +884,7 @@ class LoadImageApp(tk.Toplevel):
         except (IndexError, AttributeError):
             img_value = None
         
-        self.status_bar.display(cursor_loc, self.image_azimuth, self.field_azimuth, img_value)
+        self.status_bar.display(cursor_loc, self.image_state.image_azimuth, self.field_azimuth, img_value)
         
     def resize_window(self, event):
         if self.zoomed_image:

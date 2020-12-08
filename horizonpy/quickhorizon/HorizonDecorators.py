@@ -33,7 +33,7 @@ def require_field_azimuth(func):
 def require_image_azimuth(func):
     @wraps(func)
     def wrapper(self, *args, **kw):
-        if self.image_azimuth == -1:
+        if self.image_state.image_azimuth == -1:
             tkMessageBox.showerror("Error!", "Image azimuth has not yet been defined.")
             logging.info("Attempted to call function {} without image azimuth".format(func))
         else:

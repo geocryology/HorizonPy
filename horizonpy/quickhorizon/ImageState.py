@@ -102,6 +102,13 @@ class ImageState:
     @property
     def image_azimuth(self):
         return self._image_azimuth
+    
+    @image_azimuth.setter
+    def image_azimuth(self, value):
+        if (0 <= value <= 360 or value == self.DEFAULT_IMAGE_AZIMUTH):
+            self._image_azimuth = value
+        else:
+            raise ValueError("Invalid azimuth value")
 
     def reset_image_azimuth(self):
         self._image_azimuth = self.DEFAULT_IMAGE_AZIMUTH
