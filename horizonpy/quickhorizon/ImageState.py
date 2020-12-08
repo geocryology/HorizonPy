@@ -1,6 +1,7 @@
 import logging
 import configparser
-from PIL import Image
+from PIL import Image, ImageTk
+import numpy as np
 
 
 class ImageState:
@@ -187,6 +188,33 @@ class ImageState:
 
         self.zoomed_image = self.raw_image.resize((new_w, new_h),
                                                   Image.ANTIALIAS)
+
+    def load_image(self, image_file):
+        self.imageFile = image_file
+        self.raw_image = Image.open(image_file)
+        self.orig_img = Image.open(image_file)
+        (width, height) = self.raw_image.size
+        self.reset_image_azimuth()
+
+        # Image larger than 1000 pixels, resize to 800 x 600
+        if (width > 1000) or (height > 1000):
+            self.orig_img.thumbnail((800, 600), Image.ANTIALIAS)
+            self.raw_image.thumbnail((800, 600), Image.ANTIALIAS)
+            (width, height) = self.raw_image.size
+            logging.info("Resizing image to {} x {}".format(width, height))
+
+        self.zoomed_image = self.raw_image
+
+        # Save reference to image object so it can be displayed
+        self.p_img = ImageTk.PhotoImage(self.raw_image)
+
+        # Find center of image and radius
+        self.image_center = (int(width / 2), int(height / 2))
+        self.radius = int(np.sqrt(self.image_center[0] ** 2 + self.image_center[1] ** 2))
+        self.spoke_spacing = 15
+
+        logging.info("Loaded image {}".format(self.imageFile))
+
 
 class EventState:
 

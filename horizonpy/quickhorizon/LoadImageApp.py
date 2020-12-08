@@ -15,7 +15,7 @@ import matplotlib as mpl
 import numpy as np
 import os
 
-from PIL import Image, ImageTk, ImageEnhance
+from PIL import ImageTk, ImageEnhance
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from horizonpy.quickhorizon.ArcSkyDialog import ArcSkyDialog
@@ -40,11 +40,11 @@ class LoadImageApp(tk.Toplevel):
     def __init__(self, root, image_file=None):
         self.parent = root
         self.frame = tk.Frame(root, bg='black')
-        self.imageFile = image_file
         self.lens = lens.SunexLens
         self.image_state = ImageState()
         self.event_state = EventState()
         self.points = HorizonPoints()
+        self.image_state.imageFile = image_file  # TODO: remove?
         self.tool = "move"
   
         # File associations
@@ -179,15 +179,15 @@ class LoadImageApp(tk.Toplevel):
         self.canvas.bind("q", self.decrease_brightness)
         self.canvas.bind("t", self.toggle_grid)
 
-    def set_file_locations(self):
-        name = os.path.splitext(os.path.basename(self.imageFile))[0]
+    def set_file_locations(self, image_dir):
+        name = os.path.splitext(os.path.basename(self.image_state.imageFile))[0]
         
-        self.file_opt['initialdir'] = self.imageDir
+        self.file_opt['initialdir'] = image_dir
        
-        self.csv_opt['initialdir'] = self.imageDir
+        self.csv_opt['initialdir'] = image_dir
         self.csv_opt['initialfile'] = name + self.csv_opt['defaultextension']
 
-        self.azm_opt['initialdir'] = self.imageDir
+        self.azm_opt['initialdir'] = image_dir
         self.azm_opt['initialfile'] = name + self.azm_opt['defaultextension']
 
     ####################################################################
@@ -222,7 +222,7 @@ class LoadImageApp(tk.Toplevel):
     def reload_image(self):
         # Create objects to adjust brightness and contrast
 
-        self.image_state.raw_image = self.apply_enhancement(self.orig_img,
+        self.image_state.raw_image = self.apply_enhancement(self.image_state.orig_img,
                                                 ImageEnhance.Contrast,
                                                 self.image_state.contrast_value)
        
@@ -230,8 +230,8 @@ class LoadImageApp(tk.Toplevel):
                                                 ImageEnhance.Brightness,
                                                 self.image_state.brightness_value)
 
-        self.p_img = ImageTk.PhotoImage(self.image_state.raw_image)
-        self.canvas.create_image(0, 0, image=self.p_img, anchor="nw")
+        self.image_state.p_img = ImageTk.PhotoImage(self.image_state.raw_image)
+        self.canvas.create_image(0, 0, image=self.image_state.p_img, anchor="nw")
         self.zoom_current()
 
     @hd.require_image_file
@@ -264,39 +264,18 @@ class LoadImageApp(tk.Toplevel):
             return enhancement(image).enhance(increment)
 
     def load_image(self, canvas, image_file):
-        self.imageFile = image_file
-        self.imageDir = os.path.dirname(image_file)
-        self.image_state.raw_image = Image.open(image_file)
-        self.orig_img = Image.open(image_file)
-        (width, height) = self.image_state.raw_image.size
-        self.image_state.reset_image_azimuth()
-        self.set_file_locations()
+        self.image_state.load_image(image_file)
 
-        # Image larger than 1000 pixels, resize to 800 x 600
-        if (width > 1000) or (height > 1000):
-            self.orig_img.thumbnail((800, 600), Image.ANTIALIAS)
-            self.image_state.raw_image.thumbnail((800, 600), Image.ANTIALIAS)
-            (width, height) = self.image_state.raw_image.size
-            logging.info("Resizing image to {} x {}".format(width, height))
-
-        self.image_state.zoomed_image = self.image_state.raw_image
-
-        # Save reference to the image object in order to show it.
-        self.p_img = ImageTk.PhotoImage(self.image_state.raw_image)
+        image_dir = os.path.dirname(image_file)
+        self.set_file_locations(image_dir)
 
         # Change size of canvas to new width and height
+        (width, height) = self.image_state.raw_image.size
         canvas.config(width=width, height=height)
 
         # Remove all canvas items
         canvas.delete("all")
-        canvas.create_image(0, 0, image=self.p_img, anchor="nw")
-
-        # Find center of image and radius
-        self.image_state.image_center = (int(width / 2), int(height / 2))
-        self.image_state.radius = int(np.sqrt(self.image_state.image_center[0] ** 2 + self.image_state.image_center[1] ** 2))
-        self.image_state.spoke_spacing = 15
-        self.image_state.reset_image_azimuth()
-        logging.info("Loaded image {}".format(self.imageFile))
+        canvas.create_image(0, 0, image=self.image_state.p_img, anchor="nw")
 
     def draw_dots(self, my_canvas, horizon_points):
         for dot in horizon_points.get():
@@ -381,9 +360,9 @@ class LoadImageApp(tk.Toplevel):
 
         tmp = self.image_state.zoomed_image.crop((x, y, x + w, y + h))
 
-        self.p_img = ImageTk.PhotoImage(tmp)
+        self.image_state.p_img = ImageTk.PhotoImage(tmp)
         my_canvas.config(bg="gray50")
-        my_canvas.create_image(0, 0, image=self.p_img, anchor="nw")
+        my_canvas.create_image(0, 0, image=self.image_state.p_img, anchor="nw")
 
         # Draw  saved dots
         if self.points.any_defined():
@@ -892,6 +871,6 @@ class LoadImageApp(tk.Toplevel):
             self.lens = lens_selection.lens
             logging.info("Set lens calibration to {}".format(self.lens.NAME))
 
-        if self.imageFile:
+        if self.image_state.imageFile:
             self.azimuth_calculation(self.image_state.image_center, self.image_state.radius,
                                      self.image_state.image_azimuth_coords)
