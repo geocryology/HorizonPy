@@ -306,28 +306,20 @@ class LoadImageApp(tk.Toplevel):
             sky_polygon = my_canvas.create_polygon(*xy, fill="", outline='blue')
             my_canvas.itemconfig(sky_polygon, tags=("sky_polygon"))
 
-    def draw_grid(self, my_canvas, center, radius, spoke_spacing=15):
+    def draw_grid(self, my_canvas):
+        grid_data = self.image_state.get_plottable_grid()
+        self.plot_grid_data(my_canvas, grid_data)
 
-        # Remove old grid before drawing new one
-        my_canvas.delete("grid")
+    def plot_grid_data(self, canvas, grid_data):
+        canvas.delete("grid")
 
-        (wX, wY) = self.image_state.to_window(center)
-        wR = radius * self.image_state.zoomcoefficient
-
-        x = wX - wR
-        y = wY - wR
-
-        my_canvas.create_oval(x, y, x + (2 * wR), y + (2 * wR),
+        x, y, wR = grid_data['oval']
+        canvas.create_oval(x, y, x + (2 * wR), y + (2 * wR),
                               outline="red", tag="grid")
 
-        # Draw spokes on Az wheel
-        for n in range(0, 360, spoke_spacing):
-            rX = center[0] + int(radius * np.cos(np.radians(n)))
-            rY = center[1] + int(radius * np.sin(np.radians(n)))
-            pX, pY = self.image_state.to_window((rX, rY))
-            my_canvas.create_line(wX, wY, pX, pY, fill="red", tag="grid")
-
-        self.image_state.grid_set = True
+        for s in grid_data['spokes']:
+            wX, wY, pX, pY = s
+            canvas.create_line(wX, wY, pX, pY, fill="red", tag="grid")
 
     def draw_azimuth(self, my_canvas, center, radius, anchor):
         # Find the angle for the anchor point from a standard ciricle (1,0) 0 degrees
@@ -369,8 +361,7 @@ class LoadImageApp(tk.Toplevel):
             self.draw_dots(my_canvas, self.points)
 
         if self.image_state.show_grid:
-            self.draw_grid(my_canvas, self.image_state.image_center, self.image_state.radius,
-                           self.image_state.spoke_spacing)
+            self.draw_grid(my_canvas)
 
             if 0 <= self.image_state.image_azimuth <= 360:
                 self.draw_azimuth(my_canvas, self.image_state.image_center, self.image_state.radius,
@@ -470,9 +461,8 @@ class LoadImageApp(tk.Toplevel):
             f_name = tkFileDialog.askopenfilename(**self.azm_opt)
         if f_name:
             self.image_state.load_azimuth_config(f_name)
-            self.draw_grid(self.canvas, self.image_state.image_center,
-                           self.image_state.radius,
-                           spoke_spacing=self.image_state.spoke_spacing)
+            self.draw_grid(self.canvas)
+            self.image_state.grid_set = True
             self.draw_azimuth(self.canvas, self.image_state.image_center,
                               self.image_state.radius, self.image_state.anchor)
             self.image_state.turn_on_grid()
@@ -523,14 +513,12 @@ class LoadImageApp(tk.Toplevel):
                     self.image_state.show_grid = d.result
 
                 if self.image_state.show_grid:
-                    self.draw_grid(self.canvas, self.image_state.image_center, self.image_state.radius,
-                                   self.image_state.spoke_spacing)
+                    self.draw_grid(self.canvas)
                     self.image_state.grid_set = True
 
     def create_grid_based_on_lens(self, center, radius, spoke_spacing):
         self.image_state.set_grid_from_lens(center, radius, spoke_spacing)
-        self.draw_grid(self.canvas, self.image_state.image_center, self.image_state.radius,
-                       self.image_state.spoke_spacing)
+        self.draw_grid(self.canvas)
 
     def toggle_grid(self, *args):
         if not self.image_state.raw_image:
@@ -543,8 +531,7 @@ class LoadImageApp(tk.Toplevel):
         else:
             if self.canvas and self.image_state.image_center and self.image_state.radius:
                 self.image_state.turn_on_grid()
-                self.draw_grid(self.canvas, self.image_state.image_center, self.image_state.radius,
-                               self.image_state.spoke_spacing)
+                self.draw_grid(self.canvas)
 
                 if self.image_state.anchor[0] != -999:
                     self.draw_azimuth(self.canvas, self.image_state.image_center, self.image_state.radius,
@@ -660,8 +647,7 @@ class LoadImageApp(tk.Toplevel):
 
             else:
                 if self.tool == "azimuth":
-                    self.draw_grid(self.canvas, self.image_state.image_center, self.image_state.radius,
-                                   self.image_state.spoke_spacing)
+                    self.draw_grid(self.canvas)
                                       
                     self.image_state.anchor = self.image_state.to_raw((event.x, event.y))
                     self.draw_azimuth(self.canvas, self.image_state.image_center, self.image_state.radius,

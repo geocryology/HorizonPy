@@ -2,7 +2,7 @@ import logging
 import configparser
 from PIL import Image, ImageTk
 import numpy as np
-
+from horizonpy.quickhorizon.geometry import find_angle
 
 class ImageState:
 
@@ -26,7 +26,7 @@ class ImageState:
         self.radius = 0
         self.field_azimuth = -1
         self.grid_set = False
-        
+
         self.raw_image = None
         self.zoomed_image = None
 
@@ -104,6 +104,29 @@ class ImageState:
             raise ValueError("must be True or False")
         self._show_grid = value
 
+    def get_plottable_grid(self):
+        (wX, wY) = self.to_window(self.image_center)
+        wR = self.radius * self.zoomcoefficient
+
+        x = wX - wR
+        y = wY - wR
+        oval = (x, y, wR)
+
+        spokes = list()
+        for n in range(0, 360, self.spoke_spacing):
+            rX = self.image_center[0] + int(self.radius * np.cos(np.radians(n)))
+            rY = self.image_center[1] + int(self.radius * np.sin(np.radians(n)))
+            pX, pY = self.to_window((rX, rY))
+            spokes.append((wX, wY, pX, pY))
+        
+        grid_data = {'oval': oval,
+                     'spokes': spokes}
+        
+        return grid_data
+
+    def get_plottable_azimuth(self):
+        pass
+    
     def update_viewport(self, new_x, new_y, old_x, old_y):
         if not all((old_x, old_y)):
             return
@@ -133,6 +156,9 @@ class ImageState:
     def image_azimuth_coords(self, coords):
         logging.info(f"set image azimuth reference point to {coords}")
         self._image_azimuth_coords = coords
+
+    def define_azimuth(self):
+        pass
 
     def save_azimuth_config(self, f_name):
         C = configparser.ConfigParser()
