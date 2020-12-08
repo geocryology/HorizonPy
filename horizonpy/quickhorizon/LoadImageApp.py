@@ -482,8 +482,14 @@ class LoadImageApp(tk.Toplevel):
 
         if not file:
             file = tkFileDialog.askopenfilename(**self.csv_opt)
-
+        
         if file:
+            self.points.import_horizon_csv(file)
+            self.draw_dots(self.canvas, self.points)
+        else:
+            logging.info('No file selected')
+        """
+        
 
             # Delete  existing dots from canvas and data
             self.canvas.delete("dot")
@@ -502,10 +508,8 @@ class LoadImageApp(tk.Toplevel):
 
             finally:
                 f.close()
+            """
 
-            self.draw_dots(self.canvas, self.points)
-        else:
-            logging.info('No file selected')
 
     @hd.require_image_azimuth
     @hd.require_grid

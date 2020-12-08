@@ -20,9 +20,9 @@ class HorizonPoints:
             next(reader)  # skip header row
 
             for row in reader:
-                raw = (int(row[0]), int(row[1]))
+                raw = (int(row[0]), int(row[1]), float(row[2]), float(row[3]), float(row[4]))
                 overhang = float(row[2]) > 90
-                self._define_new_dot(raw, overhanging=overhang)
+                self.dots.append(raw)  # self._define_new_dot(raw, overhanging=overhang)
 
         finally:
             f.close()
