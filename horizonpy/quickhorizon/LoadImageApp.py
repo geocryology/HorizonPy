@@ -10,16 +10,12 @@ except ImportError:  # python 2
     import tkinter.messagebox as tkMessageBox
     izip = zip
 
-import configparser
-import csv
 import logging
 import matplotlib as mpl
 import numpy as np
 import os
-import pandas as pd
 
-from PIL import Image, ImageTk, ImageEnhance
-from scipy.interpolate import interp1d
+from PIL import ImageTk, ImageEnhance
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from horizonpy.quickhorizon.ArcSkyDialog import ArcSkyDialog
@@ -28,7 +24,9 @@ from horizonpy.quickhorizon.AzimuthDialog import AzimuthDialog
 from horizonpy.quickhorizon.SkyViewFactorDialog import SkyViewFactorDialog
 from horizonpy.quickhorizon.LensSelectionDialog import LensSelectionDialog
 from horizonpy.quickhorizon.HorizonPoints import HorizonPoints
-from horizonpy.quickhorizon.geometry import calculate_true_azimuth, find_angle
+from horizonpy.quickhorizon.ImageState import ImageState, EventState
+from horizonpy.quickhorizon.View import StatusBar
+from horizonpy.quickhorizon.geometry import find_angle
 import horizonpy.quickhorizon.HorizonDecorators as hd
 import horizonpy.quickhorizon.LensCalibrations as lens
 
@@ -36,43 +34,19 @@ import horizonpy.quickhorizon.LensCalibrations as lens
 # Main
 ####################################################################
 
+
 class LoadImageApp(tk.Toplevel):
 
-    tool = "move"
-    xold, yold = None, None
-    viewport = (0, 0)       # Used for zoom and pan
-    zoomcycle = 0
-    MIN_ZOOM = 0
-    MAX_ZOOM = 100
-    raw_image = None
-    zoomed_image = None
-    show_grid = False
-    image_azimuth = -1  # Define an angle of image azimuth from anchor (degrees)
-    image_azimuth_coords = (0, 0)   # Store image Azimuth coordinates (endpoint)
-    anchor = (-999, -999)         # Store the anchor coordinate
-
-    ####################################################################
-    # Function: __init__
-    ####################################################################
     def __init__(self, root, image_file=None):
-
         self.parent = root
         self.frame = tk.Frame(root, bg='black')
-        self.imageFile = image_file
         self.lens = lens.SunexLens
-        self.field_azimuth = -1
-        self.contrast_value = 1
-        self.brightness_value = 1
+        self.image_state = ImageState()
+        self.event_state = EventState()
         self.points = HorizonPoints()
-
-        # zoom
-        self.mux = {0: 1.0}
-        for n in range(1, self.MAX_ZOOM + 1, 1):
-            self.mux[n] = round(self.mux[n - 1] * 1.5, 5)
-
-        for n in range(-1, self.MIN_ZOOM - 1, -1):
-            self.mux[n] = round(self.mux[n + 1] * 1.5, 5)
-
+        self.image_state.imageFile = image_file  # TODO: remove?
+        self.tool = "move"
+  
         # File associations
         self.file_opt = options = {}
         options['defaultextension'] = '.gif'
@@ -184,10 +158,8 @@ class LoadImageApp(tk.Toplevel):
         # Attach menu bar to interface
         root.config(menu=menubar)
 
-        # Show XY coords in in bottom left
-        self.status = tk.Label(root, text="X,Y", bd=1, relief=tk.SUNKEN, 
-                               anchor=tk.W)
-        self.status.pack(side=tk.BOTTOM, fill=tk.X)
+        # Show status bar
+        self.status_bar = StatusBar(root)
 
         # Events
         self.canvas.bind("<MouseWheel>", self.zoom_wheel)
@@ -201,21 +173,21 @@ class LoadImageApp(tk.Toplevel):
         self.canvas.bind("<Configure>", self.resize_window)
         self.canvas.bind("1", self.zoom_in)
         self.canvas.bind("2", self.zoom_out)
-        self.canvas.bind("o", self.increase_contrast)
-        self.canvas.bind("p", self.decrease_contrast)
-        self.canvas.bind("q", self.increase_brightness)
-        self.canvas.bind("w", self.decrease_brightness)
+        self.canvas.bind("p", self.increase_contrast)
+        self.canvas.bind("o", self.decrease_contrast)
+        self.canvas.bind("w", self.increase_brightness)
+        self.canvas.bind("q", self.decrease_brightness)
         self.canvas.bind("t", self.toggle_grid)
 
-    def set_file_locations(self):
-        name = os.path.splitext(os.path.basename(self.imageFile))[0]
+    def set_file_locations(self, image_dir):
+        name = os.path.splitext(os.path.basename(self.image_state.imageFile))[0]
         
-        self.file_opt['initialdir'] = self.imageDir
+        self.file_opt['initialdir'] = image_dir
        
-        self.csv_opt['initialdir'] = self.imageDir
+        self.csv_opt['initialdir'] = image_dir
         self.csv_opt['initialfile'] = name + self.csv_opt['defaultextension']
 
-        self.azm_opt['initialdir'] = self.imageDir
+        self.azm_opt['initialdir'] = image_dir
         self.azm_opt['initialfile'] = name + self.azm_opt['defaultextension']
 
     ####################################################################
@@ -224,15 +196,8 @@ class LoadImageApp(tk.Toplevel):
     def init_canvas(self, canvas, image_file):
 
         # Reset when a new image opened
-        self.button_1 = "up"
-        self.button_2 = "up"
-        self.button_3 = "up"
-        self.tool = "move"
-        self.store_old_xy_event(None, None)
-        self.viewport = (0, 0)
-        self.zoomcycle = 0
-        self.show_grid = False
-        self.grid_set = False
+        self.event_state.reset_buttons()
+        self.image_state.grid_set = False
 
         self.points.delete_all()
 
@@ -257,25 +222,23 @@ class LoadImageApp(tk.Toplevel):
     def reload_image(self):
         # Create objects to adjust brightness and contrast
 
-        self.raw_image = self.apply_enhancement(self.orig_img,
+        self.image_state.raw_image = self.apply_enhancement(self.image_state.orig_img,
                                                 ImageEnhance.Contrast,
-                                                self.contrast_value)
+                                                self.image_state.contrast_value)
        
-        self.raw_image = self.apply_enhancement(self.raw_image,
+        self.image_state.raw_image = self.apply_enhancement(self.image_state.raw_image,
                                                 ImageEnhance.Brightness,
-                                                self.brightness_value)
+                                                self.image_state.brightness_value)
 
-        self.p_img = ImageTk.PhotoImage(self.raw_image)
-        self.canvas.create_image(0, 0, image=self.p_img, anchor="nw")
+        self.image_state.p_img = ImageTk.PhotoImage(self.image_state.raw_image)
+        self.canvas.create_image(0, 0, image=self.image_state.p_img, anchor="nw")
         self.zoom_current()
 
     @hd.require_image_file
     def adjust_contrast(self, increment, *args):
-        self.contrast_value += increment
+        self.image_state.contrast_value += increment
         self.reload_image()
-        logging.info('Image contrast changed by {:.2f}; Contrast now {:.2f})'.format(
-                     increment, self.contrast_value))
-
+        
     def increase_contrast(self, event=None, increment=0.1):
         self.adjust_contrast(increment)
 
@@ -284,10 +247,8 @@ class LoadImageApp(tk.Toplevel):
 
     @hd.require_image_file
     def adjust_brightness(self, increment, *args):
-        self.brightness_value += increment
+        self.image_state.brightness_value += increment
         self.reload_image()
-        logging.info('Image brightness changed by {:.2f}; Brightness now {:.2f})'.format(
-                     increment, self.brightness_value))
 
     def increase_brightness(self, event=None, increment=0.1):
         self.adjust_brightness(increment)
@@ -303,164 +264,99 @@ class LoadImageApp(tk.Toplevel):
             return enhancement(image).enhance(increment)
 
     def load_image(self, canvas, image_file):
-        self.imageFile = image_file
-        self.imageDir = os.path.dirname(image_file)
-        self.raw_image = Image.open(image_file)
-        self.orig_img = Image.open(image_file)
-        (width, height) = self.raw_image.size
-        self.field_azimuth = -1
-        self.image_azimuth = -1
-        self.set_file_locations()
+        self.image_state.load_image(image_file)
 
-        # Image larger than 1000 pixels, resize to 800 x 600
-        if (width > 1000) or (height > 1000):
-            self.orig_img.thumbnail((800, 600), Image.ANTIALIAS)
-            self.raw_image.thumbnail((800, 600), Image.ANTIALIAS)
-            (width, height) = self.raw_image.size
-            logging.info("Resizing image to {} x {}".format(width, height))
-
-        self.zoomed_image = self.raw_image
-
-        # Save reference to the image object in order to show it.
-        self.p_img = ImageTk.PhotoImage(self.raw_image)
+        image_dir = os.path.dirname(image_file)
+        self.set_file_locations(image_dir)
 
         # Change size of canvas to new width and height
+        (width, height) = self.image_state.raw_image.size
         canvas.config(width=width, height=height)
 
         # Remove all canvas items
         canvas.delete("all")
-        canvas.create_image(0, 0, image=self.p_img, anchor="nw")
+        canvas.create_image(0, 0, image=self.image_state.p_img, anchor="nw")
 
-        # Find center of image and radius
-        self.center = (int(width / 2), int(height / 2))
-        self.radius = int(np.sqrt(self.center[0] ** 2 + self.center[1] ** 2))
-        self.spoke_spacing = 15
-        self.image_azimuth = -1
-        logging.info("Loaded image {}".format(self.imageFile))
-
-    def to_raw(self, p):
-        x, y = p
-        # Translate the x,y coordinate from window to raw image coordinate
-        (vx, vy) = self.viewport
-        raw_x = int((x + vx) / self.mux[self.zoomcycle])
-        raw_y = int((y + vy) / self.mux[self.zoomcycle])
-        return (raw_x, raw_y)
-
-    def to_window(self, p):
-        x, y = p
-        # Translate the x,y coordinate from raw image coordinate to window coordinate
-        (vx, vy) = self.viewport
-        window_x = int(x * self.mux[self.zoomcycle]) - vx
-        window_y = int(y * self.mux[self.zoomcycle]) - vy
-        return (window_x, window_y)
-
-    def draw_dots(self, my_canvas, horizon_points):
+    def draw_dots(self, canvas, horizon_points):
         for dot in horizon_points.get():
 
-            (x, y) = self.to_window((dot[0], dot[1]))
+            (x, y) = self.image_state.to_window((dot[0], dot[1]))
 
             if dot[2] >= 90:  # if horizon is greater than 90, overhanging pt
-                item = my_canvas.create_rectangle(x - 2, y - 2,
+                item = canvas.create_rectangle(x - 2, y - 2,
                                                   x + 2, y + 2,
                                                   fill="yellow")
             elif 0 <= dot[2] < 90:
-                item = my_canvas.create_oval(x - 2, y - 2,
+                item = canvas.create_oval(x - 2, y - 2,
                                              x + 2, y + 2,
                                              fill="blue", outline='pink')
             else:
-                item = my_canvas.create_oval(x - 2, y - 2,
+                item = canvas.create_oval(x - 2, y - 2,
                                              x + 2, y + 2, fill="white")
 
-            my_canvas.itemconfig(item, tags=("dot", str(dot[0]), str(dot[1])))
+            canvas.itemconfig(item, tags=("dot", str(dot[0]), str(dot[1])))
 
-            self.draw_patch(my_canvas)
+            self.draw_patch(canvas)
 
-    def draw_patch(self, my_canvas):
+    def draw_patch(self, canvas):
         self.canvas.delete("sky_polygon")
         if len(self.points.get()) > 3:
-            scaled = [self.to_window((dot[0], dot[1])) for dot in self.points.get()]
+            scaled = [self.image_state.to_window((dot[0], dot[1])) for dot in self.points.get()]
             xy = [i for dot in scaled for i in dot[:2]]
-            sky_polygon = my_canvas.create_polygon(*xy, fill="", outline='blue')
-            my_canvas.itemconfig(sky_polygon, tags=("sky_polygon"))
+            sky_polygon = canvas.create_polygon(*xy, fill="", outline='blue')
+            canvas.itemconfig(sky_polygon, tags=("sky_polygon"))
 
-    def draw_grid(self, my_canvas, center, radius, spoke_spacing=15):
+    def draw_grid(self, canvas):
+        grid_data = self.image_state.get_plottable_grid()
+        self.plot_grid_data(canvas, grid_data)
 
-        # Remove old grid before drawing new one
-        my_canvas.delete("grid")
+    def plot_grid_data(self, canvas, grid_data):
+        canvas.delete("grid")
 
-        (wX, wY) = self.to_window(center)
-        wR = radius * self.mux[self.zoomcycle]
+        x, y, wR = grid_data['oval']
+        canvas.create_oval(x, y, x + (2 * wR), y + (2 * wR),
+                           outline="red", tag="grid")
 
-        x = wX - wR
-        y = wY - wR
+        for s in grid_data['spokes']:
+            wX, wY, pX, pY = s
+            canvas.create_line(wX, wY, pX, pY, fill="red", tag="grid")
 
-        my_canvas.create_oval(x, y, x + (2 * wR), y + (2 * wR),
-                              outline="red", tag="grid")
+    def set_azimuth(self, anchor):
+        self.image_state.update_azimuth(anchor)
 
-        # Draw spokes on Az wheel
-        for n in range(0, 360, spoke_spacing):
-            rX = center[0] + int(radius * np.cos(np.radians(n)))
-            rY = center[1] + int(radius * np.sin(np.radians(n)))
-            pX, pY = self.to_window((rX, rY))
-            my_canvas.create_line(wX, wY, pX, pY, fill="red", tag="grid")
+    def plot_azimuth_data(self, canvas, azimuth_data):
+        wX, wY, pX, pY = azimuth_data
+        canvas.delete("azimuth")
+        canvas.create_line(wX, wY, pX, pY, tag="azimuth",
+                           fill="green", width=3)
+    
+    def draw_azimuth(self, canvas):
+        azimuth_data = self.image_state.get_plottable_azimuth()
+        self.plot_azimuth_data(canvas, azimuth_data)
 
-        self.grid_set = True
-
-    def draw_azimuth(self, my_canvas, center, radius, anchor):
-        # Find the angle for the anchor point from a standard ciricle (1,0) 0 degrees
-        azimuth = find_angle(center, anchor, (center[0] + radius, center[1]))
-
-        my_canvas.delete("azimuth")
-
-        ax, ay = self.to_window(anchor)
-        wX, wY = self.to_window(center)
-
-        # Draw the field azimuth in reference to the anchor point
-        rX = center[0] + int(radius * np.cos(np.radians(azimuth)))
-        rY = center[1] + int(radius * np.sin(np.radians(azimuth)))
-
-        # Store field azimuth coordinates (end point) so that it can be used later to calculate dot azimuth
-        self.image_azimuth_coords = (rX, rY)
-
-        pX, pY = self.to_window((rX, rY))
-        my_canvas.create_line(wX, wY, pX, pY, tag="azimuth",
-                              fill="green", width=3)
-        self.image_azimuth = azimuth
-
-    def scale_image(self):
-        # Resize image
-        raw_x, raw_y = self.raw_image.size
-        new_w = int(raw_x * self.mux[self.zoomcycle])
-        new_h = int(raw_y * self.mux[self.zoomcycle])
-
-        self.zoomed_image = self.raw_image.resize((new_w, new_h),
-                                                  Image.ANTIALIAS)
-
-    def display_region(self, my_canvas):
-        my_canvas.delete("all")
+    def display_region(self, canvas):
+        canvas.delete("all")
 
         # Display the region of the zoomed image starting at viewport and window size
-        x, y = self.viewport
+        x, y = self.image_state.viewport
         w = self.frame.winfo_width()
         h = self.frame.winfo_height()
 
-        tmp = self.zoomed_image.crop((x, y, x + w, y + h))
+        tmp = self.image_state.zoomed_image.crop((x, y, x + w, y + h))
 
-        self.p_img = ImageTk.PhotoImage(tmp)
-        my_canvas.config(bg="gray50")
-        my_canvas.create_image(0, 0, image=self.p_img, anchor="nw")
+        self.image_state.p_img = ImageTk.PhotoImage(tmp)
+        canvas.config(bg="gray50")
+        canvas.create_image(0, 0, image=self.image_state.p_img, anchor="nw")
 
         # Draw  saved dots
         if self.points.any_defined():
-            self.draw_dots(my_canvas, self.points)
+            self.draw_dots(canvas, self.points)
 
-        if self.show_grid:
-            self.draw_grid(my_canvas, self.center, self.radius,
-                           self.spoke_spacing)
+        if self.image_state.show_grid:
+            self.draw_grid(canvas)
 
-            if 0 <= self.image_azimuth <= 360:
-                self.draw_azimuth(my_canvas, self.center, self.radius,
-                                  self.anchor)
+            if 0 <= self.image_state.image_azimuth <= 360:
+                self.draw_azimuth(canvas)
 
     ########################################################
     # Menu options
@@ -508,7 +404,7 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_horizon_points
     def save_csv(self):
         # Save the dots to CSV file
-        self.points.update_field_azimuth(self.field_azimuth)
+        self.points.update_field_azimuth(self.image_state.field_azimuth)
         
         try:
             f_name = tkFileDialog.asksaveasfilename(**self.csv_opt)
@@ -531,7 +427,7 @@ class LoadImageApp(tk.Toplevel):
                                         "to 90 degrees. Click OK to continue or Cancel to abort"):
             return
 
-        self.points.update_field_azimuth(self.field_azimuth)
+        self.points.update_field_azimuth(self.image_state.field_azimuth)
 
         try:
             f_name = tkFileDialog.asksaveasfilename(defaultextension=".txt")
@@ -546,53 +442,21 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_field_azimuth
     @hd.require_image_azimuth
     def save_azimuth(self):
-        C = configparser.ConfigParser()
-        C.add_section("Azimuth")
-        C.set("Azimuth", "grid_centre_x", str(self.center[0]))
-        C.set("Azimuth", "grid_centre_y", str(self.center[1]))
-        C.set("Azimuth", "anchor_x", str(self.anchor[0]))
-        C.set("Azimuth", "anchor_y", str(self.anchor[1]))
-        C.set("Azimuth", "grid_centre_y", str(self.center[1]))
-        C.set("Azimuth", "radius", str(self.radius))
-        C.set("Azimuth", "spokes", str(self.spoke_spacing))
-        C.set("Azimuth", "image_azimuth", str(self.image_azimuth))
-        C.set("Azimuth", "field_azimuth", str(self.field_azimuth))
-
         f_name = tkFileDialog.asksaveasfilename(**self.azm_opt)
 
         if f_name:
-            with open(f_name, 'w') as file:
-                C.write(file)
-
+            self.image_state.save_azimuth_config(f_name)
+            
     def load_azimuth(self, f_name=None):
         if not f_name:
             f_name = tkFileDialog.askopenfilename(**self.azm_opt)
         if f_name:
-            C = configparser.ConfigParser()
-            C.read(f_name)
-            self.set_grid_from_config(C)
-            self.set_azimuth_from_config(C)
-            self.show_grid = True
-
-    def set_grid_from_config(self, config):
-        self.spokes = config.getint("Azimuth", "spokes")
-        self.center = (config.getint("Azimuth", "grid_centre_x"),
-                       config.getint("Azimuth", "grid_centre_y"))
+            self.image_state.load_azimuth_config(f_name)
+            self.draw_grid(self.canvas)
+            self.image_state.grid_set = True
+            self.draw_azimuth(self.canvas)
+            self.image_state.turn_on_grid()
         
-        self.radius = config.getint("Azimuth", "radius")
-        self.draw_grid(self.canvas, self.center, self.radius,
-                       spoke_spacing=self.spokes)
-
-    def set_azimuth_from_config(self, config):
-        self.anchor = (config.getint("Azimuth", "anchor_x"),
-                       config.getint("Azimuth", "anchor_y"))
-        
-        self.radius = config.getint("Azimuth", "radius")
-        self.field_azimuth = config.getfloat("Azimuth", "field_azimuth")
-        self.image_azimuth = config.getfloat("Azimuth", "image_azimuth")
-        
-        self.draw_azimuth(self.canvas, self.center, self.radius, self.anchor)
-
     def exit_app(self):
         self.parent.destroy()
 
@@ -622,54 +486,45 @@ class LoadImageApp(tk.Toplevel):
 
     def show_grid(self):
         # Get x,y coords and radius for of wheel
-        if self.raw_image:
+        if self.image_state.raw_image:
 
             d = GridDialog(self.parent, title="Wheel Preferences",
-                           center=self.center, radius=self.radius,
-                           spacing=self.spoke_spacing)
+                           center=self.image_state.image_center, radius=self.image_state.radius,
+                           spacing=self.image_state.spoke_spacing)
 
             self.canvas.focus_set()
-            logging.info("D = ", d, self.show_grid, d.result)
 
-            if d:
-                self.center = d.center
-                self.radius = d.radius
-                self.spoke_spacing = d.spoke_spacing
-                if not self.show_grid:
-                    self.show_grid = d.result
+            if d.result:
+                logging.info("Set grid properties")
+                self.image_state.image_center = d.center
+                self.image_state.radius = d.radius
+                self.image_state.spoke_spacing = d.spoke_spacing
+                if not self.image_state.show_grid:
+                    self.image_state.show_grid = d.result
 
-                if self.show_grid:
-                    self.draw_grid(self.canvas, self.center, self.radius,
-                                   self.spoke_spacing)
-                    self.grid_set = True
+                if self.image_state.show_grid:
+                    self.draw_grid(self.canvas)
+                    self.image_state.grid_set = True
 
     def create_grid_based_on_lens(self, center, radius, spoke_spacing):
-        if self.raw_image:
-            self.spoke_spacing = spoke_spacing
-            self.center = center
-            self.radius = radius
-            self.grid_set = True
-            self.show_grid = True
-            self.draw_grid(self.canvas, self.center, self.radius,
-                           self.spoke_spacing)
+        self.image_state.set_grid_from_lens(center, radius, spoke_spacing)
+        self.draw_grid(self.canvas)
 
     def toggle_grid(self, *args):
-        if not self.raw_image:
+        if not self.image_state.raw_image:
             return
             
-        if self.show_grid:
-            self.show_grid = False
+        if self.image_state.show_grid:
+            self.image_state.turn_off_grid()
             self.canvas.delete("grid")
             self.canvas.delete("azimuth")
         else:
-            if self.canvas and self.center and 0 <= self.radius <= 360:
-                self.show_grid = True
-                self.draw_grid(self.canvas, self.center, self.radius,
-                                self.spoke_spacing)
+            if self.canvas and self.image_state.image_center and self.image_state.radius:
+                self.image_state.turn_on_grid()
+                self.draw_grid(self.canvas)
 
-                if self.anchor[0] != -999:
-                    self.draw_azimuth(self.canvas, self.center, self.radius,
-                                        self.anchor)
+                if self.image_state.anchor[0] != -999:
+                    self.draw_azimuth(self.canvas)
             else:
                 tkMessageBox.showerror("Error!",
                                        "No overlay parameters have been set!")
@@ -677,20 +532,16 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_image_file
     @hd.require_grid
     def define_azimuth(self):
-        if not self.grid_set:
-            tkMessageBox.showerror("Error!", "")
-            return
-        if self.raw_image:
-            self.tool = "azimuth"
+        self.tool = "azimuth"
 
     @hd.require_image_file
     @hd.require_image_azimuth
     def define_field_azimuth(self):
         if self.warn_dots:
-            d = AzimuthDialog(self.parent, azimuth=self.field_azimuth)
+            d = AzimuthDialog(self.parent, azimuth=self.image_state.field_azimuth)
             self.canvas.focus_set()
             if d:
-                self.field_azimuth = d.azimuth
+                self.image_state.field_azimuth = d.azimuth
 
     def warn_dots(self):
         if self.points.any_defined():
@@ -711,93 +562,88 @@ class LoadImageApp(tk.Toplevel):
 
     @hd.require_image_file
     def zoom_in(self, *args):
-        if self.zoomcycle < self.MAX_ZOOM:
-            self.zoomcycle += 1
-            logging.info("zoom level is {}".format(self.zoomcycle))
-            self.scale_image()
+        try:
+            self.image_state.zoom_level += 1
+            self.image_state.scale_image()
             self.display_region(self.canvas)
         
-        else:
+        except ValueError:
             logging.info("Max zoom reached!")
 
     @hd.require_image_file
     def zoom_out(self, *args):
-        if self.zoomcycle > self.MIN_ZOOM:
-            self.zoomcycle -= 1
-            logging.info("zoom level is {}".format(self.zoomcycle))
-            self.scale_image()
+        try:
+            self.image_state.zoom_level -= 1
+            self.image_state.scale_image()
             self.display_region(self.canvas)
         
-        else:
+        except ValueError:
             logging.info("Min zoom reached!")
 
     @hd.require_image_file
     def zoom_original(self):
-        self.zoomcycle = 0
-        self.scale_image()
-        self.viewport = (0, 0)
+        self.image_state.reset_zoom()
+        self.image_state.scale_image()
         self.display_region(self.canvas)
 
     @hd.require_image_file
     def zoom_current(self, *args):
-        self.zoomcycle = self.zoomcycle
-        self.scale_image()
+        self.image_state.scale_image()
         self.display_region(self.canvas)
 
     #######################################################
     # Mouse options
     #######################################################
-
-    def store_old_xy_event(self, event_x, event_y):
-        self.xold = event_x
-        self.yold = event_y
     
     def store_xy_selection(self, event):
         self.select_X, self.select_Y = event.x, event.y
         
     def zoom_wheel(self, event):
 
-        if self.raw_image:
-            (x, y) = self.to_raw((event.x, event.y))
+        if self.image_state.raw_image:
+            (x, y) = self.image_state.to_raw((event.x, event.y))
 
-            if (event.delta > 0 and self.zoomcycle < self.MAX_ZOOM):
-                self.zoomcycle += 1
-            elif (event.delta < 0 and self.zoomcycle > self.MIN_ZOOM):
-                self.zoomcycle -= 1
+            if event.delta > 0:
+                increment = 1
+            elif event.delta < 0:
+                increment = -1
             else:
+                return
+            
+            try:
+                self.image_state.zoom_level += increment
+            except ValueError:
                 logging.info('Zoom limit reached!')
                 return
 
-            self.scale_image()
+            self.image_state.scale_image()
 
-            view_x = int(x * self.mux[self.zoomcycle]) - x
-            view_y = int(y * self.mux[self.zoomcycle]) - y
-            self.viewport = (view_x, view_y)
+            view_x = int(x * self.image_state.zoomcoefficient) - x
+            view_y = int(y * self.image_state.zoomcoefficient) - y
+            self.image_state.viewport = (view_x, view_y)
             self.display_region(self.canvas)
 
     def b1down(self, event):
         logging.debug('b1down() at ({},{})'.format(event.x, event.y))
         self.store_xy_selection(event)
-        self.button_1 = "down"
+        self.event_state.button_1 = "down"
         
-        if self.raw_image:
+        if self.image_state.raw_image:
             if self.tool == "dot":
-                raw = self.to_raw((event.x, event.y))
+                raw = self.image_state.to_raw((event.x, event.y))
                 self._define_new_dot(raw, overhanging=False)
                 self.draw_dots(self.canvas, self.points)
 
             else:
                 if self.tool == "azimuth":
-                    self.draw_grid(self.canvas, self.center, self.radius,
-                                    self.spoke_spacing)
+                    self.draw_grid(self.canvas)
                                       
-                    self.anchor = self.to_raw((event.x, event.y))
-                    self.draw_azimuth(self.canvas, self.center, self.radius,
-                                     self.anchor)
+                    self.image_state.set_anchor(event)
+                    self.draw_azimuth(self.canvas)
     
     def select_dots_from_rectangle(self, event):
         items = event.widget.find_enclosed(self.select_X, self.select_Y,
-                                            event.x, event.y)
+                                           event.x, event.y)
 
         rect = event.widget.find_withtag("selection_rectangle")
         if rect:
@@ -807,22 +653,27 @@ class LoadImageApp(tk.Toplevel):
         return selected
         
     def b1up(self, event):
-        self.button_1 = "up"
+        self.event_state.button_1 = "up"
         logging.debug('b1up()-> tool = %s at (%d, %d)', 
                       self.tool, event.x, event.y)
-        if not self.raw_image:
+        if not self.image_state.raw_image:
             return
 
-        self.store_old_xy_event(None, None)
+        self.event_state.reset_event()
 
         if self.tool == "select":
             selected_dots = self.select_dots_from_rectangle(event)
             self.delete_dots(selected_dots)
 
         elif self.tool == "azimuth":
-            self.azimuth_calculation(self.center, self.radius,
-                                     self.image_azimuth_coords)
-            if self.field_azimuth == -1:
+            self.points.update_image_azimuth(self.image_state.image_center,
+                                             self.image_state.radius,
+                                             self.image_state.image_azimuth,
+                                             self.image_state.image_azimuth_coords,
+                                             self.lens)
+
+            self.draw_dots(self.canvas, self.points)
+            if self.image_state.field_azimuth == -1:
                 self.define_field_azimuth()
     
     def delete_dots(self, selected_dots):
@@ -834,7 +685,7 @@ class LoadImageApp(tk.Toplevel):
             to_delete[i] = (int(tags[1]), int(tags[2]))
 
             logging.debug('Selected Item-> %d with tags %s, %s, %s', i,
-                            tags[0], tags[1], tags[2])
+                          tags[0], tags[1], tags[2])
 
         if to_delete:
             confirm = tkMessageBox.askokcancel("Confirm deletion?", "Press OK to delete selected dot(s)!")
@@ -852,92 +703,75 @@ class LoadImageApp(tk.Toplevel):
         self.display_region(self.canvas)
                 
     def b2down(self, event):
-        self.button_2 = "down"
+        self.event_state.button_2 = "down"
 
     def b2up(self, event):
-        self.button_2 = "up"
-        self.store_old_xy_event(None, None)
+        self.event_state.button_2 = "up"
+        self.event_state.reset_event()
 
     def b3down(self, event):
         logging.debug('b3down() at ({},{})'.format(event.x, event.y))
 
-        if self.raw_image:
+        if self.image_state.raw_image:
             if self.tool == "dot":
-                raw = self.to_raw((event.x, event.y))
+                raw = self.image_state.to_raw((event.x, event.y))
                 self._define_new_dot(raw, overhanging=True)
                 self.draw_dots(self.canvas, self.points)
 
     def _define_new_dot(self, raw, overhanging=False):
-        self.points.add_raw(raw[0], raw[1], self.center, self.radius, self.image_azimuth_coords,
+        self.points.add_raw(raw[0], raw[1], self.image_state.image_center, self.image_state.radius, 
+                            self.image_state.image_azimuth_coords,
                             self.lens, overhanging)
 
     def b3up(self, event):
         pass
     
-    def _update_viewport(self, event):
-        view_x = self.viewport[0] - (event.x - self.xold)
-        view_y = self.viewport[1] - (event.y - self.yold)
-        self.viewport = (view_x, view_y)
+    def pan(self, event):
+        xold, yold = self.event_state.old_event
+        self.image_state.update_viewport(event.x, event.y,
+                                         xold, yold)
         self.display_region(self.canvas)
         
     # Handles mouse
     def motion(self, event):
 
         # Button 2 pans no matter what
-        if self.raw_image and self.button_2 == "down":
-            if self.xold is not None and self.yold is not None:
-                self._update_viewport(event)
+        if self.image_state.raw_image and self.event_state.button_2 == "down":
+            self.pan(event)
             
         # Conditional on button 1 depressed
-        if self.raw_image and self.button_1 == "down":
-            if self.xold is not None and self.yold is not None:
+        if self.image_state.raw_image and self.event_state.button_1 == "down":
+            if self.tool == "move":     # Panning
+                self.pan(event)
 
-                if self.tool == "move":     # Panning
-                    self._update_viewport(event)
-
-                elif self.tool == "select":
-                    self.update_selection_rectangle(event)
+            elif self.tool == "select":
+                self.update_selection_rectangle(event)
                                                   
-        self.store_old_xy_event(event.x, event.y)
+        self.event_state.store_event(event.x, event.y)
         self.update_status_bar(event)
     
     def update_selection_rectangle(self, event):
         rect = event.widget.find_withtag("selection_rectangle")
         if rect:
             event.widget.delete(rect)
-        event.widget.create_rectangle(self.select_X, self.select_Y, 
-                                      event.x, event.y, fill="", 
+        event.widget.create_rectangle(self.select_X, self.select_Y,
+                                      event.x, event.y, fill="",
                                       dash=(4, 2), 
                                       tag="selection_rectangle")
 
     def update_status_bar(self, event):
-        coordinate = self.to_raw((event.x, event.y))
-        output = "Cursor = {}".format(str(coordinate)).ljust(25)
+        cursor_loc = self.image_state.to_raw((event.x, event.y))
+ 
+        try:
+            img_value = self.image_state.raw_image.getpixel(cursor_loc)
+        except (IndexError, AttributeError):
+            img_value = None
         
-        if 0 <= self.image_azimuth <= 360:
-            output += "Image Azimuth = {:.1f}".format(360 - self.image_azimuth).ljust(25)
-        
-        if 0 <= self.field_azimuth <= 360:
-            output += "Field Azimuth = {:.1f}".format(self.field_azimuth).ljust(25)
-        
-        if self.raw_image:
-            try:
-                img_value = self.raw_image.getpixel(coordinate)
-                img_value = "({:03d}, {:03d}, {:03d})".format(*img_value) 
-            except IndexError:
-                img_value = "(---, ---, ---)"
-            output += "Image value: {}".format(img_value).ljust(25)
-        
-        self.status.config(text=output)
+        self.status_bar.display(cursor_loc, self.image_state.image_azimuth, self.image_state.field_azimuth, img_value)
         
     def resize_window(self, event):
-        if self.zoomed_image:
+        if self.image_state.zoomed_image:
             self.display_region(self.canvas)
-
-    def azimuth_calculation(self, center, radius, azimuth):
-        self.points.update_image_azimuth(center, radius, azimuth, 
-                                         self.image_azimuth_coords, self.lens)
-        self.draw_dots(self.canvas, self.points)
 
     def find_horizon(self, dot_radius, grid_radius):
         horizon = self.lens.horizon_from_radius(dot_radius, grid_radius)
@@ -991,7 +825,7 @@ class LoadImageApp(tk.Toplevel):
 
     @hd.require_horizon_points
     def svf(self):
-        SkyViewFactorDialog(self, self.points, self.field_azimuth)
+        SkyViewFactorDialog(self, self.points, self.image_state.field_azimuth)
 
     def arcsky(self):
         _ = ArcSkyDialog(self)
@@ -1002,6 +836,9 @@ class LoadImageApp(tk.Toplevel):
             self.lens = lens_selection.lens
             logging.info("Set lens calibration to {}".format(self.lens.NAME))
 
-        if self.imageFile:
-            self.azimuth_calculation(self.center, self.radius,
-                                     self.image_azimuth_coords)
+        if self.image_state.imageFile:
+            self.points.update_image_azimuth(self.image_state.image_center,
+                                             self.image_state.radius,
+                                             self.image_state.image_azimuth,
+                                             self.image_state.image_azimuth_coords,
+                                             self.lens)

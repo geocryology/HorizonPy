@@ -21,7 +21,6 @@ class HorizonPoints:
 
             for row in reader:
                 raw = (int(row[0]), int(row[1]), float(row[2]), float(row[3]), float(row[4]))
-                overhang = float(row[2]) > 90
                 self.dots.append(raw)  # self._define_new_dot(raw, overhanging=overhang)
 
         finally:
