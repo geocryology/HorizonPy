@@ -28,6 +28,7 @@ from horizonpy.quickhorizon.AzimuthDialog import AzimuthDialog
 from horizonpy.quickhorizon.SkyViewFactorDialog import SkyViewFactorDialog
 from horizonpy.quickhorizon.LensSelectionDialog import LensSelectionDialog
 from horizonpy.quickhorizon.HorizonPoints import HorizonPoints
+from horizonpy.quickhorizon.ModelState import ModelState
 from horizonpy.quickhorizon.geometry import calculate_true_azimuth, find_angle
 import horizonpy.quickhorizon.HorizonDecorators as hd
 import horizonpy.quickhorizon.LensCalibrations as lens
@@ -61,8 +62,8 @@ class LoadImageApp(tk.Toplevel):
         self.imageFile = image_file
         self.lens = lens.SunexLens
         self.field_azimuth = -1
-        self.contrast_value = 1
         self.brightness_value = 1
+        self.state = ModelState()
         self.points = HorizonPoints()
 
         # zoom
@@ -259,7 +260,7 @@ class LoadImageApp(tk.Toplevel):
 
         self.raw_image = self.apply_enhancement(self.orig_img,
                                                 ImageEnhance.Contrast,
-                                                self.contrast_value)
+                                                self.state.contrast_value)
        
         self.raw_image = self.apply_enhancement(self.raw_image,
                                                 ImageEnhance.Brightness,
@@ -271,11 +272,9 @@ class LoadImageApp(tk.Toplevel):
 
     @hd.require_image_file
     def adjust_contrast(self, increment, *args):
-        self.contrast_value += increment
+        self.state.contrast_value += increment
         self.reload_image()
-        logging.info('Image contrast changed by {:.2f}; Contrast now {:.2f})'.format(
-                     increment, self.contrast_value))
-
+        
     def increase_contrast(self, event=None, increment=0.1):
         self.adjust_contrast(increment)
 
