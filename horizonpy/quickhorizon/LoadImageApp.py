@@ -35,13 +35,12 @@ import horizonpy.quickhorizon.LensCalibrations as lens
 # Main
 ####################################################################
 
+
 class LoadImageApp(tk.Toplevel):
 
     tool = "move"
     raw_image = None
     zoomed_image = None
-    image_azimuth = -1  # Define an angle of image azimuth from anchor (degrees)
-    image_azimuth_coords = (0, 0)   # Store image Azimuth coordinates (endpoint)
     anchor = (-999, -999)         # Store the anchor coordinate
 
     ####################################################################
@@ -53,6 +52,7 @@ class LoadImageApp(tk.Toplevel):
         self.frame = tk.Frame(root, bg='black')
         self.imageFile = image_file
         self.lens = lens.SunexLens
+        self.image_azimuth = -1
         self.field_azimuth = -1
         self.image_state = ImageState()
         self.event_state = EventState()
@@ -207,10 +207,7 @@ class LoadImageApp(tk.Toplevel):
     def init_canvas(self, canvas, image_file):
 
         # Reset when a new image opened
-        self.button_1 = "up"
-        self.button_2 = "up"
-        self.button_3 = "up"
-        self.tool = "move"
+        self.event_state.reset_buttons()
         self.grid_set = False
 
         self.points.delete_all()
@@ -395,7 +392,7 @@ class LoadImageApp(tk.Toplevel):
         rY = center[1] + int(radius * np.sin(np.radians(azimuth)))
 
         # Store field azimuth coordinates (end point) so that it can be used later to calculate dot azimuth
-        self.image_azimuth_coords = (rX, rY)
+        self.image_state.image_azimuth_coords = (rX, rY)
 
         pX, pY = self.to_window((rX, rY))
         my_canvas.create_line(wX, wY, pX, pY, tag="azimuth",
@@ -640,11 +637,11 @@ class LoadImageApp(tk.Toplevel):
             if self.canvas and self.center and 0 <= self.radius <= 360:
                 self.image_state.turn_on_grid()
                 self.draw_grid(self.canvas, self.center, self.radius,
-                                self.spoke_spacing)
+                               self.spoke_spacing)
 
                 if self.anchor[0] != -999:
                     self.draw_azimuth(self.canvas, self.center, self.radius,
-                                        self.anchor)
+                                      self.anchor)
             else:
                 tkMessageBox.showerror("Error!",
                                        "No overlay parameters have been set!")
@@ -750,7 +747,7 @@ class LoadImageApp(tk.Toplevel):
     def b1down(self, event):
         logging.debug('b1down() at ({},{})'.format(event.x, event.y))
         self.store_xy_selection(event)
-        self.button_1 = "down"
+        self.event_state.button_1 = "down"
         
         if self.raw_image:
             if self.tool == "dot":
@@ -761,15 +758,15 @@ class LoadImageApp(tk.Toplevel):
             else:
                 if self.tool == "azimuth":
                     self.draw_grid(self.canvas, self.center, self.radius,
-                                    self.spoke_spacing)
+                                   self.spoke_spacing)
                                       
                     self.anchor = self.to_raw((event.x, event.y))
                     self.draw_azimuth(self.canvas, self.center, self.radius,
-                                     self.anchor)
+                                      self.anchor)
     
     def select_dots_from_rectangle(self, event):
         items = event.widget.find_enclosed(self.select_X, self.select_Y,
-                                            event.x, event.y)
+                                           event.x, event.y)
 
         rect = event.widget.find_withtag("selection_rectangle")
         if rect:
@@ -779,7 +776,7 @@ class LoadImageApp(tk.Toplevel):
         return selected
         
     def b1up(self, event):
-        self.button_1 = "up"
+        self.event_state.button_1 = "up"
         logging.debug('b1up()-> tool = %s at (%d, %d)', 
                       self.tool, event.x, event.y)
         if not self.raw_image:
@@ -793,7 +790,7 @@ class LoadImageApp(tk.Toplevel):
 
         elif self.tool == "azimuth":
             self.azimuth_calculation(self.center, self.radius,
-                                     self.image_azimuth_coords)
+                                     self.image_state.image_azimuth_coords)
             if self.field_azimuth == -1:
                 self.define_field_azimuth()
     
@@ -806,7 +803,7 @@ class LoadImageApp(tk.Toplevel):
             to_delete[i] = (int(tags[1]), int(tags[2]))
 
             logging.debug('Selected Item-> %d with tags %s, %s, %s', i,
-                            tags[0], tags[1], tags[2])
+                          tags[0], tags[1], tags[2])
 
         if to_delete:
             confirm = tkMessageBox.askokcancel("Confirm deletion?", "Press OK to delete selected dot(s)!")
@@ -824,10 +821,10 @@ class LoadImageApp(tk.Toplevel):
         self.display_region(self.canvas)
                 
     def b2down(self, event):
-        self.button_2 = "down"
+        self.event_state.button_2 = "down"
 
     def b2up(self, event):
-        self.button_2 = "up"
+        self.event_state.button_2 = "up"
         self.event_state.reset_event()
 
     def b3down(self, event):
@@ -840,7 +837,8 @@ class LoadImageApp(tk.Toplevel):
                 self.draw_dots(self.canvas, self.points)
 
     def _define_new_dot(self, raw, overhanging=False):
-        self.points.add_raw(raw[0], raw[1], self.center, self.radius, self.image_azimuth_coords,
+        self.points.add_raw(raw[0], raw[1], self.center, self.radius, 
+                            self.image_state.image_azimuth_coords,
                             self.lens, overhanging)
 
     def b3up(self, event):
@@ -856,11 +854,11 @@ class LoadImageApp(tk.Toplevel):
     def motion(self, event):
 
         # Button 2 pans no matter what
-        if self.raw_image and self.button_2 == "down":
+        if self.raw_image and self.event_state.button_2 == "down":
             self.pan(event)
             
         # Conditional on button 1 depressed
-        if self.raw_image and self.button_1 == "down":
+        if self.raw_image and self.event_state.button_1 == "down":
             if self.tool == "move":     # Panning
                 self.pan(event)
 
@@ -895,7 +893,7 @@ class LoadImageApp(tk.Toplevel):
 
     def azimuth_calculation(self, center, radius, azimuth):
         self.points.update_image_azimuth(center, radius, azimuth, 
-                                         self.image_azimuth_coords, self.lens)
+                                         self.image_state.image_azimuth_coords, self.lens)
         self.draw_dots(self.canvas, self.points)
 
     def find_horizon(self, dot_radius, grid_radius):
@@ -963,4 +961,4 @@ class LoadImageApp(tk.Toplevel):
 
         if self.imageFile:
             self.azimuth_calculation(self.center, self.radius,
-                                     self.image_azimuth_coords)
+                                     self.image_state.image_azimuth_coords)

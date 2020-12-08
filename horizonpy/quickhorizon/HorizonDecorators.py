@@ -1,7 +1,7 @@
 from functools import wraps
 import logging
 
-try: # python 3
+try:  # python 3
     import tkinter.messagebox as tkMessageBox
     izip = zip
 except:  # python 2
@@ -17,6 +17,7 @@ def require_horizon_points(func):
         else:
             func(self, *args, **kw)
     return wrapper
+
 
 def require_field_azimuth(func):
     @wraps(func)

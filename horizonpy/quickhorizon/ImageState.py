@@ -7,6 +7,7 @@ class ImageState:
     MIN_ZOOM = 0
     MAX_ZOOM = 5
     DEFAULT_VIEWPORT = (0,0)
+    DEFAULT_IMAGE_AZIMUTH = -1
 
     def __init__(self):
         self._contrast_value = 1
@@ -15,6 +16,8 @@ class ImageState:
         self.build_zoom_levels()
         self._show_grid = False
         self.viewport = self.DEFAULT_VIEWPORT  # Used for zoom and pan
+        self.image_azimuth_coords = (0,0)
+        self.reset_image_azimuth()
 
     @property
     def contrast_value(self):
@@ -90,9 +93,33 @@ class ImageState:
         self._show_grid = value
 
     def update_viewport(self, new_x, new_y, old_x, old_y):
+        if not all((old_x, old_y)):
+            return
         view_x = self.viewport[0] - (new_x - old_x)
         view_y = self.viewport[1] - (new_y - old_y)
         self.viewport = (view_x, view_y)
+
+    @property
+    def image_azimuth(self):
+        return self._image_azimuth
+
+    def reset_image_azimuth(self):
+        self._image_azimuth = self.DEFAULT_IMAGE_AZIMUTH
+
+    @property
+    def image_azimuth_coords(self):
+        return self._image_azimuth_coords
+
+    @image_azimuth_coords.setter
+    def image_azimuth_coords(self, coords):
+        logging.info(f"set image azimuth reference point to {coords}")
+        self._image_azimuth_coords = coords
+
+    def save_azimuth(self, file):
+        pass
+
+    def set_azimuth_from_config(self, config):
+        pass
 
 
 class EventState:
@@ -107,3 +134,9 @@ class EventState:
 
     def reset_event(self):
         self.old_event = self.NOEVENT
+
+    def reset_buttons(self):
+        self.button_1 = "up"
+        self.button_2 = "up"
+        self.button_3 = "up"
+        self.tool = "move"
