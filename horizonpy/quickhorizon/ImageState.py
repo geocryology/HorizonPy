@@ -19,6 +19,8 @@ class ImageState:
         self.image_azimuth_coords = (0,0)
         self.reset_image_azimuth()
         self.anchor = (-999, -999)  # Azimuth anchor
+        self.radius = 0
+        self.field_azimuth = -1
 
     @property
     def contrast_value(self):
