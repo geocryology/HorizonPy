@@ -692,8 +692,13 @@ class LoadImageApp(tk.Toplevel):
             self.delete_dots(selected_dots)
 
         elif self.tool == "azimuth":
-            self.azimuth_calculation(self.image_state.image_center, self.image_state.radius,
-                                     self.image_state.image_azimuth_coords)
+            self.points.update_image_azimuth(self.image_state.image_center,
+                                             self.image_state.radius,
+                                             self.image_state.image_azimuth,
+                                             self.image_state.image_azimuth_coords,
+                                             self.lens)
+
+            self.draw_dots(self.canvas, self.points)
             if self.image_state.field_azimuth == -1:
                 self.define_field_azimuth()
     
@@ -794,11 +799,6 @@ class LoadImageApp(tk.Toplevel):
         if self.image_state.zoomed_image:
             self.display_region(self.canvas)
 
-    def azimuth_calculation(self, center, radius, azimuth):
-        self.points.update_image_azimuth(center, radius, azimuth, 
-                                         self.image_state.image_azimuth_coords, self.lens)
-        self.draw_dots(self.canvas, self.points)
-
     def find_horizon(self, dot_radius, grid_radius):
         horizon = self.lens.horizon_from_radius(dot_radius, grid_radius)
         return horizon
@@ -863,5 +863,8 @@ class LoadImageApp(tk.Toplevel):
             logging.info("Set lens calibration to {}".format(self.lens.NAME))
 
         if self.image_state.imageFile:
-            self.azimuth_calculation(self.image_state.image_center, self.image_state.radius,
-                                     self.image_state.image_azimuth_coords)
+            self.points.update_image_azimuth(self.image_state.image_center,
+                                             self.image_state.radius,
+                                             self.image_state.image_azimuth,
+                                             self.image_state.image_azimuth_coords,
+                                             self.lens)
