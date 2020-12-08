@@ -23,4 +23,11 @@ class ModelState:
 
     @property
     def brightness_value(self):
-        return self._contrast_value
+        return self._brightness_value
+
+    @brightness_value.setter
+    def brightness_value(self, value):
+        old = self._brightness_value
+        self._brightness_value = value
+        logging.info('Image brightness changed from {:.2f} to {:.2f})'.format(
+                     old, self._brightness_value))

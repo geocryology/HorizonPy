@@ -62,7 +62,6 @@ class LoadImageApp(tk.Toplevel):
         self.imageFile = image_file
         self.lens = lens.SunexLens
         self.field_azimuth = -1
-        self.brightness_value = 1
         self.state = ModelState()
         self.points = HorizonPoints()
 
@@ -202,10 +201,10 @@ class LoadImageApp(tk.Toplevel):
         self.canvas.bind("<Configure>", self.resize_window)
         self.canvas.bind("1", self.zoom_in)
         self.canvas.bind("2", self.zoom_out)
-        self.canvas.bind("o", self.increase_contrast)
-        self.canvas.bind("p", self.decrease_contrast)
-        self.canvas.bind("q", self.increase_brightness)
-        self.canvas.bind("w", self.decrease_brightness)
+        self.canvas.bind("p", self.increase_contrast)
+        self.canvas.bind("o", self.decrease_contrast)
+        self.canvas.bind("w", self.increase_brightness)
+        self.canvas.bind("q", self.decrease_brightness)
         self.canvas.bind("t", self.toggle_grid)
 
     def set_file_locations(self):
@@ -264,7 +263,7 @@ class LoadImageApp(tk.Toplevel):
        
         self.raw_image = self.apply_enhancement(self.raw_image,
                                                 ImageEnhance.Brightness,
-                                                self.brightness_value)
+                                                self.state.brightness_value)
 
         self.p_img = ImageTk.PhotoImage(self.raw_image)
         self.canvas.create_image(0, 0, image=self.p_img, anchor="nw")
@@ -283,10 +282,8 @@ class LoadImageApp(tk.Toplevel):
 
     @hd.require_image_file
     def adjust_brightness(self, increment, *args):
-        self.brightness_value += increment
+        self.state.brightness_value += increment
         self.reload_image()
-        logging.info('Image brightness changed by {:.2f}; Brightness now {:.2f})'.format(
-                     increment, self.brightness_value))
 
     def increase_brightness(self, event=None, increment=0.1):
         self.adjust_brightness(increment)
