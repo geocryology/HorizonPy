@@ -124,9 +124,6 @@ class ImageState:
         
         return grid_data
 
-    def get_plottable_azimuth(self):
-        pass
-    
     def update_viewport(self, new_x, new_y, old_x, old_y):
         if not all((old_x, old_y)):
             return
@@ -157,9 +154,24 @@ class ImageState:
         logging.info(f"set image azimuth reference point to {coords}")
         self._image_azimuth_coords = coords
 
-    def define_azimuth(self):
-        pass
+    def get_plottable_azimuth(self):
+        wX, wY = self.to_window(self.image_center)
+        pX, pY = self.to_window(self.image_azimuth_coords)
+        azimuth_data = (wX, wY, pX, pY)
+        
+        return azimuth_data
+        
+    def update_azimuth(self, anchor):
+        self.image_azimuth = find_angle(self.image_center, anchor, 
+                                        (self.image_center[0] + self.radius, self.image_center[1]))
+        
+        # Draw the field azimuth in reference to the anchor point
+        rX = self.image_center[0] + int(self.radius * np.cos(np.radians(self.image_azimuth)))
+        rY = self.image_center[1] + int(self.radius * np.sin(np.radians(self.image_azimuth)))
 
+        # Store field azimuth coordinates (end point)
+        self.image_azimuth_coords = (rX, rY)
+        
     def save_azimuth_config(self, f_name):
         C = configparser.ConfigParser()
         C.add_section("Azimuth")
@@ -188,7 +200,8 @@ class ImageState:
         self.radius = C.getint("Azimuth", "radius")
         self.field_azimuth = C.getfloat("Azimuth", "field_azimuth")
         self.image_azimuth = C.getfloat("Azimuth", "image_azimuth")
-    
+        self.update_azimuth(self.anchor)
+
     def set_grid_from_lens(self, center, radius, spoke_spacing):
         if self.raw_image:
             self.spoke_spacing = spoke_spacing

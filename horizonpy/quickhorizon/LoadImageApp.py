@@ -277,38 +277,38 @@ class LoadImageApp(tk.Toplevel):
         canvas.delete("all")
         canvas.create_image(0, 0, image=self.image_state.p_img, anchor="nw")
 
-    def draw_dots(self, my_canvas, horizon_points):
+    def draw_dots(self, canvas, horizon_points):
         for dot in horizon_points.get():
 
             (x, y) = self.image_state.to_window((dot[0], dot[1]))
 
             if dot[2] >= 90:  # if horizon is greater than 90, overhanging pt
-                item = my_canvas.create_rectangle(x - 2, y - 2,
+                item = canvas.create_rectangle(x - 2, y - 2,
                                                   x + 2, y + 2,
                                                   fill="yellow")
             elif 0 <= dot[2] < 90:
-                item = my_canvas.create_oval(x - 2, y - 2,
+                item = canvas.create_oval(x - 2, y - 2,
                                              x + 2, y + 2,
                                              fill="blue", outline='pink')
             else:
-                item = my_canvas.create_oval(x - 2, y - 2,
+                item = canvas.create_oval(x - 2, y - 2,
                                              x + 2, y + 2, fill="white")
 
-            my_canvas.itemconfig(item, tags=("dot", str(dot[0]), str(dot[1])))
+            canvas.itemconfig(item, tags=("dot", str(dot[0]), str(dot[1])))
 
-            self.draw_patch(my_canvas)
+            self.draw_patch(canvas)
 
-    def draw_patch(self, my_canvas):
+    def draw_patch(self, canvas):
         self.canvas.delete("sky_polygon")
         if len(self.points.get()) > 3:
             scaled = [self.image_state.to_window((dot[0], dot[1])) for dot in self.points.get()]
             xy = [i for dot in scaled for i in dot[:2]]
-            sky_polygon = my_canvas.create_polygon(*xy, fill="", outline='blue')
-            my_canvas.itemconfig(sky_polygon, tags=("sky_polygon"))
+            sky_polygon = canvas.create_polygon(*xy, fill="", outline='blue')
+            canvas.itemconfig(sky_polygon, tags=("sky_polygon"))
 
-    def draw_grid(self, my_canvas):
+    def draw_grid(self, canvas):
         grid_data = self.image_state.get_plottable_grid()
-        self.plot_grid_data(my_canvas, grid_data)
+        self.plot_grid_data(canvas, grid_data)
 
     def plot_grid_data(self, canvas, grid_data):
         canvas.delete("grid")
@@ -321,29 +321,23 @@ class LoadImageApp(tk.Toplevel):
             wX, wY, pX, pY = s
             canvas.create_line(wX, wY, pX, pY, fill="red", tag="grid")
 
-    def draw_azimuth(self, my_canvas, center, radius, anchor):
-        # Find the angle for the anchor point from a standard ciricle (1,0) 0 degrees
-        azimuth = find_angle(center, anchor, (center[0] + radius, center[1]))
+    def set_azimuth(self, anchor):
+        self.image_state.update_azimuth(anchor)
 
-        my_canvas.delete("azimuth")
-
-        ax, ay = self.image_state.to_window(anchor)
-        wX, wY = self.image_state.to_window(center)
-
-        # Draw the field azimuth in reference to the anchor point
-        rX = center[0] + int(radius * np.cos(np.radians(azimuth)))
-        rY = center[1] + int(radius * np.sin(np.radians(azimuth)))
-
-        # Store field azimuth coordinates (end point) so that it can be used later to calculate dot azimuth
-        self.image_state.image_azimuth_coords = (rX, rY)
-
-        pX, pY = self.image_state.to_window((rX, rY))
-        my_canvas.create_line(wX, wY, pX, pY, tag="azimuth",
+    def plot_azimuth_data(self, canvas, azimuth_data):
+        wX, wY, pX, pY = azimuth_data
+        canvas.delete("azimuth")
+        canvas.create_line(wX, wY, pX, pY, tag="azimuth",
                               fill="green", width=3)
-        self.image_state.image_azimuth = azimuth
+    
+    def draw_azimuth(self, canvas, center, radius, anchor):
+        # Find the angle for the anchor point from a standard ciricle (1,0) 0 degrees
+        self.set_azimuth(anchor)
+        azimuth_data = self.image_state.get_plottable_azimuth()
+        self.plot_azimuth_data(canvas, azimuth_data)
 
-    def display_region(self, my_canvas):
-        my_canvas.delete("all")
+    def display_region(self, canvas):
+        canvas.delete("all")
 
         # Display the region of the zoomed image starting at viewport and window size
         x, y = self.image_state.viewport
@@ -353,18 +347,18 @@ class LoadImageApp(tk.Toplevel):
         tmp = self.image_state.zoomed_image.crop((x, y, x + w, y + h))
 
         self.image_state.p_img = ImageTk.PhotoImage(tmp)
-        my_canvas.config(bg="gray50")
-        my_canvas.create_image(0, 0, image=self.image_state.p_img, anchor="nw")
+        canvas.config(bg="gray50")
+        canvas.create_image(0, 0, image=self.image_state.p_img, anchor="nw")
 
         # Draw  saved dots
         if self.points.any_defined():
-            self.draw_dots(my_canvas, self.points)
+            self.draw_dots(canvas, self.points)
 
         if self.image_state.show_grid:
-            self.draw_grid(my_canvas)
+            self.draw_grid(canvas)
 
             if 0 <= self.image_state.image_azimuth <= 360:
-                self.draw_azimuth(my_canvas, self.image_state.image_center, self.image_state.radius,
+                self.draw_azimuth(canvas, self.image_state.image_center, self.image_state.radius,
                                   self.image_state.anchor)
 
     ########################################################
