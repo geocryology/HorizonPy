@@ -42,7 +42,6 @@ class LoadImageApp(tk.Toplevel):
     tool = "move"
     xold, yold = None, None
     viewport = (0, 0)       # Used for zoom and pan
-    zoomcycle = 0
     MIN_ZOOM = 0
     MAX_ZOOM = 100
     raw_image = None
@@ -64,14 +63,6 @@ class LoadImageApp(tk.Toplevel):
         self.field_azimuth = -1
         self.state = ModelState()
         self.points = HorizonPoints()
-
-        # zoom
-        self.mux = {0: 1.0}
-        for n in range(1, self.MAX_ZOOM + 1, 1):
-            self.mux[n] = round(self.mux[n - 1] * 1.5, 5)
-
-        for n in range(-1, self.MIN_ZOOM - 1, -1):
-            self.mux[n] = round(self.mux[n + 1] * 1.5, 5)
 
         # File associations
         self.file_opt = options = {}
@@ -230,7 +221,6 @@ class LoadImageApp(tk.Toplevel):
         self.tool = "move"
         self.store_old_xy_event(None, None)
         self.viewport = (0, 0)
-        self.zoomcycle = 0
         self.show_grid = False
         self.grid_set = False
 
@@ -338,16 +328,16 @@ class LoadImageApp(tk.Toplevel):
         x, y = p
         # Translate the x,y coordinate from window to raw image coordinate
         (vx, vy) = self.viewport
-        raw_x = int((x + vx) / self.mux[self.zoomcycle])
-        raw_y = int((y + vy) / self.mux[self.zoomcycle])
+        raw_x = int((x + vx) / self.state.zoomcoefficient)
+        raw_y = int((y + vy) / self.state.zoomcoefficient)
         return (raw_x, raw_y)
 
     def to_window(self, p):
         x, y = p
         # Translate the x,y coordinate from raw image coordinate to window coordinate
         (vx, vy) = self.viewport
-        window_x = int(x * self.mux[self.zoomcycle]) - vx
-        window_y = int(y * self.mux[self.zoomcycle]) - vy
+        window_x = int(x * self.state.zoomcoefficient) - vx
+        window_y = int(y * self.state.zoomcoefficient) - vy
         return (window_x, window_y)
 
     def draw_dots(self, my_canvas, horizon_points):
@@ -385,7 +375,7 @@ class LoadImageApp(tk.Toplevel):
         my_canvas.delete("grid")
 
         (wX, wY) = self.to_window(center)
-        wR = radius * self.mux[self.zoomcycle]
+        wR = radius * self.state.zoomcoefficient
 
         x = wX - wR
         y = wY - wR
@@ -426,8 +416,8 @@ class LoadImageApp(tk.Toplevel):
     def scale_image(self):
         # Resize image
         raw_x, raw_y = self.raw_image.size
-        new_w = int(raw_x * self.mux[self.zoomcycle])
-        new_h = int(raw_y * self.mux[self.zoomcycle])
+        new_w = int(raw_x * self.state.zoomcoefficient)
+        new_h = int(raw_y * self.state.zoomcoefficient)
 
         self.zoomed_image = self.raw_image.resize((new_w, new_h),
                                                   Image.ANTIALIAS)
@@ -707,36 +697,33 @@ class LoadImageApp(tk.Toplevel):
 
     @hd.require_image_file
     def zoom_in(self, *args):
-        if self.zoomcycle < self.MAX_ZOOM:
-            self.zoomcycle += 1
-            logging.info("zoom level is {}".format(self.zoomcycle))
+        try:
+            self.state.zoom_level += 1
             self.scale_image()
             self.display_region(self.canvas)
         
-        else:
+        except ValueError:
             logging.info("Max zoom reached!")
 
     @hd.require_image_file
     def zoom_out(self, *args):
-        if self.zoomcycle > self.MIN_ZOOM:
-            self.zoomcycle -= 1
-            logging.info("zoom level is {}".format(self.zoomcycle))
+        try:
+            self.state.zoom_level -= 1
             self.scale_image()
             self.display_region(self.canvas)
         
-        else:
+        except ValueError:
             logging.info("Min zoom reached!")
 
     @hd.require_image_file
     def zoom_original(self):
-        self.zoomcycle = 0
+        self.state.reset_zoom()
         self.scale_image()
         self.viewport = (0, 0)
         self.display_region(self.canvas)
 
     @hd.require_image_file
     def zoom_current(self, *args):
-        self.zoomcycle = self.zoomcycle
         self.scale_image()
         self.display_region(self.canvas)
 
@@ -756,18 +743,23 @@ class LoadImageApp(tk.Toplevel):
         if self.raw_image:
             (x, y) = self.to_raw((event.x, event.y))
 
-            if (event.delta > 0 and self.zoomcycle < self.MAX_ZOOM):
-                self.zoomcycle += 1
-            elif (event.delta < 0 and self.zoomcycle > self.MIN_ZOOM):
-                self.zoomcycle -= 1
+            if event.delta > 0:
+                increment = 1
+            elif event.delta < 0:
+                increment = -1
             else:
-                logging.info('Zoom limit reached!')
+                return
+            
+            try:
+                self.state.zoom_level += increment
+            except ValueError:
+                logging.info('Zoom limit reached!')               
                 return
 
             self.scale_image()
 
-            view_x = int(x * self.mux[self.zoomcycle]) - x
-            view_y = int(y * self.mux[self.zoomcycle]) - y
+            view_x = int(x * self.state.zoomcoefficient) - x
+            view_y = int(y * self.state.zoomcoefficient) - y
             self.viewport = (view_x, view_y)
             self.display_region(self.canvas)
 
