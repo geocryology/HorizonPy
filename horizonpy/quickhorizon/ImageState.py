@@ -5,7 +5,7 @@ class ImageState:
 
     DEFAULT_ZOOM = 0
     MIN_ZOOM = 0
-    MAX_ZOOM = 10
+    MAX_ZOOM = 5
     DEFAULT_VIEWPORT = (0,0)
 
     def __init__(self):
@@ -89,4 +89,21 @@ class ImageState:
             raise ValueError("must be True or False")
         self._show_grid = value
 
+    def update_viewport(self, new_x, new_y, old_x, old_y):
+        view_x = self.viewport[0] - (new_x - old_x)
+        view_y = self.viewport[1] - (new_y - old_y)
+        self.viewport = (view_x, view_y)
+
+
+class EventState:
+
+    NOEVENT = (None, None)
+
+    def __init__(self):
+        self.reset_event()
     
+    def store_event(self, x, y):
+        self.old_event = (x, y)
+
+    def reset_event(self):
+        self.old_event = self.NOEVENT

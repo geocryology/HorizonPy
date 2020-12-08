@@ -25,7 +25,7 @@ from horizonpy.quickhorizon.AzimuthDialog import AzimuthDialog
 from horizonpy.quickhorizon.SkyViewFactorDialog import SkyViewFactorDialog
 from horizonpy.quickhorizon.LensSelectionDialog import LensSelectionDialog
 from horizonpy.quickhorizon.HorizonPoints import HorizonPoints
-from horizonpy.quickhorizon.ImageState import ImageState
+from horizonpy.quickhorizon.ImageState import ImageState, EventState
 from horizonpy.quickhorizon.geometry import find_angle
 import horizonpy.quickhorizon.HorizonDecorators as hd
 import horizonpy.quickhorizon.LensCalibrations as lens
@@ -37,7 +37,6 @@ import horizonpy.quickhorizon.LensCalibrations as lens
 class LoadImageApp(tk.Toplevel):
 
     tool = "move"
-    xold, yold = None, None   
     raw_image = None
     zoomed_image = None
     image_azimuth = -1  # Define an angle of image azimuth from anchor (degrees)
@@ -55,6 +54,7 @@ class LoadImageApp(tk.Toplevel):
         self.lens = lens.SunexLens
         self.field_azimuth = -1
         self.image_state = ImageState()
+        self.event_state = EventState()
         self.points = HorizonPoints()
 
         # File associations
@@ -212,7 +212,6 @@ class LoadImageApp(tk.Toplevel):
         self.button_2 = "up"
         self.button_3 = "up"
         self.tool = "move"
-        self.store_old_xy_event(None, None)
         self.grid_set = False
 
         self.points.delete_all()
@@ -720,10 +719,6 @@ class LoadImageApp(tk.Toplevel):
     #######################################################
     # Mouse options
     #######################################################
-
-    def store_old_xy_event(self, event_x, event_y):
-        self.xold = event_x
-        self.yold = event_y
     
     def store_xy_selection(self, event):
         self.select_X, self.select_Y = event.x, event.y
@@ -791,7 +786,7 @@ class LoadImageApp(tk.Toplevel):
         if not self.raw_image:
             return
 
-        self.store_old_xy_event(None, None)
+        self.event_state.reset_event()
 
         if self.tool == "select":
             selected_dots = self.select_dots_from_rectangle(event)
@@ -834,7 +829,7 @@ class LoadImageApp(tk.Toplevel):
 
     def b2up(self, event):
         self.button_2 = "up"
-        self.store_old_xy_event(None, None)
+        self.event_state.reset_event()
 
     def b3down(self, event):
         logging.debug('b3down() at ({},{})'.format(event.x, event.y))
@@ -853,8 +848,9 @@ class LoadImageApp(tk.Toplevel):
         pass
     
     def _update_viewport(self, event):
-        view_x = self.image_state.viewport[0] - (event.x - self.xold)
-        view_y = self.image_state.viewport[1] - (event.y - self.yold)
+        xold, yold = self.event_state.old_event
+        view_x = self.image_state.viewport[0] - (event.x - xold)
+        view_y = self.image_state.viewport[1] - (event.y - yold)
         self.image_state.viewport = (view_x, view_y)
         self.display_region(self.canvas)
         
@@ -863,12 +859,14 @@ class LoadImageApp(tk.Toplevel):
 
         # Button 2 pans no matter what
         if self.raw_image and self.button_2 == "down":
-            if self.xold is not None and self.yold is not None:
+            xold, yold = self.event_state.old_event
+            if all((xold, yold)):
                 self._update_viewport(event)
             
         # Conditional on button 1 depressed
         if self.raw_image and self.button_1 == "down":
-            if self.xold is not None and self.yold is not None:
+            xold, yold = self.event_state.old_event
+            if all((xold, yold)):
 
                 if self.tool == "move":     # Panning
                     self._update_viewport(event)
@@ -876,7 +874,7 @@ class LoadImageApp(tk.Toplevel):
                 elif self.tool == "select":
                     self.update_selection_rectangle(event)
                                                   
-        self.store_old_xy_event(event.x, event.y)
+        self.event_state.store_event(event.x, event.y)
         self.update_status_bar(event)
     
     def update_selection_rectangle(self, event):
