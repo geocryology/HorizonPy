@@ -1,5 +1,5 @@
 import logging
-
+import configparser
 
 class ImageState:
 
@@ -131,6 +131,35 @@ class ImageState:
     def set_azimuth_from_config(self, config):
         pass
 
+    def save_azimuth_config(self, f_name):
+        C = configparser.ConfigParser()
+        C.add_section("Azimuth")
+        C.set("Azimuth", "grid_centre_x", str(self.image_center[0]))
+        C.set("Azimuth", "grid_centre_y", str(self.image_center[1]))
+        C.set("Azimuth", "anchor_x", str(self.anchor[0]))
+        C.set("Azimuth", "anchor_y", str(self.anchor[1]))
+        C.set("Azimuth", "grid_centre_y", str(self.image_center[1]))
+        C.set("Azimuth", "radius", str(self.radius))
+        C.set("Azimuth", "spokes", str(self.spoke_spacing))
+        C.set("Azimuth", "image_azimuth", str(self.image_azimuth))
+        C.set("Azimuth", "field_azimuth", str(self.field_azimuth))
+
+        with open(f_name, 'w') as f_name:
+            C.write(f_name)
+
+    def load_azimuth_config(self, f_name):
+        C = configparser.ConfigParser()
+        C.read(f_name)
+        self.spoke_spacing = C.getint("Azimuth", "spokes")
+        self.image_center = (C.getint("Azimuth", "grid_centre_x"),
+                             C.getint("Azimuth", "grid_centre_y"))
+        self.radius = C.getint("Azimuth", "radius")
+        self.anchor = (C.getint("Azimuth", "anchor_x"),
+                       C.getint("Azimuth", "anchor_y"))
+        self.radius = C.getint("Azimuth", "radius")
+        self.field_azimuth = C.getfloat("Azimuth", "field_azimuth")
+        self.image_azimuth = C.getfloat("Azimuth", "image_azimuth")
+        
 
 class EventState:
 

@@ -38,15 +38,7 @@ import horizonpy.quickhorizon.LensCalibrations as lens
 
 class LoadImageApp(tk.Toplevel):
 
-    tool = "move"
-    raw_image = None
-    zoomed_image = None
-
-    ####################################################################
-    # Function: __init__
-    ####################################################################
     def __init__(self, root, image_file=None):
-
         self.parent = root
         self.frame = tk.Frame(root, bg='black')
         self.imageFile = image_file
@@ -54,6 +46,9 @@ class LoadImageApp(tk.Toplevel):
         self.image_state = ImageState()
         self.event_state = EventState()
         self.points = HorizonPoints()
+        self.tool = "move"
+        self.raw_image = None
+        self.zoomed_image = None
 
         # File associations
         self.file_opt = options = {}
@@ -514,53 +509,23 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_field_azimuth
     @hd.require_image_azimuth
     def save_azimuth(self):
-        C = configparser.ConfigParser()
-        C.add_section("Azimuth")
-        C.set("Azimuth", "grid_centre_x", str(self.image_state.image_center[0]))
-        C.set("Azimuth", "grid_centre_y", str(self.image_state.image_center[1]))
-        C.set("Azimuth", "anchor_x", str(self.image_state.anchor[0]))
-        C.set("Azimuth", "anchor_y", str(self.image_state.anchor[1]))
-        C.set("Azimuth", "grid_centre_y", str(self.image_state.image_center[1]))
-        C.set("Azimuth", "radius", str(self.image_state.radius))
-        C.set("Azimuth", "spokes", str(self.image_state.spoke_spacing))
-        C.set("Azimuth", "image_azimuth", str(self.image_state.image_azimuth))
-        C.set("Azimuth", "field_azimuth", str(self.image_state.field_azimuth))
-
         f_name = tkFileDialog.asksaveasfilename(**self.azm_opt)
 
         if f_name:
-            with open(f_name, 'w') as file:
-                C.write(file)
-
+            self.image_state.save_azimuth_config(f_name)
+            
     def load_azimuth(self, f_name=None):
         if not f_name:
             f_name = tkFileDialog.askopenfilename(**self.azm_opt)
         if f_name:
-            C = configparser.ConfigParser()
-            C.read(f_name)
-            self.set_grid_from_config(C)
-            self.set_azimuth_from_config(C)
+            self.image_state.load_azimuth_config(f_name)
+            self.draw_grid(self.canvas, self.image_state.image_center,
+                           self.image_state.radius,
+                           spoke_spacing=self.image_state.spoke_spacing)
+            self.draw_azimuth(self.canvas, self.image_state.image_center,
+                              self.image_state.radius, self.image_state.anchor)
             self.image_state.turn_on_grid()
-
-    def set_grid_from_config(self, config):
-        self.image_state.spoke_spacing = config.getint("Azimuth", "spokes")
-        self.image_state.image_center = (config.getint("Azimuth", "grid_centre_x"),
-                       config.getint("Azimuth", "grid_centre_y"))
         
-        self.image_state.radius = config.getint("Azimuth", "radius")
-        self.draw_grid(self.canvas, self.image_state.image_center, self.image_state.radius,
-                       spoke_spacing=self.image_state.spoke_spacing)
-
-    def set_azimuth_from_config(self, config):
-        self.image_state.anchor = (config.getint("Azimuth", "anchor_x"),
-                                   config.getint("Azimuth", "anchor_y"))
-        
-        self.image_state.radius = config.getint("Azimuth", "radius")
-        self.image_state.field_azimuth = config.getfloat("Azimuth", "field_azimuth")
-        self.image_state.image_azimuth = config.getfloat("Azimuth", "image_azimuth")
-        
-        self.draw_azimuth(self.canvas, self.image_state.image_center, self.image_state.radius, self.image_state.anchor)
-
     def exit_app(self):
         self.parent.destroy()
 

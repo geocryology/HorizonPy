@@ -22,7 +22,7 @@ def require_horizon_points(func):
 def require_field_azimuth(func):
     @wraps(func)
     def wrapper(self, *args, **kw):
-        if self.field_azimuth == -1:
+        if self.image_state.field_azimuth == -1:
             tkMessageBox.showerror("Error!", "Field azimuth has not yet been defined.")
             logging.info("Attempted to call function {} without field azimuth".format(func))
         else:
