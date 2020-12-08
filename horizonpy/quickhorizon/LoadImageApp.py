@@ -10,7 +10,6 @@ except ImportError:  # python 2
     import tkinter.messagebox as tkMessageBox
     izip = zip
 
-import configparser
 import logging
 import matplotlib as mpl
 import numpy as np
@@ -301,26 +300,10 @@ class LoadImageApp(tk.Toplevel):
         self.image_state.reset_image_azimuth()
         logging.info("Loaded image {}".format(self.imageFile))
 
-    def to_raw(self, p):
-        x, y = p
-        # Translate the x,y coordinate from window to raw image coordinate
-        (vx, vy) = self.image_state.viewport
-        raw_x = int((x + vx) / self.image_state.zoomcoefficient)
-        raw_y = int((y + vy) / self.image_state.zoomcoefficient)
-        return (raw_x, raw_y)
-
-    def to_window(self, p):
-        x, y = p
-        # Translate the x,y coordinate from raw image coordinate to window coordinate
-        (vx, vy) = self.image_state.viewport
-        window_x = int(x * self.image_state.zoomcoefficient) - vx
-        window_y = int(y * self.image_state.zoomcoefficient) - vy
-        return (window_x, window_y)
-
     def draw_dots(self, my_canvas, horizon_points):
         for dot in horizon_points.get():
 
-            (x, y) = self.to_window((dot[0], dot[1]))
+            (x, y) = self.image_state.to_window((dot[0], dot[1]))
 
             if dot[2] >= 90:  # if horizon is greater than 90, overhanging pt
                 item = my_canvas.create_rectangle(x - 2, y - 2,
@@ -341,7 +324,7 @@ class LoadImageApp(tk.Toplevel):
     def draw_patch(self, my_canvas):
         self.canvas.delete("sky_polygon")
         if len(self.points.get()) > 3:
-            scaled = [self.to_window((dot[0], dot[1])) for dot in self.points.get()]
+            scaled = [self.image_state.to_window((dot[0], dot[1])) for dot in self.points.get()]
             xy = [i for dot in scaled for i in dot[:2]]
             sky_polygon = my_canvas.create_polygon(*xy, fill="", outline='blue')
             my_canvas.itemconfig(sky_polygon, tags=("sky_polygon"))
@@ -351,7 +334,7 @@ class LoadImageApp(tk.Toplevel):
         # Remove old grid before drawing new one
         my_canvas.delete("grid")
 
-        (wX, wY) = self.to_window(center)
+        (wX, wY) = self.image_state.to_window(center)
         wR = radius * self.image_state.zoomcoefficient
 
         x = wX - wR
@@ -364,7 +347,7 @@ class LoadImageApp(tk.Toplevel):
         for n in range(0, 360, spoke_spacing):
             rX = center[0] + int(radius * np.cos(np.radians(n)))
             rY = center[1] + int(radius * np.sin(np.radians(n)))
-            pX, pY = self.to_window((rX, rY))
+            pX, pY = self.image_state.to_window((rX, rY))
             my_canvas.create_line(wX, wY, pX, pY, fill="red", tag="grid")
 
         self.grid_set = True
@@ -375,8 +358,8 @@ class LoadImageApp(tk.Toplevel):
 
         my_canvas.delete("azimuth")
 
-        ax, ay = self.to_window(anchor)
-        wX, wY = self.to_window(center)
+        ax, ay = self.image_state.to_window(anchor)
+        wX, wY = self.image_state.to_window(center)
 
         # Draw the field azimuth in reference to the anchor point
         rX = center[0] + int(radius * np.cos(np.radians(azimuth)))
@@ -385,7 +368,7 @@ class LoadImageApp(tk.Toplevel):
         # Store field azimuth coordinates (end point) so that it can be used later to calculate dot azimuth
         self.image_state.image_azimuth_coords = (rX, rY)
 
-        pX, pY = self.to_window((rX, rY))
+        pX, pY = self.image_state.to_window((rX, rY))
         my_canvas.create_line(wX, wY, pX, pY, tag="azimuth",
                               fill="green", width=3)
         self.image_state.image_azimuth = azimuth
@@ -683,7 +666,7 @@ class LoadImageApp(tk.Toplevel):
     def zoom_wheel(self, event):
 
         if self.raw_image:
-            (x, y) = self.to_raw((event.x, event.y))
+            (x, y) = self.image_state.to_raw((event.x, event.y))
 
             if event.delta > 0:
                 increment = 1
@@ -712,7 +695,7 @@ class LoadImageApp(tk.Toplevel):
         
         if self.raw_image:
             if self.tool == "dot":
-                raw = self.to_raw((event.x, event.y))
+                raw = self.image_state.to_raw((event.x, event.y))
                 self._define_new_dot(raw, overhanging=False)
                 self.draw_dots(self.canvas, self.points)
 
@@ -721,7 +704,7 @@ class LoadImageApp(tk.Toplevel):
                     self.draw_grid(self.canvas, self.image_state.image_center, self.image_state.radius,
                                    self.image_state.spoke_spacing)
                                       
-                    self.image_state.anchor = self.to_raw((event.x, event.y))
+                    self.image_state.anchor = self.image_state.to_raw((event.x, event.y))
                     self.draw_azimuth(self.canvas, self.image_state.image_center, self.image_state.radius,
                                       self.image_state.anchor)
     
@@ -793,7 +776,7 @@ class LoadImageApp(tk.Toplevel):
 
         if self.raw_image:
             if self.tool == "dot":
-                raw = self.to_raw((event.x, event.y))
+                raw = self.image_state.to_raw((event.x, event.y))
                 self._define_new_dot(raw, overhanging=True)
                 self.draw_dots(self.canvas, self.points)
 
@@ -839,7 +822,7 @@ class LoadImageApp(tk.Toplevel):
                                       tag="selection_rectangle")
 
     def update_status_bar(self, event):
-        cursor_loc = self.to_raw((event.x, event.y))
+        cursor_loc = self.image_state.to_raw((event.x, event.y))
  
         try:
             img_value = self.raw_image.getpixel(cursor_loc)

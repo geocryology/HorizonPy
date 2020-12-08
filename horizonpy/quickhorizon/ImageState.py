@@ -125,12 +125,6 @@ class ImageState:
         logging.info(f"set image azimuth reference point to {coords}")
         self._image_azimuth_coords = coords
 
-    def save_azimuth(self, file):
-        pass
-
-    def set_azimuth_from_config(self, config):
-        pass
-
     def save_azimuth_config(self, f_name):
         C = configparser.ConfigParser()
         C.add_section("Azimuth")
@@ -160,7 +154,25 @@ class ImageState:
         self.field_azimuth = C.getfloat("Azimuth", "field_azimuth")
         self.image_azimuth = C.getfloat("Azimuth", "image_azimuth")
         
+    def to_raw(self, p):
+        x, y = p
+        # Translate the x,y coordinate from window to raw image coordinate
+        (vx, vy) = self.viewport
+        raw_x = int((x + vx) / self.zoomcoefficient)
+        raw_y = int((y + vy) / self.zoomcoefficient)
+        
+        return (raw_x, raw_y)
 
+    def to_window(self, p):
+        x, y = p
+        # Translate the x,y coordinate from raw image coordinate to window coordinate
+        (vx, vy) = self.viewport
+        window_x = int(x * self.zoomcoefficient) - vx
+        window_y = int(y * self.zoomcoefficient) - vy
+        
+        return (window_x, window_y)
+        
+        
 class EventState:
 
     NOEVENT = (None, None)
