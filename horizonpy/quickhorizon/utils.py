@@ -28,3 +28,12 @@ azm_options['defaultextension'] = '.azm.ini'
 azm_options['filetypes'] = [('all files', '.*'),
                             ("Azimuth files", ".azm.ini")]
 azm_options['initialdir'] = "."
+
+### 
+# Plotting Styles
+###
+
+plot_styles = {
+    'overhangingpoint': {'fill': 'yellow'},
+    'regularpoint': {'fill': 'blue', 'outline': 'pink'},
+    'whitepoint': {'fill': 'white'}}
