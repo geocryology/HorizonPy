@@ -1,6 +1,6 @@
 import logging
 import configparser
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageEnhance
 import numpy as np
 from horizonpy.quickhorizon.geometry import find_angle
 
@@ -53,6 +53,16 @@ class ImageState:
         logging.info('Image brightness changed from {:.2f} to {:.2f}'.format(
                      old, self._brightness_value))
     
+    def apply_enhancements(self):
+        self.raw_image = self.apply_enhancement(self.orig_img,
+                                                ImageEnhance.Contrast,
+                                                self.contrast_value)
+       
+        self.raw_image = self.apply_enhancement(self.raw_image,
+                                                ImageEnhance.Brightness,
+                                                self.brightness_value)
+
+        self.p_img = ImageTk.PhotoImage(self.raw_image)
     @property
     def zoom_level(self):
         return self._zoom_level
@@ -271,12 +281,16 @@ class ImageState:
 class EventState:
 
     NOEVENT = (None, None)
+    TOOL_OPTIONS = ["azimuth", "dot", "select", "move", ]
 
     def __init__(self):
         self.reset_event()
 
     def store_event(self, x, y):
         self.old_event = (x, y)
+
+    def store_select(self, event):
+        self.select = (event.x, event.y)
 
     def reset_event(self):
         self.old_event = self.NOEVENT
@@ -286,3 +300,12 @@ class EventState:
         self.button_2 = "up"
         self.button_3 = "up"
         self.tool = "move"
+
+    @property
+    def tool(self):
+        return self._tool
+    
+    @tool.setter
+    def tool(self, value):
+        if value in self.TOOL_OPTIONS:
+            self._tool = value
