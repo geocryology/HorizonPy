@@ -26,6 +26,7 @@ from horizonpy.quickhorizon.LensSelectionDialog import LensSelectionDialog
 from horizonpy.quickhorizon.HorizonPoints import HorizonPoints
 from horizonpy.quickhorizon.ImageState import ImageState, EventState
 from horizonpy.quickhorizon.View import StatusBar
+from horizonpy.quickhorizon.utils import file_opt, csv_opt, azm_opt
 from horizonpy.quickhorizon.geometry import find_angle
 import horizonpy.quickhorizon.HorizonDecorators as hd
 import horizonpy.quickhorizon.LensCalibrations as lens
@@ -46,32 +47,6 @@ class LoadImageApp(tk.Toplevel):
         self.points = HorizonPoints()
         self.image_state.imageFile = image_file  # TODO: remove?
         self.tool = "move"
-  
-        # File associations
-        self.file_opt = options = {}
-        options['defaultextension'] = '.gif'
-        options['filetypes'] = [('all files', '.*'),
-                                ('ppm files', '.ppm'),
-                                ('pgm files', '.pgm'),
-                                ('gif files', '.gif'),
-                                ('jpg files', '.jpg'),
-                                ('jpeg files', '.jpeg')]
-        options['initialdir'] = '.'
-
-        # Importing csv file
-        self.csv_opt = csv_options = {}
-        csv_options['defaultextension'] = '.hpt.csv'
-        csv_options['filetypes'] = [('all files', '.*'),
-                                    ('horizon csv files', '.hpt.csv')]
-
-        csv_options['initialdir'] = "."
-
-        # Importing azimuth files
-        self.azm_opt = azm_options = {}
-        azm_options['defaultextension'] = '.azm.ini'
-        azm_options['filetypes'] = [('all files', '.*'),
-                                    ("Azimuth files", ".azm.ini")]
-        azm_options['initialdir'] = "."
 
         # Create canvas
         self.canvas = tk.Canvas(self.frame, width=800, height=600, bg='gray')
@@ -182,13 +157,13 @@ class LoadImageApp(tk.Toplevel):
     def set_file_locations(self, image_dir):
         name = os.path.splitext(os.path.basename(self.image_state.imageFile))[0]
         
-        self.file_opt['initialdir'] = image_dir
+        file_opt['initialdir'] = image_dir
        
-        self.csv_opt['initialdir'] = image_dir
-        self.csv_opt['initialfile'] = name + self.csv_opt['defaultextension']
+        csv_opt['initialdir'] = image_dir
+        csv_opt['initialfile'] = name + csv_opt['defaultextension']
 
-        self.azm_opt['initialdir'] = image_dir
-        self.azm_opt['initialfile'] = name + self.azm_opt['defaultextension']
+        azm_opt['initialdir'] = image_dir
+        azm_opt['initialfile'] = name + azm_opt['defaultextension']
 
     ####################################################################
     # Canvas and Image File
@@ -204,7 +179,7 @@ class LoadImageApp(tk.Toplevel):
         if image_file:
             self.load_image(canvas, image_file)
 
-        default_azm = os.path.join(self.azm_opt['initialdir'], self.azm_opt['initialfile'])
+        default_azm = os.path.join(azm_opt['initialdir'], azm_opt['initialfile'])
         if os.path.isfile(default_azm):
             logging.info('Azimuth data found: {}'.format(default_azm))
             self.load_azimuth(default_azm)
@@ -212,7 +187,7 @@ class LoadImageApp(tk.Toplevel):
         else:
             logging.info('No azimuth file found')
 
-        default_pts = os.path.join(self.csv_opt['initialdir'], self.csv_opt['initialfile'])
+        default_pts = os.path.join(csv_opt['initialdir'], csv_opt['initialfile'])
         if os.path.isfile(default_pts):
             logging.info('Horizon points file found {}'.format(default_pts))
             self.open_csv(default_pts)
@@ -363,7 +338,7 @@ class LoadImageApp(tk.Toplevel):
     ########################################################
 
     def open_file(self):
-        file = tkFileDialog.askopenfilename(**self.file_opt)
+        file = tkFileDialog.askopenfilename(**file_opt)
 
         if not file:
             return
@@ -377,7 +352,7 @@ class LoadImageApp(tk.Toplevel):
         # Open a CSV file with previous XY coordinates
 
         if not file:
-            file = tkFileDialog.askopenfilename(**self.csv_opt)
+            file = tkFileDialog.askopenfilename(**csv_opt)
         
         if file:
             self.points.import_horizon_csv(file)
@@ -391,7 +366,7 @@ class LoadImageApp(tk.Toplevel):
         # Open a CSV file with previous XY coordinates
 
         if not file:
-            file = tkFileDialog.askopenfilename(**self.csv_opt)
+            file = tkFileDialog.askopenfilename(**csv_opt)
 
         if file:
             self.points.import_geotop_csv(file)
@@ -407,7 +382,7 @@ class LoadImageApp(tk.Toplevel):
         self.points.update_field_azimuth(self.image_state.field_azimuth)
         
         try:
-            f_name = tkFileDialog.asksaveasfilename(**self.csv_opt)
+            f_name = tkFileDialog.asksaveasfilename(**csv_opt)
             if f_name:
                 self.points.export_to_horizon_csv(f_name)
 
@@ -442,14 +417,14 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_field_azimuth
     @hd.require_image_azimuth
     def save_azimuth(self):
-        f_name = tkFileDialog.asksaveasfilename(**self.azm_opt)
+        f_name = tkFileDialog.asksaveasfilename(**azm_opt)
 
         if f_name:
             self.image_state.save_azimuth_config(f_name)
             
     def load_azimuth(self, f_name=None):
         if not f_name:
-            f_name = tkFileDialog.askopenfilename(**self.azm_opt)
+            f_name = tkFileDialog.askopenfilename(**azm_opt)
         if f_name:
             self.image_state.load_azimuth_config(f_name)
             self.draw_grid(self.canvas)
