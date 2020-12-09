@@ -25,9 +25,8 @@ from horizonpy.quickhorizon.SkyViewFactorDialog import SkyViewFactorDialog
 from horizonpy.quickhorizon.LensSelectionDialog import LensSelectionDialog
 from horizonpy.quickhorizon.HorizonPoints import HorizonPoints
 from horizonpy.quickhorizon.ImageState import ImageState, EventState
-from horizonpy.quickhorizon.View import StatusBar
-from horizonpy.quickhorizon.utils import file_opt, csv_opt, azm_opt
-from horizonpy.quickhorizon.geometry import find_angle
+from horizonpy.quickhorizon.View import StatusBar, MainView
+from horizonpy.quickhorizon.utils import file_opt, csv_opt, azm_opt, plot_styles
 import horizonpy.quickhorizon.HorizonDecorators as hd
 import horizonpy.quickhorizon.LensCalibrations as lens
 
@@ -45,6 +44,7 @@ class LoadImageApp(tk.Toplevel):
         self.image_state = ImageState()
         self.event_state = EventState()
         self.points = HorizonPoints()
+        self.view = MainView()
         self.image_state.imageFile = image_file  # TODO: remove?
         self.tool = "move"
 
@@ -253,31 +253,30 @@ class LoadImageApp(tk.Toplevel):
         canvas.create_image(0, 0, image=self.image_state.p_img, anchor="nw")
 
     def draw_dots(self, canvas, horizon_points):
-        for dot in horizon_points.get():
+        dots = self.points.get_plottable_points(self.image_state.to_window)
+        self.view_draw_dots(canvas, dots)
 
-            (x, y) = self.image_state.to_window((dot[0], dot[1]))
+        self.draw_patch(canvas, dots)
 
-            if dot[2] >= 90:  # if horizon is greater than 90, overhanging pt
-                item = canvas.create_rectangle(x - 2, y - 2,
-                                                  x + 2, y + 2,
-                                                  fill="yellow")
-            elif 0 <= dot[2] < 90:
-                item = canvas.create_oval(x - 2, y - 2,
-                                             x + 2, y + 2,
-                                             fill="blue", outline='pink')
+    @staticmethod
+    def view_draw_dots(canvas, plottable_points):
+        for p in plottable_points['points']:
+            x, y, overhang = p
+            if overhang:
+                style = plot_styles['overhangingpoint']
+                item = canvas.create_rectangle(x - 2, y - 2, x + 2, y + 2, **style)         
             else:
-                item = canvas.create_oval(x - 2, y - 2,
-                                             x + 2, y + 2, fill="white")
+                style = plot_styles['regularpoint']
+                item = canvas.create_oval(x - 2, y - 2, x + 2, y + 2, **style)
+                                                    
+            canvas.itemconfig(item, tags=("dot", str(x), str(y)))
 
-            canvas.itemconfig(item, tags=("dot", str(dot[0]), str(dot[1])))
-
-            self.draw_patch(canvas)
-
-    def draw_patch(self, canvas):
-        self.canvas.delete("sky_polygon")
-        if len(self.points.get()) > 3:
-            scaled = [self.image_state.to_window((dot[0], dot[1])) for dot in self.points.get()]
-            xy = [i for dot in scaled for i in dot[:2]]
+    @staticmethod
+    def draw_patch(canvas, plottable_points):
+        points = plottable_points['points']
+        canvas.delete("sky_polygon")
+        if len(points) > 3:
+            xy = [i for dot in points for i in dot[:2]]
             sky_polygon = canvas.create_polygon(*xy, fill="", outline='blue')
             canvas.itemconfig(sky_polygon, tags=("sky_polygon"))
 
@@ -285,7 +284,8 @@ class LoadImageApp(tk.Toplevel):
         grid_data = self.image_state.get_plottable_grid()
         self.plot_grid_data(canvas, grid_data)
 
-    def plot_grid_data(self, canvas, grid_data):
+    @staticmethod
+    def plot_grid_data(canvas, grid_data):
         canvas.delete("grid")
 
         x, y, wR = grid_data['oval']
@@ -456,8 +456,14 @@ class LoadImageApp(tk.Toplevel):
                               )
 
     def delete_all(self):
-        selection = self.canvas.find_withtag("dot")
-        self.delete_dots(selection)
+        self.points.delete_all()
+        self.display_region(self.canvas)
+    
+    @staticmethod
+    def view_delete_all_dots(canvas):
+        selection = canvas.find_withtag("dot")
+        for i in selection:
+            canvas.delete(i)
 
     def show_grid(self):
         # Get x,y coords and radius for of wheel
