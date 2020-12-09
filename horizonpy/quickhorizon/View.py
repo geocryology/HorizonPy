@@ -3,6 +3,8 @@ try:  # python 2
 except ImportError:  # python 2
     import tkinter as tk
 
+from horizonpy.quickhorizon.utils import plot_styles
+
 
 class StatusBar:
 
@@ -29,3 +31,91 @@ class StatusBar:
 
         self.status.config(text=output)
 
+
+class MainView:
+
+    def __init__(self, root):
+        self.frame = tk.Frame(root, bg='black')
+        
+        # Create canvas
+        self.canvas = tk.Canvas(self.frame, width=800, height=600, bg='gray')
+        self.canvas.focus_set()
+        
+        self.frame.pack(fill='both', expand=1)
+        self.canvas.pack(fill='both', expand=1)
+
+    def add_keybinding(self, key, action):
+        self.canvas.bind(key, action)
+
+    @staticmethod
+    def create_canvas():
+        pass
+
+    def draw_image(self, image):
+        self.canvas.create_image(0, 0, image=image, anchor="nw")
+
+    @staticmethod
+    def plot_grid_data(canvas, grid_data):
+        canvas.delete("grid")
+
+        x, y, wR = grid_data['oval']
+        canvas.create_oval(x, y, x + (2 * wR), y + (2 * wR),
+                           outline="red", tag="grid")
+
+        for s in grid_data['spokes']:
+            wX, wY, pX, pY = s
+            canvas.create_line(wX, wY, pX, pY, fill="red", tag="grid")
+
+    @staticmethod
+    def draw_patch(canvas, plottable_points):
+        points = plottable_points['points']
+        canvas.delete("sky_polygon")
+        if len(points) > 3:
+            xy = [i for dot in points for i in dot[:2]]
+            sky_polygon = canvas.create_polygon(*xy, fill="", outline='blue')
+            canvas.itemconfig(sky_polygon, tags=("sky_polygon"))
+
+    @staticmethod
+    def draw_dots(canvas, plottable_points):
+        for p in plottable_points['points']:
+            x, y, overhang = p
+            if overhang:
+                style = plot_styles['overhangingpoint']
+                item = canvas.create_rectangle(x - 2, y - 2, x + 2, y + 2, **style)         
+            else:
+                style = plot_styles['regularpoint']
+                item = canvas.create_oval(x - 2, y - 2, x + 2, y + 2, **style)
+                                                    
+            canvas.itemconfig(item, tags=("dot", str(x), str(y)))
+
+    @staticmethod
+    def draw_selection_rectangle(event, select_x, select_y):
+        rect = event.widget.find_withtag("selection_rectangle")
+        if rect:
+            event.widget.delete(rect)
+        event.widget.create_rectangle(select_x, select_y,
+                                      event.x, event.y, fill="",
+                                      dash=(4, 2),
+                                      tag="selection_rectangle")
+
+    def delete_all_overlays(self):
+        self.canvas.delete("all")
+
+
+class MainMenu:
+    
+    def __init__(self, root):
+        self.menubar = tk.Menu(root)
+        self.top_level_items = dict()
+    
+    def add_toplevel_menu(self, name):
+        self.top_level_items[name] = tk.Menu(self.menubar, tearoff=0)
+
+    def add_menu_command(self, label, command, parent):
+        self.top_level_items[parent].add_command(label=label, 
+                                                 command=command)
+
+    
+
+
+    
