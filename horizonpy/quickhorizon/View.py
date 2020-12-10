@@ -54,12 +54,11 @@ class MainView:
     def draw_image(self, image):
         self.canvas.create_image(0, 0, image=image, anchor="nw")
 
-    @staticmethod
-    def plot_grid_data(canvas, grid_data):
-        canvas.delete("grid")
+    def plot_grid_data(self, grid_data):
+        self.canvas.delete("grid")
 
         x, y, wR = grid_data['oval']
-        canvas.create_oval(x, y, x + (2 * wR), y + (2 * wR),
+        self.canvas.create_oval(x, y, x + (2 * wR), y + (2 * wR),
                            outline="red", tag="grid")
 
         for s in grid_data['spokes']:
@@ -86,7 +85,7 @@ class MainView:
                 style = plot_styles['regularpoint']
                 item = canvas.create_oval(x - 2, y - 2, x + 2, y + 2, **style)
                                                     
-            canvas.itemconfig(item, tags=("dot", str(x), str(y), f"id:{uid}"))
+            canvas.itemconfig(item, tags=("dot", f"id:{uid}"))
 
     @staticmethod
     def draw_selection_rectangle(event, select_x, select_y):
@@ -107,6 +106,10 @@ class MainView:
         canvas.delete("azimuth")
         canvas.create_line(wX, wY, pX, pY, tag="azimuth",
                            fill="green", width=3)
+
+    def turn_off_grid(self):
+        self.canvas.delete("grid")
+        self.canvas.delete("azimuth")
 
 
 class MainMenu:
