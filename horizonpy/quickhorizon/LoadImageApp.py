@@ -170,14 +170,12 @@ class LoadImageApp(tk.Toplevel):
         self.load_image(canvas, image_file)
 
     def reload_image(self):
-        self.image_state.apply_enhancements()
-        self.view.draw_image(self.image_state.p_img)
-
+        self.view.render_image()
         self.zoom_current()
 
     @hd.require_image_file
     def adjust_contrast(self, increment, *args):
-        self.image_state.contrast_value += increment
+        self.view.contrast_value += increment
         self.reload_image()
         
     def increase_contrast(self, event=None, increment=0.1):
@@ -188,7 +186,7 @@ class LoadImageApp(tk.Toplevel):
 
     @hd.require_image_file
     def adjust_brightness(self, increment, *args):
-        self.image_state.brightness_value += increment
+        self.view.brightness_value += increment
         self.reload_image()
 
     def increase_brightness(self, event=None, increment=0.1):
@@ -197,40 +195,30 @@ class LoadImageApp(tk.Toplevel):
     def decrease_brightness(self, event=None, increment=-0.1):
         self.adjust_brightness(increment)
 
-    def apply_enhancement(self, image, enhancement, increment):
-        if image.mode == 'I':
-            logging.info("Cannot apply enhancement to image")
-            return image
-        else:
-            return enhancement(image).enhance(increment)
-
     def load_image(self, canvas, image_file):
-        self.image_state.load_image(image_file)
+        raw_image = self.image_state.load_image(image_file)
+        self.view.load_image(raw_image)
 
         image_dir = os.path.dirname(image_file)
         self.set_file_locations(image_dir)
 
-        # Change size of canvas to new width and height
-        (width, height) = self.image_state.raw_image.size
-        canvas.config(width=width, height=height)
-
         # Remove all canvas items
         self.view.delete_all_overlays()
-        self.view.draw_image(self.image_state.p_img)
+        self.view.render_image()
 
     def display_region(self, canvas):
         canvas.delete("all")
 
         # Display the region of the zoomed image starting at viewport and window size
-        x, y = self.image_state.viewport
+        x, y = self.view.viewport
         w = self.view.frame.winfo_width()
         h = self.view.frame.winfo_height()
 
-        tmp = self.image_state.zoomed_image.crop((x, y, x + w, y + h))
+        tmp = self.view.zoomed_image.crop((x, y, x + w, y + h))
 
-        self.image_state.p_img = ImageTk.PhotoImage(tmp)
+        self.view.p_img = ImageTk.PhotoImage(tmp)
         canvas.config(bg="gray50")
-        canvas.create_image(0, 0, image=self.image_state.p_img, anchor="nw")
+        canvas.create_image(0, 0, image=self.view.p_img, anchor="nw")
 
         # Draw  saved dots
         if self.points.any_defined():
@@ -243,12 +231,12 @@ class LoadImageApp(tk.Toplevel):
                 self.draw_azimuth(canvas)
 
     def draw_dots(self, canvas, horizon_points):
-        dots = self.points.get_plottable_points(self.image_state.to_window)
+        dots = self.points.get_plottable_points(self.view.to_window)
         self.view.draw_dots(canvas, dots)
         self.view.draw_patch(canvas, dots)
 
     def set_azimuth(self, anchor):
-        self.image_state.update_azimuth(anchor)
+        self.view.update_azimuth(anchor)
 
     def draw_azimuth(self, canvas):
         azimuth_data = self.image_state.get_plottable_azimuth()
@@ -482,8 +470,8 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_image_file
     def zoom_in(self, *args):
         try:
-            self.image_state.zoom_level += 1
-            self.image_state.scale_image()
+            self.view.zoom_level += 1
+            self.view.scale_image()
             self.display_region(self.view.canvas)
         
         except ValueError:
@@ -492,8 +480,8 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_image_file
     def zoom_out(self, *args):
         try:
-            self.image_state.zoom_level -= 1
-            self.image_state.scale_image()
+            self.view.zoom_level -= 1
+            self.view.scale_image()
             self.display_region(self.view.canvas)
         
         except ValueError:
@@ -501,13 +489,13 @@ class LoadImageApp(tk.Toplevel):
 
     @hd.require_image_file
     def zoom_original(self):
-        self.image_state.reset_zoom()
-        self.image_state.scale_image()
+        self.view.reset_zoom()
+        self.view.scale_image()
         self.display_region(self.view.canvas)
 
     @hd.require_image_file
     def zoom_current(self, *args):
-        self.image_state.scale_image()
+        self.view.scale_image()
         self.display_region(self.view.canvas)
 
     #######################################################
@@ -516,7 +504,7 @@ class LoadImageApp(tk.Toplevel):
     def zoom_wheel(self, event):
 
         if self.image_state.raw_image:
-            (x, y) = self.image_state.to_raw((event.x, event.y))
+            (x, y) = self.view.to_raw((event.x, event.y))
 
             if event.delta > 0:
                 increment = 1
@@ -526,16 +514,16 @@ class LoadImageApp(tk.Toplevel):
                 return
             
             try:
-                self.image_state.zoom_level += increment
+                self.view.zoom_level += increment
             except ValueError:
                 logging.info('Zoom limit reached!')
                 return
 
-            self.image_state.scale_image()
+            self.view.scale_image()
 
-            view_x = int(x * self.image_state.zoomcoefficient) - x
-            view_y = int(y * self.image_state.zoomcoefficient) - y
-            self.image_state.viewport = (view_x, view_y)
+            view_x = int(x * self.view.zoomcoefficient) - x
+            view_y = int(y * self.view.zoomcoefficient) - y
+            self.view.viewport = (view_x, view_y)
             self.display_region(self.view.canvas)
 
     def b1down(self, event):
@@ -545,7 +533,7 @@ class LoadImageApp(tk.Toplevel):
         
         if self.image_state.raw_image:
             if self.event_state.tool == "dot":
-                raw = self.image_state.to_raw((event.x, event.y))
+                raw = self.view.to_raw((event.x, event.y))
                 self._define_new_dot(raw, overhanging=False)
                 self.draw_dots(self.view.canvas, self.points)
 
@@ -625,7 +613,7 @@ class LoadImageApp(tk.Toplevel):
 
         if self.image_state.raw_image:
             if self.event_state.tool == "dot":
-                raw = self.image_state.to_raw((event.x, event.y))
+                raw = self.view.to_raw((event.x, event.y))
                 self._define_new_dot(raw, overhanging=True)
                 self.draw_dots(self.view.canvas, self.points)
 
@@ -639,8 +627,8 @@ class LoadImageApp(tk.Toplevel):
     
     def pan(self, event):
         xold, yold = self.event_state.old_event
-        self.image_state.update_viewport(event.x, event.y,
-                                         xold, yold)
+        self.view.update_viewport(event.x, event.y, xold, yold)
+                                         
         self.display_region(self.view.canvas)
         
     # Handles mouse
@@ -671,7 +659,7 @@ class LoadImageApp(tk.Toplevel):
                                       tag="selection_rectangle")
 
     def update_status_bar(self, event):
-        cursor_loc = self.image_state.to_raw((event.x, event.y))
+        cursor_loc = self.view.to_raw((event.x, event.y))
  
         try:
             img_value = self.image_state.raw_image.getpixel(cursor_loc)
@@ -681,7 +669,7 @@ class LoadImageApp(tk.Toplevel):
         self.status_bar.display(cursor_loc, self.image_state.image_azimuth, self.image_state.field_azimuth, img_value)
         
     def resize_window(self, event):
-        if self.image_state.zoomed_image:
+        if self.view.zoomed_image:
             self.display_region(self.view.canvas)
 
     def find_horizon(self, dot_radius, grid_radius):

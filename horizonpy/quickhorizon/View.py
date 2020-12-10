@@ -4,7 +4,9 @@ except ImportError:  # python 2
     import tkinter as tk
 
 from horizonpy.quickhorizon.utils import plot_styles
-
+import logging
+from PIL import Image, ImageTk, ImageEnhance
+from copy import copy
 
 class StatusBar:
 
@@ -34,9 +36,23 @@ class StatusBar:
 
 class MainView:
 
+    DEFAULT_ZOOM = 0
+    MIN_ZOOM = 0
+    MAX_ZOOM = 5
+    DEFAULT_VIEWPORT = (0,0)
+
     def __init__(self, root):
         self.frame = tk.Frame(root, bg='black')
-        
+        self._zoom_level = self.DEFAULT_ZOOM
+        self.build_zoom_levels()
+        self.viewport = self.DEFAULT_VIEWPORT  # Used for zoom and pan
+        self.zoomed_image = None
+
+        self._contrast_value = 1
+        self._brightness_value = 1
+
+        self.raw_image = None
+        self.orig_image = None
         # Create canvas
         self.canvas = tk.Canvas(self.frame, width=800, height=600, bg='gray')
         self.canvas.focus_set()
@@ -44,22 +60,138 @@ class MainView:
         self.frame.pack(fill='both', expand=1)
         self.canvas.pack(fill='both', expand=1)
 
+    @property
+    def zoom_level(self):
+        return self._zoom_level
+
+    @zoom_level.setter
+    def zoom_level(self, value):
+        if not value >= self.MIN_ZOOM:
+            raise ValueError("Attempted to set too small zoom value")
+            
+        if not value <= self.MAX_ZOOM:
+            raise ValueError("Attempted to set too large zoom value")
+        
+        self._zoom_level = value
+        logging.info("zoom level is {}".format(self._zoom_level))
+
+    def reset_zoom(self):
+        self._zoom_level = self.DEFAULT_ZOOM
+        self.viewport = self.DEFAULT_VIEWPORT
+
+    def build_zoom_levels(self):
+        self.mux = {0: 1.0}
+        for n in range(1, self.MAX_ZOOM + 1, 1):
+            self.mux[n] = round(self.mux[n - 1] * 1.5, 5)
+
+        for n in range(-1, self.MIN_ZOOM - 1, -1):
+            self.mux[n] = round(self.mux[n + 1] * 1.5, 5)
+
+    def update_viewport(self, new_x, new_y, old_x, old_y):
+        if not all((old_x, old_y)):
+            return
+        view_x = self.viewport[0] - (new_x - old_x)
+        view_y = self.viewport[1] - (new_y - old_y)
+        self.viewport = (view_x, view_y)
+
+    def to_raw(self, p):
+        x, y = p
+        # Translate the x,y coordinate from window to raw image coordinate
+        (vx, vy) = self.viewport
+        raw_x = int((x + vx) / self.zoomcoefficient)
+        raw_y = int((y + vy) / self.zoomcoefficient)
+        
+        return (raw_x, raw_y)
+
+    @property
+    def contrast_value(self):
+        return self._contrast_value
+
+    @contrast_value.setter
+    def contrast_value(self, value):
+        old = self._contrast_value
+        self._contrast_value = value
+        logging.info('Image contrast changed from {:.2f} to {:.2f}'.format(
+                     old, self._contrast_value))
+
+    @property
+    def brightness_value(self):
+        return self._brightness_value
+
+    @brightness_value.setter
+    def brightness_value(self, value):
+        old = self._brightness_value
+        self._brightness_value = value
+        logging.info('Image brightness changed from {:.2f} to {:.2f}'.format(
+                     old, self._brightness_value))
+    
+    def apply_enhancements(self):
+        self.raw_image = self.apply_enhancement(self.orig_image,
+                                                ImageEnhance.Contrast,
+                                                self.contrast_value)
+       
+        self.raw_image = self.apply_enhancement(self.raw_image,
+                                                ImageEnhance.Brightness,
+                                                self.brightness_value)
+
+        self.p_img = ImageTk.PhotoImage(self.raw_image)
+
+    def apply_enhancement(self, image, enhancement, increment):
+        if image.mode == 'I':
+            logging.info("Cannot apply enhancement to image")
+            return image
+        else:
+            return enhancement(image).enhance(increment)
+
+    def to_window(self, p):
+        x, y = p
+        # Translate the x,y coordinate from raw image coordinate to window coordinate
+        (vx, vy) = self.viewport
+        window_x = int(x * self.zoomcoefficient) - vx
+        window_y = int(y * self.zoomcoefficient) - vy
+        
+        return (window_x, window_y)
+    
+    def scale_image(self):
+        # Resize image
+        raw_x, raw_y = self.raw_image.size
+        new_w = int(raw_x * self.zoomcoefficient)
+        new_h = int(raw_y * self.zoomcoefficient)
+
+        self.zoomed_image = self.raw_image.resize((new_w, new_h),
+                                                  Image.ANTIALIAS)
+    @property
+    def zoomcoefficient(self):
+        return self.mux[self.zoom_level]
+
+    @zoomcoefficient.setter
+    def zoomcoefficient(self):
+        raise RuntimeError("You can't set this property")
+
     def add_keybinding(self, key, action):
         self.canvas.bind(key, action)
 
     @staticmethod
     def create_canvas():
         pass
+    
+    def load_image(self, raw_image):
+        # Change size of canvas to new width and height
+        (width, height) = raw_image.size
+        self.canvas.config(width=width, height=height)
+        self.raw_image = raw_image
+        self.orig_image = copy(raw_image)
 
-    def draw_image(self, image):
-        self.canvas.create_image(0, 0, image=image, anchor="nw")
+    def draw_image(self, raw_image):
+        p_img = ImageTk.PhotoImage(raw_image)
+        self.canvas.create_image(0, 0, image=p_img, anchor="nw")
 
     def plot_grid_data(self, grid_data):
         self.canvas.delete("grid")
 
         x, y, wR = grid_data['oval']
         self.canvas.create_oval(x, y, x + (2 * wR), y + (2 * wR),
-                           outline="red", tag="grid")
+                                outline="red", tag="grid")
 
         for s in grid_data['spokes']:
             wX, wY, pX, pY = s
@@ -111,6 +243,10 @@ class MainView:
         self.canvas.delete("grid")
         self.canvas.delete("azimuth")
 
+    def render_image(self):
+        self.apply_enhancements()
+        self.canvas.create_image(0, 0, image=self.p_img, anchor="nw")
+        
 
 class MainMenu:
     
@@ -125,7 +261,3 @@ class MainMenu:
         self.top_level_items[parent].add_command(label=label, 
                                                  command=command)
 
-    
-
-
-    
