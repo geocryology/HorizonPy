@@ -4,13 +4,14 @@ import logging
 import numpy as np
 from scipy.interpolate import interp1d
 from horizonpy.quickhorizon.geometry import calculate_true_azimuth, find_angle
-
+from uuid import uuid1
 
 class HorizonPoints:
 
     def __init__(self):
         self.dots = list()  # list of digitized dots.  Columns contain X, Y, Elevation, Az
-    
+        self.newdots = pd.DataFrame(columns=["raw_x", "raw_y", "elevation", "image_az", "true_az", "id"])
+
     def import_horizon_csv(self, file):
         self.delete_all()
 
@@ -78,6 +79,7 @@ class HorizonPoints:
         del self.dots[:]
 
     def add_raw(self, raw_x, raw_y, img_ctr, grid_radius, image_azimuth_coords, lens, overhanging):
+        uid = uuid1().hex
         azimuth = find_angle(img_ctr, image_azimuth_coords, (raw_x, raw_y))
         dx = raw_x - img_ctr[0]
         dy = raw_y - img_ctr[1]
@@ -92,7 +94,7 @@ class HorizonPoints:
                 horizon = 180 - horizon
                 azimuth = (180 + azimuth) % 360
 
-        new_dot = [raw_x, raw_y, round(horizon, 5), round(azimuth, 5)]
+        new_dot = [raw_x, raw_y, round(horizon, 5), round(azimuth, 5), round(azimuth, 5), uid]
         self.dots.append(new_dot)
         logging.info('Dot ({},{}) has Horizon Elevation = {:.1f}, Azimuth = {:.1f}'.format(
                      raw_x, raw_y, horizon, azimuth))
@@ -131,6 +133,7 @@ class HorizonPoints:
         new_dots = []
 
         for dot in self.dots:
+            uid = dot[5]
             azimuth = find_angle(center, image_azimuth_coords, (dot[0], dot[1]))
 
             dot_radius = np.sqrt(np.power(dot[0] - center[0], 2) + np.power(dot[1] - center[1], 2))
@@ -144,7 +147,7 @@ class HorizonPoints:
                     azimuth = (180 + azimuth) % 360
 
             logging.info('Dot (%d,%d) has Horizon Elevation = %f, Azimuth = %f', dot[0], dot[1], horizon, azimuth)
-            new_dot = [dot[0], dot[1], round(horizon, 5), round(azimuth, 5)]
+            new_dot = [dot[0], dot[1], round(horizon, 5), round(azimuth, 5), round(azimuth, 5), uid]
             new_dots.append(new_dot)
 
         self.dots = new_dots
@@ -155,5 +158,5 @@ class HorizonPoints:
 
     def update_field_azimuth(self, field_azimuth):
         """ Recalculate true azimuth for all dots """
-        self.dots = [x + [calculate_true_azimuth(x[3], field_azimuth)] for x in self.get()]
+        self.dots = [x + [calculate_true_azimuth(x[3], field_azimuth), x[4]] for x in self.get()]
 
