@@ -1,16 +1,15 @@
 import logging
 import configparser
-from PIL import Image, ImageTk
+from PIL import Image
 import numpy as np
 from horizonpy.quickhorizon.geometry import find_angle
+
 
 class ImageState:
 
     DEFAULT_IMAGE_AZIMUTH = -1
 
-    def __init__(self):
-
-        
+    def __init__(self):  
         self._show_grid = False
         
         self.image_azimuth_coords = (0,0)
@@ -121,6 +120,7 @@ class ImageState:
             self.turn_on_grid()
 
     def load_image(self, image_file):
+        self.grid_set = False 
         self.imageFile = image_file
         self.raw_image = Image.open(image_file)
         self.orig_image = Image.open(image_file)

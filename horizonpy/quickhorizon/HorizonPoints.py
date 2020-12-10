@@ -120,16 +120,6 @@ class HorizonPoints:
         else:
             return False
 
-    def del_point_with_coordinates(self, coords):
-        """ Delete point with specified raw coordinates 
-        
-        coords: tuple
-            Raw (x,y) coordiantes of horizon point
-        """
-        for dot in self.dots:
-            if coords == tuple(dot[0:2]):
-                self.dots.remove(dot)
-
     def del_point_with_id(self, id):
         for dot in self.dots:
             if id == dot[5]:
