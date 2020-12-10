@@ -214,7 +214,7 @@ class LoadImageApp(tk.Toplevel):
             self.draw_dots(canvas, self.points)
 
         if self.image_state.show_grid:
-            self.view.plot_grid_data(self.image_state.get_plottable_grid())
+            self.view.plot_grid_data(*self.image_state.get_plottable_grid())
 
             if 0 <= self.image_state.image_azimuth <= 360:
                 self.draw_azimuth(canvas)
@@ -342,7 +342,7 @@ class LoadImageApp(tk.Toplevel):
             f_name = tkFileDialog.askopenfilename(**azm_opt)
         if f_name:
             self.image_state.load_azimuth_config(f_name)
-            self.view.plot_grid_data(self.image_state.get_plottable_grid())
+            self.view.plot_grid_data(*self.image_state.get_plottable_grid())
             self.image_state.grid_set = True
             self.draw_azimuth(self.view.canvas)
             self.image_state.turn_on_grid()
@@ -399,12 +399,12 @@ class LoadImageApp(tk.Toplevel):
                     self.image_state.show_grid = d.result
 
                 if self.image_state.show_grid:
-                    self.view.plot_grid_data(self.image_state.get_plottable_grid())
+                    self.view.plot_grid_data(*self.image_state.get_plottable_grid())
                     self.image_state.grid_set = True
 
     def create_grid_based_on_lens(self, center, radius, spoke_spacing):
         self.image_state.set_grid_from_lens(center, radius, spoke_spacing)
-        self.view.plot_grid_data(self.image_state.get_plottable_grid())
+        self.view.plot_grid_data(*self.image_state.get_plottable_grid())
 
     def toggle_grid(self, *args):
         if not self.image_state.raw_image:
@@ -417,7 +417,7 @@ class LoadImageApp(tk.Toplevel):
         else:
             if self.view.canvas and self.image_state.image_center and self.image_state.radius:
                 self.image_state.turn_on_grid()
-                self.view.plot_grid_data(self.image_state.get_plottable_grid())
+                self.view.plot_grid_data(*self.image_state.get_plottable_grid())
 
                 if self.image_state.anchor[0] != -999:
                     self.draw_azimuth(self.view.canvas)
@@ -524,9 +524,9 @@ class LoadImageApp(tk.Toplevel):
 
             else:
                 if self.event_state.tool == "azimuth":
-                    self.view.plot_grid_data(self.image_state.get_plottable_grid())
+                    self.view.plot_grid_data(*self.image_state.get_plottable_grid())
                                       
-                    self.image_state.set_anchor(event)
+                    self.image_state.set_anchor(self.view.to_raw((event.x, event.y)))
                     self.draw_azimuth(self.view.canvas)
     
     def select_dots_from_rectangle(self, event):

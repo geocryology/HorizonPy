@@ -7,32 +7,7 @@ from horizonpy.quickhorizon.utils import plot_styles
 import logging
 from PIL import Image, ImageTk, ImageEnhance
 from copy import copy
-
-class StatusBar:
-
-    def __init__(self, root):
-        self.status = tk.Label(root, text="X,Y", bd=1, relief=tk.SUNKEN, 
-                               anchor=tk.W)
-        self.status.pack(side=tk.BOTTOM, fill=tk.X)
-
-    def display(self, cursor_loc, image_azimuth, field_azimuth, img_value):
-        output = "Cursor = {}".format(str(cursor_loc)).ljust(25)
-
-        if 0 <= image_azimuth <= 360:
-            output += "Image Azimuth = {:.1f}".format(360 - image_azimuth).ljust(25)
-
-        if 0 <= field_azimuth <= 360:
-            output += "Field Azimuth = {:.1f}".format(field_azimuth).ljust(25)
-
-        if img_value:
-            img_value_display = "({:03d}, {:03d}, {:03d})".format(*img_value) 
-        else:
-            img_value_display = "(---, ---, ---)"
-
-        output += "Image value: {}".format(img_value_display).ljust(25)
-
-        self.status.config(text=output)
-
+import numpy as np
 
 class MainView:
 
@@ -203,7 +178,7 @@ class MainView:
         self.raw_image = raw_image
         self.orig_image = copy(raw_image)
 
-    def plot_grid_data(self, grid_data):
+    def aplot_grid_data(self, grid_data):
         self.canvas.delete("grid")
 
         x, y, wR = grid_data['oval']
@@ -213,6 +188,26 @@ class MainView:
         for s in grid_data['spokes']:
             wX, wY, pX, pY = s
             self.canvas.create_line(wX, wY, pX, pY, fill="red", tag="grid")
+
+    def plot_grid_data(self, image_center, radius, spoke_spacing):
+        (wX, wY) = self.to_window(image_center)
+        wR = radius * self.zoomcoefficient
+
+        x = wX - wR
+        y = wY - wR
+        oval = (x, y, wR)
+
+        spokes = list()
+        for n in range(0, 360, spoke_spacing):
+            rX = image_center[0] + int(radius * np.cos(np.radians(n)))
+            rY = image_center[1] + int(radius * np.sin(np.radians(n)))
+            pX, pY = self.to_window((rX, rY))
+            spokes.append((wX, wY, pX, pY))
+        
+        grid_data = {'oval': oval,
+                     'spokes': spokes}
+        
+        self.aplot_grid_data(grid_data)
 
     @staticmethod
     def draw_patch(canvas, plottable_points):
@@ -299,3 +294,28 @@ class MainMenu:
         self.top_level_items[parent].add_command(label=label, 
                                                  command=command)
 
+
+class StatusBar:
+
+    def __init__(self, root):
+        self.status = tk.Label(root, text="X,Y", bd=1, relief=tk.SUNKEN, 
+                               anchor=tk.W)
+        self.status.pack(side=tk.BOTTOM, fill=tk.X)
+
+    def display(self, cursor_loc, image_azimuth, field_azimuth, img_value):
+        output = "Cursor = {}".format(str(cursor_loc)).ljust(25)
+
+        if 0 <= image_azimuth <= 360:
+            output += "Image Azimuth = {:.1f}".format(360 - image_azimuth).ljust(25)
+
+        if 0 <= field_azimuth <= 360:
+            output += "Field Azimuth = {:.1f}".format(field_azimuth).ljust(25)
+
+        if img_value:
+            img_value_display = "({:03d}, {:03d}, {:03d})".format(*img_value) 
+        else:
+            img_value_display = "(---, ---, ---)"
+
+        output += "Image value: {}".format(img_value_display).ljust(25)
+
+        self.status.config(text=output)
