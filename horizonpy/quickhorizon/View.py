@@ -44,12 +44,15 @@ class MainView:
     def __init__(self, root):
         self.frame = tk.Frame(root, bg='black')
         self._zoom_level = self.DEFAULT_ZOOM
+        self._old_zoom_level = None
         self.build_zoom_levels()
         self.viewport = self.DEFAULT_VIEWPORT  # Used for zoom and pan
         self.zoomed_image = None
 
         self._contrast_value = 1
+        self._old_contrast_value = None
         self._brightness_value = 1
+        self._old_brightness_value = None
 
         self.raw_image = None
         self.orig_image = None
@@ -72,6 +75,7 @@ class MainView:
         if not value <= self.MAX_ZOOM:
             raise ValueError("Attempted to set too large zoom value")
         
+        self._old_zoom_level = self._zoom_level
         self._zoom_level = value
         logging.info("zoom level is {}".format(self._zoom_level))
 
@@ -109,10 +113,10 @@ class MainView:
 
     @contrast_value.setter
     def contrast_value(self, value):
-        old = self._contrast_value
+        self._old_contrast_value = self._contrast_value
         self._contrast_value = value
         logging.info('Image contrast changed from {:.2f} to {:.2f}'.format(
-                     old, self._contrast_value))
+                     self._old_contrast_value, self._contrast_value))
 
     @property
     def brightness_value(self):
@@ -120,28 +124,30 @@ class MainView:
 
     @brightness_value.setter
     def brightness_value(self, value):
-        old = self._brightness_value
+        self.old_brightness_value = self._brightness_value
         self._brightness_value = value
         logging.info('Image brightness changed from {:.2f} to {:.2f}'.format(
-                     old, self._brightness_value))
+                     self.old_brightness_value, self._brightness_value))
     
     def apply_enhancements(self):
-        self.raw_image = self.apply_enhancement(self.orig_image,
+        self.enh_image = self.apply_enhancement(self.zoomed_image,
                                                 ImageEnhance.Contrast,
-                                                self.contrast_value)
+                                                self.contrast_value,
+                                                self._old_contrast_value)
        
-        self.raw_image = self.apply_enhancement(self.raw_image,
+        self.enh_image = self.apply_enhancement(self.enh_image,
                                                 ImageEnhance.Brightness,
-                                                self.brightness_value)
+                                                self.brightness_value,
+                                                self._old_brightness_value)
 
-        self.p_img = ImageTk.PhotoImage(self.raw_image)
-
-    def apply_enhancement(self, image, enhancement, increment):
+    def apply_enhancement(self, image, enhancement, new_value, old_value):
         if image.mode == 'I':
             logging.info("Cannot apply enhancement to image")
             return image
+        if new_value == old_value:
+            return image
         else:
-            return enhancement(image).enhance(increment)
+            return enhancement(image).enhance(new_value)
 
     def to_window(self, p):
         x, y = p
@@ -154,12 +160,27 @@ class MainView:
     
     def scale_image(self):
         # Resize image
+        if self._old_zoom_level == self.zoom_level:
+            return
+        
         raw_x, raw_y = self.raw_image.size
         new_w = int(raw_x * self.zoomcoefficient)
         new_h = int(raw_y * self.zoomcoefficient)
 
-        self.zoomed_image = self.raw_image.resize((new_w, new_h),
-                                                  Image.ANTIALIAS)
+        self.scaled_image = self.raw_image.resize((new_w, new_h),
+                                    Image.ANTIALIAS)
+
+        self._old_zoom_level = self.zoom_level
+        
+    def crop_image(self):
+        # Display the region of the zoomed image starting at viewport and window size
+        x, y = self.viewport
+        w = self.frame.winfo_width()
+        h = self.frame.winfo_height()
+
+        self.zoomed_image = self.scaled_image.crop((x, y, x + w, y + h))
+        
+
     @property
     def zoomcoefficient(self):
         return self.mux[self.zoom_level]
@@ -181,10 +202,6 @@ class MainView:
         self.canvas.config(width=width, height=height)
         self.raw_image = raw_image
         self.orig_image = copy(raw_image)
-
-    def draw_image(self, raw_image):
-        p_img = ImageTk.PhotoImage(raw_image)
-        self.canvas.create_image(0, 0, image=p_img, anchor="nw")
 
     def plot_grid_data(self, grid_data):
         self.canvas.delete("grid")
@@ -244,8 +261,29 @@ class MainView:
         self.canvas.delete("azimuth")
 
     def render_image(self):
+        self.scale_image()
+        self.crop_image()
         self.apply_enhancements()
+        self.p_img = ImageTk.PhotoImage(self.enh_image)
         self.canvas.create_image(0, 0, image=self.p_img, anchor="nw")
+    
+    def adjust_contrast(self, increment, *args):
+        self.contrast_value += increment
+        
+    def increase_contrast(self, increment=0.1):
+        self.adjust_contrast(increment)
+
+    def decrease_contrast(self, increment=-0.1):
+        self.adjust_contrast(increment)
+
+    def adjust_brightness(self, increment, *args):
+        self.brightness_value += increment
+
+    def increase_brightness(self, increment=0.1):
+        self.adjust_brightness(increment)
+
+    def decrease_brightness(self, increment=-0.1):
+        self.adjust_brightness(increment)
         
 
 class MainMenu:

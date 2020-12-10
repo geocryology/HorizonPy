@@ -169,32 +169,31 @@ class LoadImageApp(tk.Toplevel):
 
         self.load_image(canvas, image_file)
 
+    @hd.require_image_file
     def reload_image(self):
         self.view.render_image()
-        self.zoom_current()
+        self.display_region(self.view.canvas)
 
     @hd.require_image_file
-    def adjust_contrast(self, increment, *args):
-        self.view.contrast_value += increment
+    def increase_contrast(self, event=None, increment=0.1):
+        self.view.increase_contrast(increment)
+        self.reload_image()
+
+    @hd.require_image_file
+    def decrease_contrast(self, event=None, increment=-0.1):
+        self.view.decrease_contrast(increment)
+        self.reload_image()
+
+    @hd.require_image_file
+    def increase_brightness(self, event=None, increment=0.1):
+        self.view.increase_brightness(increment)
+        self.reload_image()
+
+    @hd.require_image_file
+    def decrease_brightness(self, event=None, increment=-0.1):
+        self.view.decrease_brightness(increment)
         self.reload_image()
         
-    def increase_contrast(self, event=None, increment=0.1):
-        self.adjust_contrast(increment)
-
-    def decrease_contrast(self, event=None, increment=-0.1):
-        self.adjust_contrast(increment)
-
-    @hd.require_image_file
-    def adjust_brightness(self, increment, *args):
-        self.view.brightness_value += increment
-        self.reload_image()
-
-    def increase_brightness(self, event=None, increment=0.1):
-        self.adjust_brightness(increment)
-
-    def decrease_brightness(self, event=None, increment=-0.1):
-        self.adjust_brightness(increment)
-
     def load_image(self, canvas, image_file):
         raw_image = self.image_state.load_image(image_file)
         self.view.load_image(raw_image)
@@ -208,18 +207,8 @@ class LoadImageApp(tk.Toplevel):
 
     def display_region(self, canvas):
         canvas.delete("all")
-
-        # Display the region of the zoomed image starting at viewport and window size
-        x, y = self.view.viewport
-        w = self.view.frame.winfo_width()
-        h = self.view.frame.winfo_height()
-
-        tmp = self.view.zoomed_image.crop((x, y, x + w, y + h))
-
-        self.view.p_img = ImageTk.PhotoImage(tmp)
         canvas.config(bg="gray50")
-        canvas.create_image(0, 0, image=self.view.p_img, anchor="nw")
-
+        self.view.render_image()
         # Draw  saved dots
         if self.points.any_defined():
             self.draw_dots(canvas, self.points)
@@ -493,10 +482,6 @@ class LoadImageApp(tk.Toplevel):
         self.view.scale_image()
         self.display_region(self.view.canvas)
 
-    @hd.require_image_file
-    def zoom_current(self, *args):
-        self.view.scale_image()
-        self.display_region(self.view.canvas)
 
     #######################################################
     # Mouse options
