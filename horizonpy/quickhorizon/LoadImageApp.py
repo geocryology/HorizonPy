@@ -245,7 +245,6 @@ class LoadImageApp(tk.Toplevel):
     def draw_dots(self, canvas, horizon_points):
         dots = self.points.get_plottable_points(self.image_state.to_window)
         self.view.draw_dots(canvas, dots)
-
         self.view.draw_patch(canvas, dots)
 
     def draw_grid(self, canvas):
@@ -255,15 +254,9 @@ class LoadImageApp(tk.Toplevel):
     def set_azimuth(self, anchor):
         self.image_state.update_azimuth(anchor)
 
-    def plot_azimuth_data(self, canvas, azimuth_data):
-        wX, wY, pX, pY = azimuth_data
-        canvas.delete("azimuth")
-        canvas.create_line(wX, wY, pX, pY, tag="azimuth",
-                           fill="green", width=3)
-    
     def draw_azimuth(self, canvas):
         azimuth_data = self.image_state.get_plottable_azimuth()
-        self.plot_azimuth_data(canvas, azimuth_data)
+        self.view.plot_azimuth_data(canvas, azimuth_data)
 
     ########################################################
     # Menu options
@@ -604,25 +597,31 @@ class LoadImageApp(tk.Toplevel):
     
     def delete_dots(self, selected_dots):
         to_delete = {}
+        for_deletion = {}
         for i in selected_dots:
             self.view.canvas.itemconfig(i, fill="red", outline="red")
-
+            
             tags = self.view.canvas.gettags(i)
+            del_id = tags[3][3:]
             to_delete[i] = self.image_state.to_raw((int(tags[1]), int(tags[2])))
-
-            logging.debug('Selected Item-> %d with tags %s, %s, %s', i,
-                          tags[0], tags[1], tags[2])
+            for_deletion[i] = del_id
+            logging.debug('Selected Item-> %d with tags %s, %s, %s, %s', i,
+                          tags[0], tags[1], tags[2], tags[3])
 
         if to_delete:
             confirm = tkMessageBox.askokcancel("Confirm deletion?", "Press OK to delete selected dot(s)!")
 
             if confirm:
-                for i, coords in to_delete.items():
-                    self.points.del_point_with_coordinates(coords)
-                    logging.debug('Removing dot %d with coords: %d, %d', i,
-                                  coords[0], coords[1])
-                    self.view.canvas.delete(i)
+                # for i, coords in to_delete.items():
+                #     self.points.del_point_with_coordinates(coords[0:1])
+                #     logging.debug('Removing dot %d with coords: %d, %d', i,
+                #                   coords[0], coords[1])
+                #     self.view.canvas.delete(i)
 
+                for i, uid in for_deletion.items():
+                    self.points.del_point_with_id(uid)  
+                    logging.debug(f'Removing dot {i} with id: {uid}')
+                    self.view.canvas.delete(i)
             else:
                 logging.info('Dot deletion cancelled!')
             
