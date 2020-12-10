@@ -1,6 +1,6 @@
 try: # python 3
     import tkinter.simpledialog as tkSimpleDialog
-except:  # python 2
+except ModuleNotFoundError:  # python 2
     import tkSimpleDialog
 try:
     import Tkinter as tk

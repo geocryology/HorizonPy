@@ -1,24 +1,17 @@
 import logging
 import configparser
-from PIL import Image, ImageTk, ImageEnhance
+from PIL import Image, ImageTk
 import numpy as np
 from horizonpy.quickhorizon.geometry import find_angle
 
 class ImageState:
 
-    DEFAULT_ZOOM = 0
-    MIN_ZOOM = 0
-    MAX_ZOOM = 5
-    DEFAULT_VIEWPORT = (0,0)
     DEFAULT_IMAGE_AZIMUTH = -1
 
     def __init__(self):
-        self._contrast_value = 1
-        self._brightness_value = 1
-        self._zoom_level = self.DEFAULT_ZOOM
-        self.build_zoom_levels()
+
+        
         self._show_grid = False
-        self.viewport = self.DEFAULT_VIEWPORT  # Used for zoom and pan
         
         self.image_azimuth_coords = (0,0)
         self.reset_image_azimuth()
@@ -28,76 +21,7 @@ class ImageState:
         self.grid_set = False
 
         self.raw_image = None
-        self.zoomed_image = None
-
-
-    @property
-    def contrast_value(self):
-        return self._contrast_value
-
-    @contrast_value.setter
-    def contrast_value(self, value):
-        old = self._contrast_value
-        self._contrast_value = value
-        logging.info('Image contrast changed from {:.2f} to {:.2f}'.format(
-                     old, self._contrast_value))
-
-    @property
-    def brightness_value(self):
-        return self._brightness_value
-
-    @brightness_value.setter
-    def brightness_value(self, value):
-        old = self._brightness_value
-        self._brightness_value = value
-        logging.info('Image brightness changed from {:.2f} to {:.2f}'.format(
-                     old, self._brightness_value))
     
-    def apply_enhancements(self):
-        self.raw_image = self.apply_enhancement(self.orig_img,
-                                                ImageEnhance.Contrast,
-                                                self.contrast_value)
-       
-        self.raw_image = self.apply_enhancement(self.raw_image,
-                                                ImageEnhance.Brightness,
-                                                self.brightness_value)
-
-        self.p_img = ImageTk.PhotoImage(self.raw_image)
-    @property
-    def zoom_level(self):
-        return self._zoom_level
-
-    @zoom_level.setter
-    def zoom_level(self, value):
-        if not value >= self.MIN_ZOOM:
-            raise ValueError("Attempted to set too small zoom value")
-            
-        if not value <= self.MAX_ZOOM:
-            raise ValueError("Attempted to set too large zoom value")
-        
-        self._zoom_level = value
-        logging.info("zoom level is {}".format(self._zoom_level))
-
-    def reset_zoom(self):
-        self._zoom_level = self.DEFAULT_ZOOM
-        self.viewport = self.DEFAULT_VIEWPORT
-
-    def build_zoom_levels(self):
-        self.mux = {0: 1.0}
-        for n in range(1, self.MAX_ZOOM + 1, 1):
-            self.mux[n] = round(self.mux[n - 1] * 1.5, 5)
-
-        for n in range(-1, self.MIN_ZOOM - 1, -1):
-            self.mux[n] = round(self.mux[n + 1] * 1.5, 5)
-
-    @property
-    def zoomcoefficient(self):
-        return self.mux[self.zoom_level]
-
-    @zoomcoefficient.setter
-    def zoomcoefficient(self):
-        raise RuntimeError("You can't set this property")
-
     def turn_off_grid(self):
         self._show_grid = False
 
@@ -133,13 +57,6 @@ class ImageState:
                      'spokes': spokes}
         
         return grid_data
-
-    def update_viewport(self, new_x, new_y, old_x, old_y):
-        if not all((old_x, old_y)):
-            return
-        view_x = self.viewport[0] - (new_x - old_x)
-        view_y = self.viewport[1] - (new_y - old_y)
-        self.viewport = (view_x, view_y)
 
     @property
     def image_azimuth(self):
@@ -224,51 +141,19 @@ class ImageState:
             self.grid_set = True
             self.turn_on_grid()
 
-    def to_raw(self, p):
-        x, y = p
-        # Translate the x,y coordinate from window to raw image coordinate
-        (vx, vy) = self.viewport
-        raw_x = int((x + vx) / self.zoomcoefficient)
-        raw_y = int((y + vy) / self.zoomcoefficient)
-        
-        return (raw_x, raw_y)
-
-    def to_window(self, p):
-        x, y = p
-        # Translate the x,y coordinate from raw image coordinate to window coordinate
-        (vx, vy) = self.viewport
-        window_x = int(x * self.zoomcoefficient) - vx
-        window_y = int(y * self.zoomcoefficient) - vy
-        
-        return (window_x, window_y)
-    
-    def scale_image(self):
-        # Resize image
-        raw_x, raw_y = self.raw_image.size
-        new_w = int(raw_x * self.zoomcoefficient)
-        new_h = int(raw_y * self.zoomcoefficient)
-
-        self.zoomed_image = self.raw_image.resize((new_w, new_h),
-                                                  Image.ANTIALIAS)
-
     def load_image(self, image_file):
         self.imageFile = image_file
         self.raw_image = Image.open(image_file)
-        self.orig_img = Image.open(image_file)
+        self.orig_image = Image.open(image_file)
         (width, height) = self.raw_image.size
         self.reset_image_azimuth()
 
         # Image larger than 1000 pixels, resize to 800 x 600
         if (width > 1000) or (height > 1000):
-            self.orig_img.thumbnail((800, 600), Image.ANTIALIAS)
+            self.orig_image.thumbnail((800, 600), Image.ANTIALIAS)
             self.raw_image.thumbnail((800, 600), Image.ANTIALIAS)
             (width, height) = self.raw_image.size
             logging.info("Resizing image to {} x {}".format(width, height))
-
-        self.zoomed_image = self.raw_image
-
-        # Save reference to image object so it can be displayed
-        self.p_img = ImageTk.PhotoImage(self.raw_image)
 
         # Find center of image and radius
         self.image_center = (int(width / 2), int(height / 2))
@@ -277,6 +162,7 @@ class ImageState:
 
         logging.info("Loaded image {}".format(self.imageFile))
 
+        return self.raw_image
 
 class EventState:
 

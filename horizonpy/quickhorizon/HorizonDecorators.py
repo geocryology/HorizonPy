@@ -4,7 +4,7 @@ import logging
 try:  # python 3
     import tkinter.messagebox as tkMessageBox
     izip = zip
-except:  # python 2
+except ModuleNotFoundError:  # python 2
     import tkMessageBox
 
 

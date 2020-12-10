@@ -1,7 +1,5 @@
 import logging
-import os
 import pkg_resources
-import sys
 
 from os import path
 
