@@ -167,9 +167,10 @@ class ImageState:
 class EventState:
 
     NOEVENT = (None, None)
-    TOOL_OPTIONS = ["azimuth", "dot", "select", "move", ]
+    TOOL_OPTIONS = ["azimuth", "dot", "select", "move"]
 
     def __init__(self):
+        self.tool = "move"
         self.reset_event()
 
     def store_event(self, x, y):
