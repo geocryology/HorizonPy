@@ -63,7 +63,7 @@ class MainView:
 
         for s in grid_data['spokes']:
             wX, wY, pX, pY = s
-            canvas.create_line(wX, wY, pX, pY, fill="red", tag="grid")
+            self.canvas.create_line(wX, wY, pX, pY, fill="red", tag="grid")
 
     @staticmethod
     def draw_patch(canvas, plottable_points):

@@ -601,7 +601,7 @@ class LoadImageApp(tk.Toplevel):
             for_deletion[i] = del_id
             logging.debug(f'Selected Canvas Item-> {i} with id {tags[1]}')
 
-        if to_delete:
+        if for_deletion:
             confirm = tkMessageBox.askokcancel("Confirm deletion?", "Press OK to delete selected dot(s)!")
             if confirm:
                 for i, uid in for_deletion.items():
