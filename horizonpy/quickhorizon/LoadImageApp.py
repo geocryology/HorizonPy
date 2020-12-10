@@ -220,16 +220,16 @@ class LoadImageApp(tk.Toplevel):
                 self.draw_azimuth(canvas)
 
     def draw_dots(self, canvas, horizon_points):
-        dots = self.points.get_plottable_points(self.view.to_window)
-        self.view.draw_dots(canvas, dots)
-        self.view.draw_patch(canvas, dots)
+        dots = self.points.get_plottable_points()
+        self.view.draw_dots(dots)
+        self.view.draw_patch(dots)
 
     def set_azimuth(self, anchor):
         self.view.update_azimuth(anchor)
 
     def draw_azimuth(self, canvas):
         azimuth_data = self.image_state.get_plottable_azimuth()
-        self.view.plot_azimuth_data(canvas, azimuth_data)
+        self.view.plot_azimuth_data(*azimuth_data)
 
     ########################################################
     # Menu options

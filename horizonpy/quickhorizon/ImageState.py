@@ -40,24 +40,6 @@ class ImageState:
 
     def get_plottable_grid(self):
         return self.image_center, self.radius, self.spoke_spacing
-        # (wX, wY) = self.to_window(self.image_center)
-        # wR = self.radius * self.zoomcoefficient
-
-        # x = wX - wR
-        # y = wY - wR
-        # oval = (x, y, wR)
-
-        # spokes = list()
-        # for n in range(0, 360, self.spoke_spacing):
-        #     rX = self.image_center[0] + int(self.radius * np.cos(np.radians(n)))
-        #     rY = self.image_center[1] + int(self.radius * np.sin(np.radians(n)))
-        #     pX, pY = self.to_window((rX, rY))
-        #     spokes.append((wX, wY, pX, pY))
-        
-        # grid_data = {'oval': oval,
-        #              'spokes': spokes}
-        
-        # return grid_data
 
     @property
     def image_azimuth(self):
@@ -83,11 +65,7 @@ class ImageState:
         self._image_azimuth_coords = coords
 
     def get_plottable_azimuth(self):
-        wX, wY = self.to_window(self.image_center)
-        pX, pY = self.to_window(self.image_azimuth_coords)
-        azimuth_data = (wX, wY, pX, pY)
-        
-        return azimuth_data
+        return self.image_center, self.image_azimuth_coords
         
     def update_azimuth(self, anchor):
         self.image_azimuth = find_angle(self.image_center, anchor, 

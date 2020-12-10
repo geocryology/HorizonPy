@@ -178,7 +178,7 @@ class MainView:
         self.raw_image = raw_image
         self.orig_image = copy(raw_image)
 
-    def aplot_grid_data(self, grid_data):
+    def draw_grid_data(self, grid_data):
         self.canvas.delete("grid")
 
         x, y, wR = grid_data['oval']
@@ -207,29 +207,28 @@ class MainView:
         grid_data = {'oval': oval,
                      'spokes': spokes}
         
-        self.aplot_grid_data(grid_data)
+        self.draw_grid_data(grid_data)
 
-    @staticmethod
-    def draw_patch(canvas, plottable_points):
+    def draw_patch(self, plottable_points):
         points = plottable_points['points']
-        canvas.delete("sky_polygon")
+        self.canvas.delete("sky_polygon")
         if len(points) > 3:
-            xy = [i for dot in points for i in dot[:2]]
-            sky_polygon = canvas.create_polygon(*xy, fill="", outline='blue')
-            canvas.itemconfig(sky_polygon, tags=("sky_polygon"))
+            xy = [self.to_window((x,y)) for dot in points for (x,y) in [dot[:2]]]
+            sky_polygon = self.canvas.create_polygon(*xy, fill="", outline='blue')
+            self.canvas.itemconfig(sky_polygon, tags=("sky_polygon"))
 
-    @staticmethod
-    def draw_dots(canvas, plottable_points):
+    def draw_dots(self, plottable_points):
         for p in plottable_points['points']:
             x, y, overhang, uid = p
+            x, y = self.to_window((x, y))
             if overhang:
                 style = plot_styles['overhangingpoint']
-                item = canvas.create_rectangle(x - 2, y - 2, x + 2, y + 2, **style)
+                item = self.canvas.create_rectangle(x - 2, y - 2, x + 2, y + 2, **style)
             else:
                 style = plot_styles['regularpoint']
-                item = canvas.create_oval(x - 2, y - 2, x + 2, y + 2, **style)
+                item = self.canvas.create_oval(x - 2, y - 2, x + 2, y + 2, **style)
                                                     
-            canvas.itemconfig(item, tags=("dot", f"id:{uid}"))
+            self.canvas.itemconfig(item, tags=("dot", f"id:{uid}"))
 
     @staticmethod
     def draw_selection_rectangle(event, select_x, select_y):
@@ -244,11 +243,12 @@ class MainView:
     def delete_all_overlays(self):
         self.canvas.delete("all")
 
-    @staticmethod
-    def plot_azimuth_data(canvas, azimuth_data):
-        wX, wY, pX, pY = azimuth_data
-        canvas.delete("azimuth")
-        canvas.create_line(wX, wY, pX, pY, tag="azimuth",
+    def plot_azimuth_data(self, image_center, image_azimuth_coords):
+        wX, wY = self.to_window(image_center)
+        pX, pY = self.to_window(image_azimuth_coords)
+
+        self.canvas.delete("azimuth")
+        self.canvas.create_line(wX, wY, pX, pY, tag="azimuth",
                            fill="green", width=3)
 
     def turn_off_grid(self):

@@ -158,8 +158,8 @@ class HorizonPoints:
 
         self.dots = new_dots
 
-    def get_plottable_points(self, to_window):
-        pts = [(*to_window((x,y)), z > 90, i) for p in self.dots for x,y,z,i in [(p[0:3] + (p[5],))]]
+    def get_plottable_points(self):
+        pts = [(x, y, z > 90, i) for p in self.dots for x,y,z,i in [(p[0:3] + (p[5],))]]
         return {'points': pts}
 
     def update_field_azimuth(self, field_azimuth):
