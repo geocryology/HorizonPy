@@ -237,7 +237,7 @@ class LoadImageApp(tk.Toplevel):
             self.draw_dots(canvas, self.points)
 
         if self.image_state.show_grid:
-            self.draw_grid(canvas)
+            self.view.plot_grid_data(self.image_state.get_plottable_grid())
 
             if 0 <= self.image_state.image_azimuth <= 360:
                 self.draw_azimuth(canvas)
@@ -246,10 +246,6 @@ class LoadImageApp(tk.Toplevel):
         dots = self.points.get_plottable_points(self.image_state.to_window)
         self.view.draw_dots(canvas, dots)
         self.view.draw_patch(canvas, dots)
-
-    def draw_grid(self, canvas):
-        grid_data = self.image_state.get_plottable_grid()
-        self.view.plot_grid_data(canvas, grid_data)
 
     def set_azimuth(self, anchor):
         self.image_state.update_azimuth(anchor)
@@ -369,7 +365,7 @@ class LoadImageApp(tk.Toplevel):
             f_name = tkFileDialog.askopenfilename(**azm_opt)
         if f_name:
             self.image_state.load_azimuth_config(f_name)
-            self.draw_grid(self.view.canvas)
+            self.view.plot_grid_data(self.image_state.get_plottable_grid())
             self.image_state.grid_set = True
             self.draw_azimuth(self.view.canvas)
             self.image_state.turn_on_grid()
@@ -426,12 +422,12 @@ class LoadImageApp(tk.Toplevel):
                     self.image_state.show_grid = d.result
 
                 if self.image_state.show_grid:
-                    self.draw_grid(self.view.canvas)
+                    self.view.plot_grid_data(self.image_state.get_plottable_grid())
                     self.image_state.grid_set = True
 
     def create_grid_based_on_lens(self, center, radius, spoke_spacing):
         self.image_state.set_grid_from_lens(center, radius, spoke_spacing)
-        self.draw_grid(self.view.canvas)
+        self.view.plot_grid_data(self.image_state.get_plottable_grid())
 
     def toggle_grid(self, *args):
         if not self.image_state.raw_image:
@@ -439,12 +435,12 @@ class LoadImageApp(tk.Toplevel):
             
         if self.image_state.show_grid:
             self.image_state.turn_off_grid()
-            self.view.canvas.delete("grid")
-            self.view.canvas.delete("azimuth")
+            self.view.turn_off_grid()
+
         else:
             if self.view.canvas and self.image_state.image_center and self.image_state.radius:
                 self.image_state.turn_on_grid()
-                self.draw_grid(self.view.canvas)
+                self.view.plot_grid_data(self.image_state.get_plottable_grid())
 
                 if self.image_state.anchor[0] != -999:
                     self.draw_azimuth(self.view.canvas)
@@ -555,7 +551,7 @@ class LoadImageApp(tk.Toplevel):
 
             else:
                 if self.event_state.tool == "azimuth":
-                    self.draw_grid(self.view.canvas)
+                    self.view.plot_grid_data(self.image_state.get_plottable_grid())
                                       
                     self.image_state.set_anchor(event)
                     self.draw_azimuth(self.view.canvas)
@@ -596,28 +592,18 @@ class LoadImageApp(tk.Toplevel):
                 self.define_field_azimuth()
     
     def delete_dots(self, selected_dots):
-        to_delete = {}
         for_deletion = {}
         for i in selected_dots:
             self.view.canvas.itemconfig(i, fill="red", outline="red")
             
             tags = self.view.canvas.gettags(i)
-            del_id = tags[3][3:]
-            to_delete[i] = self.image_state.to_raw((int(tags[1]), int(tags[2])))
+            del_id = tags[1][3:]
             for_deletion[i] = del_id
-            logging.debug('Selected Item-> %d with tags %s, %s, %s, %s', i,
-                          tags[0], tags[1], tags[2], tags[3])
+            logging.debug(f'Selected Canvas Item-> {i} with id {tags[1]}')
 
         if to_delete:
             confirm = tkMessageBox.askokcancel("Confirm deletion?", "Press OK to delete selected dot(s)!")
-
             if confirm:
-                # for i, coords in to_delete.items():
-                #     self.points.del_point_with_coordinates(coords[0:1])
-                #     logging.debug('Removing dot %d with coords: %d, %d', i,
-                #                   coords[0], coords[1])
-                #     self.view.canvas.delete(i)
-
                 for i, uid in for_deletion.items():
                     self.points.del_point_with_id(uid)  
                     logging.debug(f'Removing dot {i} with id: {uid}')
