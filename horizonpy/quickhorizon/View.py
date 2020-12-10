@@ -78,15 +78,15 @@ class MainView:
     @staticmethod
     def draw_dots(canvas, plottable_points):
         for p in plottable_points['points']:
-            x, y, overhang = p
+            x, y, overhang, uid = p
             if overhang:
                 style = plot_styles['overhangingpoint']
-                item = canvas.create_rectangle(x - 2, y - 2, x + 2, y + 2, **style)         
+                item = canvas.create_rectangle(x - 2, y - 2, x + 2, y + 2, **style)
             else:
                 style = plot_styles['regularpoint']
                 item = canvas.create_oval(x - 2, y - 2, x + 2, y + 2, **style)
                                                     
-            canvas.itemconfig(item, tags=("dot", str(x), str(y)))
+            canvas.itemconfig(item, tags=("dot", str(x), str(y), f"id:{uid}"))
 
     @staticmethod
     def draw_selection_rectangle(event, select_x, select_y):
@@ -100,6 +100,13 @@ class MainView:
 
     def delete_all_overlays(self):
         self.canvas.delete("all")
+
+    @staticmethod
+    def plot_azimuth_data(canvas, azimuth_data):
+        wX, wY, pX, pY = azimuth_data
+        canvas.delete("azimuth")
+        canvas.create_line(wX, wY, pX, pY, tag="azimuth",
+                           fill="green", width=3)
 
 
 class MainMenu:

@@ -21,7 +21,8 @@ class HorizonPoints:
             next(reader)  # skip header row
 
             for row in reader:
-                raw = (int(row[0]), int(row[1]), float(row[2]), float(row[3]), float(row[4]))
+                uid = uuid1().hex
+                raw = (int(row[0]), int(row[1]), float(row[2]), float(row[3]), float(row[4]), uid)
                 self.dots.append(raw)  # self._define_new_dot(raw, overhanging=overhang)
 
         finally:
@@ -94,7 +95,7 @@ class HorizonPoints:
                 horizon = 180 - horizon
                 azimuth = (180 + azimuth) % 360
 
-        new_dot = [raw_x, raw_y, round(horizon, 5), round(azimuth, 5), round(azimuth, 5), uid]
+        new_dot = (raw_x, raw_y, round(horizon, 5), round(azimuth, 5), round(azimuth, 5), uid)
         self.dots.append(new_dot)
         logging.info('Dot ({},{}) has Horizon Elevation = {:.1f}, Azimuth = {:.1f}'.format(
                      raw_x, raw_y, horizon, azimuth))
@@ -129,6 +130,11 @@ class HorizonPoints:
             if coords == tuple(dot[0:2]):
                 self.dots.remove(dot)
 
+    def del_point_with_id(self, id):
+        for dot in self.dots:
+            if id == dot[5]:
+                self.dots.remove(dot)
+
     def update_image_azimuth(self, center, grid_radius, image_azimuth, image_azimuth_coords, lens):
         new_dots = []
 
@@ -147,13 +153,13 @@ class HorizonPoints:
                     azimuth = (180 + azimuth) % 360
 
             logging.info('Dot (%d,%d) has Horizon Elevation = %f, Azimuth = %f', dot[0], dot[1], horizon, azimuth)
-            new_dot = [dot[0], dot[1], round(horizon, 5), round(azimuth, 5), round(azimuth, 5), uid]
+            new_dot = (dot[0], dot[1], round(horizon, 5), round(azimuth, 5), round(azimuth, 5), uid)
             new_dots.append(new_dot)
 
         self.dots = new_dots
 
     def get_plottable_points(self, to_window):
-        pts = [(*to_window((x,y)), z > 90) for p in self.dots for x,y,z in [p[0:3]]]
+        pts = [(*to_window((x,y)), z > 90, i) for p in self.dots for x,y,z,i in [(p[0:3] + (p[5],))]]
         return {'points': pts}
 
     def update_field_azimuth(self, field_azimuth):
