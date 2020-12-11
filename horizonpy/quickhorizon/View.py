@@ -73,6 +73,29 @@ class MainView:
         view_y = self.viewport[1] - (new_y - old_y)
         self.viewport = (view_x, view_y)
 
+    def zoom_wheel(self, event):
+        if self.raw_image:
+            (x, y) = self.to_raw((event.x, event.y))
+
+            if event.delta > 0:
+                increment = 1
+            elif event.delta < 0:
+                increment = -1
+            else:
+                return
+
+            try:
+                self.zoom_level += increment
+            except ValueError:
+                logging.info('Zoom limit reached!')
+                return
+
+            self.scale_image()
+
+            view_x = int(x * self.zoomcoefficient) - x
+            view_y = int(y * self.zoomcoefficient) - y
+            self.viewport = (view_x, view_y)
+
     def to_raw(self, p):
         x, y = p
         # Translate the x,y coordinate from window to raw image coordinate
@@ -279,6 +302,10 @@ class MainView:
 
     def decrease_brightness(self, increment=-0.1):
         self.adjust_brightness(increment)
+
+    def confirm(self, title, message):
+        confirm = tkMessageBox.askokcancel(title, message)
+        return confirm
         
 
 class MainMenu:
