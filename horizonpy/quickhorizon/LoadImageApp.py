@@ -160,19 +160,14 @@ class LoadImageApp(tk.Toplevel):
     # Canvas and Image File
     ####################################################################
     def init_canvas(self, canvas, image_file):
-
         # Reset when a new image opened
         self.event_state.reset_buttons()
-        self.image_state.grid_set = False
-
         self.points.delete_all()
-
         self.load_image(canvas, image_file)
 
     @hd.require_image_file
     def reload_image(self):
-        self.view.render_image()
-        self.display_region(self.view.canvas)
+        self.render_view(self.view.canvas)
 
     @hd.require_image_file
     def increase_contrast(self, event=None, increment=0.1):
@@ -205,9 +200,8 @@ class LoadImageApp(tk.Toplevel):
         self.view.delete_all_overlays()
         self.view.render_image()
 
-    def display_region(self, canvas):
-        canvas.delete("all")
-        canvas.config(bg="gray50")
+    def render_view(self, canvas):
+        self.view.delete_all_overlays()
         self.view.render_image()
         # Draw  saved dots
         if self.points.any_defined():
@@ -371,8 +365,9 @@ class LoadImageApp(tk.Toplevel):
                               )
 
     def delete_all(self):
-        self.points.delete_all()
-        self.display_region(self.view.canvas)
+        if self.view.confirm("Confirm deletion?", "Press OK to delete all points!"):
+            self.points.delete_all()
+            self.render_view(self.view.canvas)
     
     @staticmethod
     def view_delete_all_dots(canvas):
@@ -461,7 +456,7 @@ class LoadImageApp(tk.Toplevel):
         try:
             self.view.zoom_level += 1
             self.view.scale_image()
-            self.display_region(self.view.canvas)
+            self.render_view(self.view.canvas)
         
         except ValueError:
             logging.info("Max zoom reached!")
@@ -471,7 +466,7 @@ class LoadImageApp(tk.Toplevel):
         try:
             self.view.zoom_level -= 1
             self.view.scale_image()
-            self.display_region(self.view.canvas)
+            self.render_view(self.view.canvas)
         
         except ValueError:
             logging.info("Min zoom reached!")
@@ -480,36 +475,29 @@ class LoadImageApp(tk.Toplevel):
     def zoom_original(self):
         self.view.reset_zoom()
         self.view.scale_image()
-        self.display_region(self.view.canvas)
+        self.render_view(self.view.canvas)
 
 
     #######################################################
     # Mouse options
-    #######################################################        
+    #######################################################
+    
+    def register_tool(self, tool):
+        """
+        docstring
+        """
+        self.view.add_keybinding("<MouseWheel>", tool.zoom_wheel)
+        self.view.add_keybinding("<Motion>", tool.motion)
+        self.view.add_keybinding("<ButtonPress-1>", tool.b1down)
+        self.view.add_keybinding("<ButtonRelease-1>", tool.b1up)
+        self.view.add_keybinding("<ButtonPress-2>", tool.b2down)
+        self.view.add_keybinding("<ButtonRelease-2>", tool.b2up)
+        self.view.add_keybinding("<ButtonPress-3>", tool.b3down)
+        self.view.add_keybinding("<ButtonRelease-3>", tool.b3up)
+
     def zoom_wheel(self, event):
-
-        if self.image_state.raw_image:
-            (x, y) = self.view.to_raw((event.x, event.y))
-
-            if event.delta > 0:
-                increment = 1
-            elif event.delta < 0:
-                increment = -1
-            else:
-                return
-            
-            try:
-                self.view.zoom_level += increment
-            except ValueError:
-                logging.info('Zoom limit reached!')
-                return
-
-            self.view.scale_image()
-
-            view_x = int(x * self.view.zoomcoefficient) - x
-            view_y = int(y * self.view.zoomcoefficient) - y
-            self.view.viewport = (view_x, view_y)
-            self.display_region(self.view.canvas)
+        self.view.zoom_wheel(event)
+        self.render_view(self.view.canvas)
 
     def b1down(self, event):
         logging.debug('b1down() at ({},{})'.format(event.x, event.y))
@@ -539,7 +527,7 @@ class LoadImageApp(tk.Toplevel):
 
         selected = [x for x in items if event.widget.gettags(x)[0] == 'dot']
         return selected
-        
+
     def b1up(self, event):
         self.event_state.button_1 = "up"
         logging.debug('b1up()-> tool = %s at (%d, %d)', 
@@ -584,7 +572,7 @@ class LoadImageApp(tk.Toplevel):
             else:
                 logging.info('Dot deletion cancelled!')
             
-        self.display_region(self.view.canvas)
+        self.render_view(self.view.canvas)
                 
     def b2down(self, event):
         self.event_state.button_2 = "down"
@@ -614,7 +602,7 @@ class LoadImageApp(tk.Toplevel):
         xold, yold = self.event_state.old_event
         self.view.update_viewport(event.x, event.y, xold, yold)
                                          
-        self.display_region(self.view.canvas)
+        self.render_view(self.view.canvas)
         
     # Handles mouse
     def motion(self, event):
@@ -655,7 +643,7 @@ class LoadImageApp(tk.Toplevel):
         
     def resize_window(self, event):
         if self.view.zoomed_image:
-            self.display_region(self.view.canvas)
+            self.render_view(self.view.canvas)
 
     def find_horizon(self, dot_radius, grid_radius):
         horizon = self.lens.horizon_from_radius(dot_radius, grid_radius)

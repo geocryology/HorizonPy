@@ -143,6 +143,7 @@ class ImageState:
 
         return self.raw_image
 
+
 class EventState:
 
     NOEVENT = (None, None)
