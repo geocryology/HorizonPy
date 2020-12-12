@@ -44,7 +44,7 @@ def require_image_azimuth(func):
 def require_image_file(func):
     @wraps(func)
     def wrapper(self, *args, **kw):
-        if not self.image_state.imageFile:
+        if not self.image_state.image_file:
             tkMessageBox.showerror("Error!", "Load an image first (File > Open Image).")
             logging.info("Attempted to call function {} without a horizon image".format(func))
         else:

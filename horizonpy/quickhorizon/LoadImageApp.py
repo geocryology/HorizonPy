@@ -15,7 +15,6 @@ import matplotlib as mpl
 import numpy as np
 import os
 
-from PIL import ImageTk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from horizonpy.quickhorizon.ArcSkyDialog import ArcSkyDialog
@@ -51,10 +50,10 @@ class LoadImageApp(tk.Toplevel):
         self.status_bar = StatusBar(root)
 
     def set_file_locations(self, image_dir):
-        name = os.path.splitext(os.path.basename(self.image_state.imageFile))[0]
-        
+        name = os.path.splitext(os.path.basename(self.image_state.image_file))[0]
+
         file_opt['initialdir'] = image_dir
-       
+
         csv_opt['initialdir'] = image_dir
         csv_opt['initialfile'] = name + csv_opt['defaultextension']
 
@@ -145,7 +144,7 @@ class LoadImageApp(tk.Toplevel):
         imagemenu.add_command(label="Decrease Brightness <w>",
                               command=self.decrease_brightness)
         menubar.add_cascade(label="Image", menu=imagemenu)
-        
+
         helpmenu = tk.Menu(menubar, tearoff=0)
         helpmenu.add_command(label="Show Point Coordinates",
                              command=self.show_dots)
@@ -166,29 +165,25 @@ class LoadImageApp(tk.Toplevel):
         self.load_image(canvas, image_file)
 
     @hd.require_image_file
-    def reload_image(self):
-        self.render_view(self.view.canvas)
-
-    @hd.require_image_file
     def increase_contrast(self, event=None, increment=0.1):
         self.view.increase_contrast(increment)
-        self.reload_image()
+        self.self.render_view(self.view.canvas)()
 
     @hd.require_image_file
     def decrease_contrast(self, event=None, increment=-0.1):
         self.view.decrease_contrast(increment)
-        self.reload_image()
+        self.self.render_view(self.view.canvas)()
 
     @hd.require_image_file
     def increase_brightness(self, event=None, increment=0.1):
         self.view.increase_brightness(increment)
-        self.reload_image()
+        self.self.render_view(self.view.canvas)()
 
     @hd.require_image_file
     def decrease_brightness(self, event=None, increment=-0.1):
         self.view.decrease_brightness(increment)
-        self.reload_image()
-        
+        self.self.render_view(self.view.canvas)()
+
     def load_image(self, canvas, image_file):
         raw_image = self.image_state.load_image(image_file)
         self.view.load_image(raw_image)
@@ -203,11 +198,11 @@ class LoadImageApp(tk.Toplevel):
     def render_view(self, canvas):
         self.view.delete_all_overlays()
         self.view.render_image()
-        # Draw  saved dots
+        # Draw saved dots
         if self.points.any_defined():
             self.draw_dots(canvas, self.points)
 
-        if self.image_state.show_grid:
+        if self.view.show_grid:
             self.view.plot_grid_data(*self.image_state.get_plottable_grid())
 
             if 0 <= self.image_state.image_azimuth <= 360:
@@ -244,7 +239,6 @@ class LoadImageApp(tk.Toplevel):
         if os.path.isfile(default_azm):
             logging.info('Azimuth data found: {}'.format(default_azm))
             self.load_azimuth(default_azm)
-
         else:
             logging.info('No azimuth file found')
 
@@ -262,7 +256,7 @@ class LoadImageApp(tk.Toplevel):
 
         if not file:
             file = tkFileDialog.askopenfilename(**csv_opt)
-        
+
         if file:
             self.points.import_horizon_csv(file)
             self.draw_dots(self.view.canvas, self.points)
@@ -280,7 +274,7 @@ class LoadImageApp(tk.Toplevel):
         if file:
             self.points.import_geotop_csv(file)
             self.draw_dots(self.view.canvas, self.points)
-            
+
         else:
             logging.info('No file selected')
 
@@ -289,7 +283,7 @@ class LoadImageApp(tk.Toplevel):
     def save_csv(self):
         # Save the dots to CSV file
         self.points.update_field_azimuth(self.image_state.field_azimuth)
-        
+
         try:
             f_name = tkFileDialog.asksaveasfilename(**csv_opt)
             if f_name:
@@ -305,10 +299,9 @@ class LoadImageApp(tk.Toplevel):
     def save_geotop_hrzn(self):
         # Save the horizon points to CSV file
 
-        if not tkMessageBox.askokcancel("Warning!",
-                                        "Horizon angles greater than 90 degrees are not "
-                                        "compatible with geotop horizon files. They will be reduced "
-                                        "to 90 degrees. Click OK to continue or Cancel to abort"):
+        if not self.view.confirm("Warning!", "Horizon angles greater than 90 degrees are not "
+                                 "compatible with geotop horizon files. They will be reduced "
+                                 "to 90 degrees. Click OK to continue or Cancel to abort"):
             return
 
         self.points.update_field_azimuth(self.image_state.field_azimuth)
@@ -330,17 +323,16 @@ class LoadImageApp(tk.Toplevel):
 
         if f_name:
             self.image_state.save_azimuth_config(f_name)
-            
+
     def load_azimuth(self, f_name=None):
         if not f_name:
             f_name = tkFileDialog.askopenfilename(**azm_opt)
         if f_name:
             self.image_state.load_azimuth_config(f_name)
             self.view.plot_grid_data(*self.image_state.get_plottable_grid())
-            self.image_state.grid_set = True
             self.draw_azimuth(self.view.canvas)
-            self.image_state.turn_on_grid()
-        
+            self.view.turn_on_grid()
+
     def exit_app(self):
         self.parent.destroy()
 
@@ -368,7 +360,7 @@ class LoadImageApp(tk.Toplevel):
         if self.view.confirm("Confirm deletion?", "Press OK to delete all points!"):
             self.points.delete_all()
             self.render_view(self.view.canvas)
-    
+
     @staticmethod
     def view_delete_all_dots(canvas):
         selection = canvas.find_withtag("dot")
@@ -387,38 +379,27 @@ class LoadImageApp(tk.Toplevel):
 
             if d.result:
                 logging.info("Set grid properties")
-                self.image_state.image_center = d.center
-                self.image_state.radius = d.radius
-                self.image_state.spoke_spacing = d.spoke_spacing
-                if not self.image_state.show_grid:
-                    self.image_state.show_grid = d.result
+                self.image_state.set_grid(d.center, d.radius, d.spoke_spacing)
 
-                if self.image_state.show_grid:
+                if not self.view.show_grid:
+                    self.view.show_grid = d.result
+
+                if self.view.show_grid:
                     self.view.plot_grid_data(*self.image_state.get_plottable_grid())
-                    self.image_state.grid_set = True
 
     def create_grid_based_on_lens(self, center, radius, spoke_spacing):
-        self.image_state.set_grid_from_lens(center, radius, spoke_spacing)
+        self.image_state.set_grid(center, radius, spoke_spacing)
         self.view.plot_grid_data(*self.image_state.get_plottable_grid())
 
+    @hd.require_grid
     def toggle_grid(self, *args):
-        if not self.image_state.raw_image:
-            return
-            
-        if self.image_state.show_grid:
-            self.image_state.turn_off_grid()
+        if self.view.show_grid:
             self.view.turn_off_grid()
+            self.render_view(self.view.canvas)
 
         else:
-            if self.view.canvas and self.image_state.image_center and self.image_state.radius:
-                self.image_state.turn_on_grid()
-                self.view.plot_grid_data(*self.image_state.get_plottable_grid())
-
-                if self.image_state.anchor[0] != -999:
-                    self.draw_azimuth(self.view.canvas)
-            else:
-                tkMessageBox.showerror("Error!",
-                                       "No overlay parameters have been set!")
+            self.view.turn_on_grid()
+            self.render_view(self.view.canvas)
 
     @hd.require_image_file
     @hd.require_grid
@@ -428,23 +409,16 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_image_file
     @hd.require_image_azimuth
     def define_field_azimuth(self):
-        if self.warn_dots:
+        if (not self.points.any_defined()
+            or (self.points.any_defined()
+                and self.view.confirm("Warning!", "Are you sure you want to change this parameter? "
+                              "Calculated azimuth values will be affected.  Click OK to"
+                              "continue."))):
+
             d = AzimuthDialog(self.parent, azimuth=self.image_state.field_azimuth)
             self.view.canvas.focus_set()
             if d:
                 self.image_state.field_azimuth = d.azimuth
-
-    def warn_dots(self):
-        if self.points.any_defined():
-            dialog = tkMessageBox.askokcancel("Warning!", 
-                                              """Are you sure you want to 
-                                              change this parameter? calculated 
-                                              azimuth values will be affected.  
-                                              Click OK to continue.""")
-            return(dialog)
-        
-        else:
-            return(True)
 
     @hd.require_image_file
     @hd.require_image_azimuth
@@ -454,34 +428,30 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_image_file
     def zoom_in(self, *args):
         try:
-            self.view.zoom_level += 1
-            self.view.scale_image()
+            self.view.zoom_in()
             self.render_view(self.view.canvas)
-        
+
         except ValueError:
             logging.info("Max zoom reached!")
 
     @hd.require_image_file
     def zoom_out(self, *args):
         try:
-            self.view.zoom_level -= 1
-            self.view.scale_image()
+            self.view.zoom_out()
             self.render_view(self.view.canvas)
-        
+
         except ValueError:
             logging.info("Min zoom reached!")
 
     @hd.require_image_file
     def zoom_original(self):
         self.view.reset_zoom()
-        self.view.scale_image()
         self.render_view(self.view.canvas)
-
 
     #######################################################
     # Mouse options
     #######################################################
-    
+
     def register_tool(self, tool):
         """
         docstring
@@ -503,7 +473,7 @@ class LoadImageApp(tk.Toplevel):
         logging.debug('b1down() at ({},{})'.format(event.x, event.y))
         self.event_state.store_select(event)
         self.event_state.button_1 = "down"
-        
+
         if self.image_state.raw_image:
             if self.event_state.tool == "dot":
                 raw = self.view.to_raw((event.x, event.y))
@@ -513,10 +483,10 @@ class LoadImageApp(tk.Toplevel):
             else:
                 if self.event_state.tool == "azimuth":
                     self.view.plot_grid_data(*self.image_state.get_plottable_grid())
-                                      
+
                     self.image_state.set_anchor(self.view.to_raw((event.x, event.y)))
                     self.draw_azimuth(self.view.canvas)
-    
+
     def select_dots_from_rectangle(self, event):
         items = event.widget.find_enclosed(*self.event_state.select,
                                            event.x, event.y)
@@ -530,7 +500,7 @@ class LoadImageApp(tk.Toplevel):
 
     def b1up(self, event):
         self.event_state.button_1 = "up"
-        logging.debug('b1up()-> tool = %s at (%d, %d)', 
+        logging.debug('b1up()-> tool = %s at (%d, %d)',
                       self.event_state.tool, event.x, event.y)
         if not self.image_state.raw_image:
             return
@@ -551,12 +521,12 @@ class LoadImageApp(tk.Toplevel):
             self.draw_dots(self.view.canvas, self.points)
             if self.image_state.field_azimuth == -1:
                 self.define_field_azimuth()
-    
+
     def delete_dots(self, selected_dots):
         for_deletion = {}
         for i in selected_dots:
             self.view.canvas.itemconfig(i, fill="red", outline="red")
-            
+
             tags = self.view.canvas.gettags(i)
             del_id = tags[1][3:]
             for_deletion[i] = del_id
@@ -571,9 +541,9 @@ class LoadImageApp(tk.Toplevel):
                     self.view.canvas.delete(i)
             else:
                 logging.info('Dot deletion cancelled!')
-            
+
         self.render_view(self.view.canvas)
-                
+
     def b2down(self, event):
         self.event_state.button_2 = "down"
 
@@ -597,20 +567,20 @@ class LoadImageApp(tk.Toplevel):
 
     def b3up(self, event):
         pass
-    
+
     def pan(self, event):
         xold, yold = self.event_state.old_event
         self.view.update_viewport(event.x, event.y, xold, yold)
-                                         
+
         self.render_view(self.view.canvas)
-        
+
     # Handles mouse
     def motion(self, event):
 
         # Button 2 pans no matter what
         if self.image_state.raw_image and self.event_state.button_2 == "down":
             self.pan(event)
-            
+
         # Conditional on button 1 depressed
         if self.image_state.raw_image and self.event_state.button_1 == "down":
             if self.event_state.tool == "move":     # Panning
@@ -618,10 +588,10 @@ class LoadImageApp(tk.Toplevel):
 
             elif self.event_state.tool == "select":
                 self.view.draw_selection_rectangle(event, *self.event_state.select)
-                                                  
+
         self.event_state.store_event(event.x, event.y)
         self.update_status_bar(event)
-    
+
     def update_selection_rectangle(self, event):
         rect = event.widget.find_withtag("selection_rectangle")
         if rect:
@@ -633,14 +603,14 @@ class LoadImageApp(tk.Toplevel):
 
     def update_status_bar(self, event):
         cursor_loc = self.view.to_raw((event.x, event.y))
- 
+
         try:
             img_value = self.image_state.raw_image.getpixel(cursor_loc)
         except (IndexError, AttributeError):
             img_value = None
-        
+
         self.status_bar.display(cursor_loc, self.image_state.image_azimuth, self.image_state.field_azimuth, img_value)
-        
+
     def resize_window(self, event):
         if self.view.zoomed_image:
             self.render_view(self.view.canvas)
@@ -708,7 +678,7 @@ class LoadImageApp(tk.Toplevel):
             self.lens = lens_selection.lens
             logging.info("Set lens calibration to {}".format(self.lens.NAME))
 
-        if self.image_state.imageFile:
+        if self.image_state.image_file:
             self.points.update_image_azimuth(self.image_state.image_center,
                                              self.image_state.radius,
                                              self.image_state.image_azimuth,

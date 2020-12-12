@@ -28,7 +28,7 @@ class HorizonPoints:
         finally:
             f.close()
 
-    def import_geotop_csv(): 
+    def import_geotop_csv():
         raise NotImplementedError
 
     def import_data(self, data_type="horizon"):
@@ -37,9 +37,9 @@ class HorizonPoints:
     def __get_import_method(self, data_type):
         pass
 
-    def export_to_geotop(self, f_name, delta): 
-        """ Save the horizon points to a geotop CSV file 
-        
+    def export_to_geotop(self, f_name, delta):
+        """ Save the horizon points to a geotop CSV file
+
         f_name : str
             file path
 
@@ -48,7 +48,7 @@ class HorizonPoints:
         """
         az = np.array([x[4] for x in self.get()])
         hor = np.array([x[2] for x in self.get()])
- 
+
         hor[hor >= 90] = 90
 
         az = az[np.argsort(az)]
@@ -70,8 +70,8 @@ class HorizonPoints:
         df.to_csv(f_name, index=False)
 
     def export_to_horizon_csv(self, f_name):
-        """ Save the dots to CSV file 
-        """                
+        """ Save the dots to CSV file
+        """
         df = pd.DataFrame(self.get())
         df.columns = ('X', 'Y', 'Horizon', 'Image Azimuth', 'True Azimuth')
         df.to_csv(f_name, index=False)
@@ -155,4 +155,17 @@ class HorizonPoints:
     def update_field_azimuth(self, field_azimuth):
         """ Recalculate true azimuth for all dots """
         self.dots = [x + [calculate_true_azimuth(x[3], field_azimuth), x[4]] for x in self.get()]
+
+
+class HorizonPoint:
+
+    def __init__(self):
+        self.uid = uuid1().hex
+
+    @classmethod
+    def from_raw(cls, raw_x, raw_y):
+        Point = cls()
+        Point.raw_x = raw_x
+        Point.raw_y = raw_y
+        return Point
 

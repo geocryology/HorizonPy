@@ -2,6 +2,7 @@ try:  # python 2
     import Tkinter as tk
 except ImportError:  # python 2
     import tkinter as tk
+    import tkinter.messagebox as tkMessageBox
 
 from horizonpy.quickhorizon.utils import plot_styles
 import logging
@@ -34,9 +35,11 @@ class MainView:
         # Create canvas
         self.canvas = tk.Canvas(self.frame, width=800, height=600, bg='gray')
         self.canvas.focus_set()
-        
+
         self.frame.pack(fill='both', expand=1)
         self.canvas.pack(fill='both', expand=1)
+
+        self._show_grid = False
 
     @property
     def zoom_level(self):
@@ -46,10 +49,10 @@ class MainView:
     def zoom_level(self, value):
         if not value >= self.MIN_ZOOM:
             raise ValueError("Attempted to set too small zoom value")
-            
+
         if not value <= self.MAX_ZOOM:
             raise ValueError("Attempted to set too large zoom value")
-        
+
         self._old_zoom_level = self._zoom_level
         self._zoom_level = value
         logging.info("zoom level is {}".format(self._zoom_level))
@@ -57,6 +60,7 @@ class MainView:
     def reset_zoom(self):
         self._zoom_level = self.DEFAULT_ZOOM
         self.viewport = self.DEFAULT_VIEWPORT
+        self.view.scale_image()
 
     def build_zoom_levels(self):
         self.mux = {0: 1.0}
@@ -72,6 +76,14 @@ class MainView:
         view_x = self.viewport[0] - (new_x - old_x)
         view_y = self.viewport[1] - (new_y - old_y)
         self.viewport = (view_x, view_y)
+
+    def zoom_in(self):
+        self.zoom_level += 1
+        self.scale_image()
+
+    def zoom_out(self):
+        self.zoom_level -= 1
+        self.scale_image()
 
     def zoom_wheel(self, event):
         if self.raw_image:
@@ -193,7 +205,7 @@ class MainView:
     @staticmethod
     def create_canvas():
         pass
-    
+
     def load_image(self, raw_image):
         # Change size of canvas to new width and height
         (width, height) = raw_image.size
@@ -226,10 +238,12 @@ class MainView:
             rY = image_center[1] + int(radius * np.sin(np.radians(n)))
             pX, pY = self.to_window((rX, rY))
             spokes.append((wX, wY, pX, pY))
-        
+
         grid_data = {'oval': oval,
                      'spokes': spokes}
-        
+
+        self.grid_set = True
+        self.turn_on_grid()
         self.draw_grid_data(grid_data)
 
     def draw_patch(self, plottable_points):
@@ -250,7 +264,7 @@ class MainView:
             else:
                 style = plot_styles['regularpoint']
                 item = self.canvas.create_oval(x - 2, y - 2, x + 2, y + 2, **style)
-                                                    
+
             self.canvas.itemconfig(item, tags=("dot", f"id:{uid}"))
 
     @staticmethod
@@ -272,11 +286,25 @@ class MainView:
 
         self.canvas.delete("azimuth")
         self.canvas.create_line(wX, wY, pX, pY, tag="azimuth",
-                           fill="green", width=3)
+                                fill="green", width=3)
 
     def turn_off_grid(self):
+        self._show_grid = False
         self.canvas.delete("grid")
         self.canvas.delete("azimuth")
+
+    def turn_on_grid(self):
+        self._show_grid = True
+    
+    @property
+    def show_grid(self):
+        return self._show_grid
+
+    @show_grid.setter
+    def show_grid(self, value):
+        if not isinstance(value, bool):
+            raise ValueError("must be True or False")
+        self._show_grid = value
 
     def render_image(self):
         self.scale_image()
@@ -284,10 +312,10 @@ class MainView:
         self.apply_enhancements()
         self.p_img = ImageTk.PhotoImage(self.enh_image)
         self.canvas.create_image(0, 0, image=self.p_img, anchor="nw")
-    
+
     def adjust_contrast(self, increment, *args):
         self.contrast_value += increment
-        
+
     def increase_contrast(self, increment=0.1):
         self.adjust_contrast(increment)
 
@@ -306,19 +334,19 @@ class MainView:
     def confirm(self, title, message):
         confirm = tkMessageBox.askokcancel(title, message)
         return confirm
-        
+
 
 class MainMenu:
-    
+
     def __init__(self, root):
         self.menubar = tk.Menu(root)
         self.top_level_items = dict()
-    
+
     def add_toplevel_menu(self, name):
         self.top_level_items[name] = tk.Menu(self.menubar, tearoff=0)
 
     def add_menu_command(self, label, command, parent):
-        self.top_level_items[parent].add_command(label=label, 
+        self.top_level_items[parent].add_command(label=label,
                                                  command=command)
 
 

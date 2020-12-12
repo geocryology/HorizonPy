@@ -59,7 +59,7 @@ class ArcSkyDialog(tk.Toplevel):
         self.inputfilename = tk.StringVar()
         e0 = tk.Entry(master, textvariable=self.inputfilename)
         e0.configure(state='readonly')
-        self.inputfilename.set(self.parent.imageFile)
+        self.inputfilename.set(self.parent.image_file)
 
         self.outputfilename = tk.StringVar()
         e1 = tk.Entry(master, textvariable=self.outputfilename)
@@ -121,12 +121,12 @@ class ArcSkyDialog(tk.Toplevel):
             # run from subprocess to avoid gdal/shapely import clash
             # AS = ArcSky()
             # AS.setSkyClassValue(self.skyid.get())
-            # AS.open_new_file(self.parent.imageFile)
+            # AS.open_new_file(self.parent.image_file)
             # outfile = self.outputfilename.get()
             # AS.write_horizon_file(outfile)
 
             script = pkg_resources.resource_filename('horizonpy', 'arcsky.py')
-            image = self.parent.imageFile
+            image = self.parent.image_file
             outfile =  self.outputfilename.get()
             id = self.skyid.get()
             S = subprocess.run(['python', script,
