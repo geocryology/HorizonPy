@@ -9,33 +9,16 @@ class ImageState:
 
     DEFAULT_IMAGE_AZIMUTH = -1
 
-    def __init__(self):  
-        self._show_grid = False
-        
+    def __init__(self):
+
         self.image_azimuth_coords = (0,0)
         self.reset_image_azimuth()
         self.anchor = (-999, -999)  # Azimuth anchor
         self.radius = 0
         self.field_azimuth = -1
         self.grid_set = False
-
+        self.image_file = None
         self.raw_image = None
-    
-    def turn_off_grid(self):
-        self._show_grid = False
-
-    def turn_on_grid(self):
-        self._show_grid = True
-    
-    @property
-    def show_grid(self):
-        return self._show_grid
-
-    @show_grid.setter
-    def show_grid(self, value):
-        if not isinstance(value, bool):
-            raise ValueError("must be True or False")
-        self._show_grid = value
 
     def get_plottable_grid(self):
         return self.image_center, self.radius, self.spoke_spacing
@@ -111,17 +94,16 @@ class ImageState:
         self.anchor = raw_coords
         self.update_azimuth(self.anchor)
 
-    def set_grid_from_lens(self, center, radius, spoke_spacing):
+    def set_grid(self, center, radius, spoke_spacing):
         if self.raw_image:
             self.spoke_spacing = spoke_spacing
             self.image_center = center
             self.radius = radius
             self.grid_set = True
-            self.turn_on_grid()
 
     def load_image(self, image_file):
-        self.grid_set = False 
-        self.imageFile = image_file
+        self.grid_set = False
+        self.image_file = image_file
         self.raw_image = Image.open(image_file)
         self.orig_image = Image.open(image_file)
         (width, height) = self.raw_image.size
@@ -139,7 +121,7 @@ class ImageState:
         self.radius = int(np.sqrt(self.image_center[0] ** 2 + self.image_center[1] ** 2))
         self.spoke_spacing = 15
 
-        logging.info("Loaded image {}".format(self.imageFile))
+        logging.info("Loaded image {}".format(self.image_file))
 
         return self.raw_image
 
