@@ -14,7 +14,7 @@ from horizonpy.quickhorizon.geometry import calculate_true_azimuth
 ####################################################################
 # Skyview factor popup
 ####################################################################
-#http://www-acc.kek.jp/kekb/control/Activity/Python/TkIntro/introduction/intro09.htm
+# http://www-acc.kek.jp/kekb/control/Activity/Python/TkIntro/introduction/intro09.htm
 
 
 class SkyViewFactorDialog(tk.Toplevel):
@@ -103,12 +103,12 @@ class SkyViewFactorDialog(tk.Toplevel):
             rotated_horizon = rotate_horizon(self.pts_az, self.pts_hor, self.surface_asp, self.surface_dip)
             try:
                 F_sky = svf_steyn_1980(rotated_horizon[0], rotated_horizon[1], 72)
-            except TopologicalError as e:
+            except TopologicalError:
                 tkMessageBox.showerror("Error!", "The horizon geometry or rotation angle has caused a topological error."
-                                        "Try simplifying the geometry, or using a smaller rotation")
+                                       "Try simplifying the geometry, or using a smaller rotation")
             else:
                 tkMessageBox.showinfo(title="SkyView",
-                message="Sky view factor = {}".format(F_sky))
+                                      message="Sky view factor = {}".format(F_sky))
         else:
             return
 
@@ -152,6 +152,6 @@ class SkyViewFactorDialog(tk.Toplevel):
                 self.surface_asp = AZ
                 return True
 
-        except:
+        except Exception:
             tkMessageBox.showerror("Error!", "Numeric values only, please")
             return False

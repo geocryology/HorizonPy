@@ -4,13 +4,14 @@ import logging
 import numpy as np
 from scipy.interpolate import interp1d
 from horizonpy.quickhorizon.geometry import calculate_true_azimuth, find_angle
-
+from uuid import uuid1
 
 class HorizonPoints:
 
     def __init__(self):
         self.dots = list()  # list of digitized dots.  Columns contain X, Y, Elevation, Az
-    
+        self.newdots = pd.DataFrame(columns=["raw_x", "raw_y", "elevation", "image_az", "true_az", "id"])
+
     def import_horizon_csv(self, file):
         self.delete_all()
 
@@ -20,13 +21,14 @@ class HorizonPoints:
             next(reader)  # skip header row
 
             for row in reader:
-                raw = (int(row[0]), int(row[1]), float(row[2]), float(row[3]), float(row[4]))
+                uid = uuid1().hex
+                raw = (int(row[0]), int(row[1]), float(row[2]), float(row[3]), float(row[4]), uid)
                 self.dots.append(raw)  # self._define_new_dot(raw, overhanging=overhang)
 
         finally:
             f.close()
 
-    def import_geotop_csv(): 
+    def import_geotop_csv():
         raise NotImplementedError
 
     def import_data(self, data_type="horizon"):
@@ -35,9 +37,9 @@ class HorizonPoints:
     def __get_import_method(self, data_type):
         pass
 
-    def export_to_geotop(self, f_name, delta): 
-        """ Save the horizon points to a geotop CSV file 
-        
+    def export_to_geotop(self, f_name, delta):
+        """ Save the horizon points to a geotop CSV file
+
         f_name : str
             file path
 
@@ -46,7 +48,7 @@ class HorizonPoints:
         """
         az = np.array([x[4] for x in self.get()])
         hor = np.array([x[2] for x in self.get()])
- 
+
         hor[hor >= 90] = 90
 
         az = az[np.argsort(az)]
@@ -68,8 +70,8 @@ class HorizonPoints:
         df.to_csv(f_name, index=False)
 
     def export_to_horizon_csv(self, f_name):
-        """ Save the dots to CSV file 
-        """                
+        """ Save the dots to CSV file
+        """
         df = pd.DataFrame(self.get())
         df.columns = ('X', 'Y', 'Horizon', 'Image Azimuth', 'True Azimuth')
         df.to_csv(f_name, index=False)
@@ -78,6 +80,7 @@ class HorizonPoints:
         del self.dots[:]
 
     def add_raw(self, raw_x, raw_y, img_ctr, grid_radius, image_azimuth_coords, lens, overhanging):
+        uid = uuid1().hex
         azimuth = find_angle(img_ctr, image_azimuth_coords, (raw_x, raw_y))
         dx = raw_x - img_ctr[0]
         dy = raw_y - img_ctr[1]
@@ -92,7 +95,7 @@ class HorizonPoints:
                 horizon = 180 - horizon
                 azimuth = (180 + azimuth) % 360
 
-        new_dot = [raw_x, raw_y, round(horizon, 5), round(azimuth, 5)]
+        new_dot = (raw_x, raw_y, round(horizon, 5), round(azimuth, 5), round(azimuth, 5), uid)
         self.dots.append(new_dot)
         logging.info('Dot ({},{}) has Horizon Elevation = {:.1f}, Azimuth = {:.1f}'.format(
                      raw_x, raw_y, horizon, azimuth))
@@ -117,20 +120,16 @@ class HorizonPoints:
         else:
             return False
 
-    def del_point_with_coordinates(self, coords):
-        """ Delete point with specified raw coordinates 
-        
-        coords: tuple
-            Raw (x,y) coordiantes of horizon point
-        """
+    def del_point_with_id(self, id):
         for dot in self.dots:
-            if coords == tuple(dot[0:2]):
+            if id == dot[5]:
                 self.dots.remove(dot)
 
     def update_image_azimuth(self, center, grid_radius, image_azimuth, image_azimuth_coords, lens):
         new_dots = []
 
         for dot in self.dots:
+            uid = dot[5]
             azimuth = find_angle(center, image_azimuth_coords, (dot[0], dot[1]))
 
             dot_radius = np.sqrt(np.power(dot[0] - center[0], 2) + np.power(dot[1] - center[1], 2))
@@ -144,12 +143,29 @@ class HorizonPoints:
                     azimuth = (180 + azimuth) % 360
 
             logging.info('Dot (%d,%d) has Horizon Elevation = %f, Azimuth = %f', dot[0], dot[1], horizon, azimuth)
-            new_dot = [dot[0], dot[1], round(horizon, 5), round(azimuth, 5)]
+            new_dot = (dot[0], dot[1], round(horizon, 5), round(azimuth, 5), round(azimuth, 5), uid)
             new_dots.append(new_dot)
 
         self.dots = new_dots
 
+    def get_plottable_points(self):
+        pts = [(x, y, z > 90, i) for p in self.dots for x,y,z,i in [(p[0:3] + (p[5],))]]
+        return {'points': pts}
+
     def update_field_azimuth(self, field_azimuth):
         """ Recalculate true azimuth for all dots """
-        self.dots = [x + [calculate_true_azimuth(x[3], field_azimuth)] for x in self.get()]
+        self.dots = [x + [calculate_true_azimuth(x[3], field_azimuth), x[4]] for x in self.get()]
+
+
+class HorizonPoint:
+
+    def __init__(self):
+        self.uid = uuid1().hex
+
+    @classmethod
+    def from_raw(cls, raw_x, raw_y):
+        Point = cls()
+        Point.raw_x = raw_x
+        Point.raw_y = raw_y
+        return Point
 
