@@ -667,7 +667,7 @@ class LoadImageApp(tk.Toplevel):
 
     @hd.require_horizon_points
     def svf(self):
-        SkyViewFactorDialog(self, self.points, self.image_state.field_azimuth)
+        SkyViewFactorDialog(self.view, self.points, self.image_state.field_azimuth)
 
     def arcsky(self):
         _ = ArcSkyDialog(self.parent, self.view.frame, self.image_state.image_file)
