@@ -10,7 +10,9 @@ class ImageState:
     DEFAULT_IMAGE_AZIMUTH = -1
 
     def __init__(self):
+        self.reset()
 
+    def reset(self):
         self.image_azimuth_coords = (0,0)
         self.reset_image_azimuth()
         self.anchor = (-999, -999)  # Azimuth anchor

@@ -162,6 +162,7 @@ class LoadImageApp(tk.Toplevel):
         # Reset when a new image opened
         self.event_state.reset_buttons()
         self.points.delete_all()
+        self.image_state.reset()
         self.load_image(canvas, image_file)
 
     @hd.require_image_file
@@ -194,6 +195,7 @@ class LoadImageApp(tk.Toplevel):
         # Remove all canvas items
         self.view.delete_all_overlays()
         self.view.render_image()
+        self.zoom_original()
 
     def render_view(self, canvas):
         self.view.delete_all_overlays()

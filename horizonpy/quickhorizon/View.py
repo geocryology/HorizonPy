@@ -20,6 +20,16 @@ class MainView:
 
     def __init__(self, root):
         self.frame = tk.Frame(root, bg='black')
+        
+        # Create canvas
+        self.canvas = tk.Canvas(self.frame, width=800, height=600, bg='gray')
+        self.canvas.focus_set()
+
+        self.frame.pack(fill='both', expand=1)
+        self.canvas.pack(fill='both', expand=1)
+        self.reset()
+        
+    def reset(self):
         self._zoom_level = self.DEFAULT_ZOOM
         self._old_zoom_level = None
         self.build_zoom_levels()
@@ -33,13 +43,6 @@ class MainView:
 
         self.raw_image = None
         self.orig_image = None
-        # Create canvas
-        self.canvas = tk.Canvas(self.frame, width=800, height=600, bg='gray')
-        self.canvas.focus_set()
-
-        self.frame.pack(fill='both', expand=1)
-        self.canvas.pack(fill='both', expand=1)
-
         self._show_grid = False
 
     @property
@@ -152,12 +155,15 @@ class MainView:
                                                 self._old_brightness_value)
 
     def apply_enhancement(self, image, enhancement, new_value, old_value):
-        if image.mode == 'I':
-            logging.info("Cannot apply enhancement to image")
-            return image
         if new_value == old_value:
             return image
         else:
+            if image.mode == 'I':
+                logging.info("Cannot apply enhancements to image")
+                self._old_brightness_value = 1
+                self._old_contrast_value = 1
+                return image
+
             return enhancement(image).enhance(new_value)
 
     def to_window(self, p):
@@ -208,6 +214,7 @@ class MainView:
 
     def load_image(self, raw_image):
         # Change size of canvas to new width and height
+        self.reset()
         (width, height) = raw_image.size
         self.canvas.config(width=width, height=height)
         self.raw_image = raw_image
