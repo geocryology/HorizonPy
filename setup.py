@@ -7,8 +7,8 @@ setup(name='horizonpy',
       author='Nick Brown',
       packages=['horizonpy'], 
       install_requires=[
-                        'numpy==1.13.3',
-                        'matplotlib==2.2.5'
+                        'numpy',
+                        'matplotlib'
                         ],
       extras_require = {
                         "gdal": ["gdal"],
