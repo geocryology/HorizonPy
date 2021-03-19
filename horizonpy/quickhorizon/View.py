@@ -58,9 +58,9 @@ class MainView:
         logging.info("zoom level is {}".format(self._zoom_level))
 
     def reset_zoom(self):
-        self._zoom_level = self.DEFAULT_ZOOM
+        self.zoom_level = self.DEFAULT_ZOOM
         self.viewport = self.DEFAULT_VIEWPORT
-        self.view.scale_image()
+        self.scale_image()
 
     def build_zoom_levels(self):
         self.mux = {0: 1.0}
@@ -367,7 +367,10 @@ class StatusBar:
             output += "Field Azimuth = {:.1f}".format(field_azimuth).ljust(25)
 
         if img_value:
-            img_value_display = "({:03d}, {:03d}, {:03d})".format(*img_value) 
+            if isinstance(img_value, int):
+                img_value_display = "({:03d})".format(img_value) 
+            else:
+                img_value_display = "({:03d}, {:03d}, {:03d})".format(*img_value) 
         else:
             img_value_display = "(---, ---, ---)"
 

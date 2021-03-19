@@ -167,22 +167,22 @@ class LoadImageApp(tk.Toplevel):
     @hd.require_image_file
     def increase_contrast(self, event=None, increment=0.1):
         self.view.increase_contrast(increment)
-        self.self.render_view(self.view.canvas)()
+        self.render_view(self.view.canvas)
 
     @hd.require_image_file
     def decrease_contrast(self, event=None, increment=-0.1):
         self.view.decrease_contrast(increment)
-        self.self.render_view(self.view.canvas)()
+        self.render_view(self.view.canvas)
 
     @hd.require_image_file
     def increase_brightness(self, event=None, increment=0.1):
         self.view.increase_brightness(increment)
-        self.self.render_view(self.view.canvas)()
+        self.render_view(self.view.canvas)
 
     @hd.require_image_file
     def decrease_brightness(self, event=None, increment=-0.1):
         self.view.decrease_brightness(increment)
-        self.self.render_view(self.view.canvas)()
+        self.render_view(self.view.canvas)
 
     def load_image(self, canvas, image_file):
         raw_image = self.image_state.load_image(image_file)
@@ -670,7 +670,7 @@ class LoadImageApp(tk.Toplevel):
         SkyViewFactorDialog(self, self.points, self.image_state.field_azimuth)
 
     def arcsky(self):
-        _ = ArcSkyDialog(self)
+        _ = ArcSkyDialog(self.parent, self.view.frame, self.image_state.image_file)
 
     def select_lens(self):
         lens_selection = LensSelectionDialog(self.parent, default=self.lens.NAME)

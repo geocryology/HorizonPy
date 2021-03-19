@@ -79,16 +79,20 @@ class ImageState:
     def load_azimuth_config(self, f_name):
         C = configparser.ConfigParser()
         C.read(f_name)
-        self.spoke_spacing = C.getint("Azimuth", "spokes")
-        self.image_center = (C.getint("Azimuth", "grid_centre_x"),
-                             C.getint("Azimuth", "grid_centre_y"))
-        self.radius = C.getint("Azimuth", "radius")
-        self.anchor = (C.getint("Azimuth", "anchor_x"),
-                       C.getint("Azimuth", "anchor_y"))
-        self.radius = C.getint("Azimuth", "radius")
+        
+        center = (C.getint("Azimuth", "grid_centre_x"),
+                  C.getint("Azimuth", "grid_centre_y"))
+        radius = C.getint("Azimuth", "radius")
+        spoke_spacing = C.getint("Azimuth", "spokes")
+
+        anchor = (C.getint("Azimuth", "anchor_x"),
+                  C.getint("Azimuth", "anchor_y"))
+        
         self.field_azimuth = C.getfloat("Azimuth", "field_azimuth")
         self.image_azimuth = C.getfloat("Azimuth", "image_azimuth")
-        self.update_azimuth(self.anchor)
+        
+        self.set_grid(center, radius, spoke_spacing)      
+        self.set_anchor(anchor)
 
     def set_anchor(self, raw_coords):
         self.anchor = raw_coords
