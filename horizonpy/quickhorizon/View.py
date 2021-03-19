@@ -10,6 +10,7 @@ from PIL import Image, ImageTk, ImageEnhance
 from copy import copy
 import numpy as np
 
+
 class MainView:
 
     DEFAULT_ZOOM = 0
@@ -114,7 +115,7 @@ class MainView:
         (vx, vy) = self.viewport
         raw_x = int((x + vx) / self.zoomcoefficient)
         raw_y = int((y + vy) / self.zoomcoefficient)
-        
+
         return (raw_x, raw_y)
 
     @property
@@ -138,13 +139,13 @@ class MainView:
         self._brightness_value = value
         logging.info('Image brightness changed from {:.2f} to {:.2f}'.format(
                      self.old_brightness_value, self._brightness_value))
-    
+
     def apply_enhancements(self):
         self.enh_image = self.apply_enhancement(self.zoomed_image,
                                                 ImageEnhance.Contrast,
                                                 self.contrast_value,
                                                 self._old_contrast_value)
-       
+
         self.enh_image = self.apply_enhancement(self.enh_image,
                                                 ImageEnhance.Brightness,
                                                 self.brightness_value,
@@ -165,23 +166,23 @@ class MainView:
         (vx, vy) = self.viewport
         window_x = int(x * self.zoomcoefficient) - vx
         window_y = int(y * self.zoomcoefficient) - vy
-        
+
         return (window_x, window_y)
-    
+
     def scale_image(self):
         # Resize image
         if self._old_zoom_level == self.zoom_level:
             return
-        
+
         raw_x, raw_y = self.raw_image.size
         new_w = int(raw_x * self.zoomcoefficient)
         new_h = int(raw_y * self.zoomcoefficient)
 
         self.scaled_image = self.raw_image.resize((new_w, new_h),
-                                    Image.ANTIALIAS)
+                                                  Image.ANTIALIAS)
 
         self._old_zoom_level = self.zoom_level
-        
+
     def crop_image(self):
         # Display the region of the zoomed image starting at viewport and window size
         x, y = self.viewport
@@ -189,7 +190,6 @@ class MainView:
         h = self.frame.winfo_height()
 
         self.zoomed_image = self.scaled_image.crop((x, y, x + w, y + h))
-        
 
     @property
     def zoomcoefficient(self):
@@ -295,7 +295,7 @@ class MainView:
 
     def turn_on_grid(self):
         self._show_grid = True
-    
+
     @property
     def show_grid(self):
         return self._show_grid
@@ -353,7 +353,7 @@ class MainMenu:
 class StatusBar:
 
     def __init__(self, root):
-        self.status = tk.Label(root, text="X,Y", bd=1, relief=tk.SUNKEN, 
+        self.status = tk.Label(root, text="X,Y", bd=1, relief=tk.SUNKEN,
                                anchor=tk.W)
         self.status.pack(side=tk.BOTTOM, fill=tk.X)
 
@@ -368,9 +368,9 @@ class StatusBar:
 
         if img_value:
             if isinstance(img_value, int):
-                img_value_display = "({:03d})".format(img_value) 
+                img_value_display = "({:03d})".format(img_value)
             else:
-                img_value_display = "({:03d}, {:03d}, {:03d})".format(*img_value) 
+                img_value_display = "({:03d}, {:03d}, {:03d})".format(*img_value)
         else:
             img_value_display = "(---, ---, ---)"
 

@@ -412,8 +412,8 @@ class LoadImageApp(tk.Toplevel):
         if (not self.points.any_defined()
             or (self.points.any_defined()
                 and self.view.confirm("Warning!", "Are you sure you want to change this parameter? "
-                              "Calculated azimuth values will be affected.  Click OK to"
-                              "continue."))):
+                                      "Calculated azimuth values will be affected.  Click OK to"
+                                      "continue."))):
 
             d = AzimuthDialog(self.parent, azimuth=self.image_state.field_azimuth)
             self.view.canvas.focus_set()
@@ -536,7 +536,7 @@ class LoadImageApp(tk.Toplevel):
             confirm = tkMessageBox.askokcancel("Confirm deletion?", "Press OK to delete selected dot(s)!")
             if confirm:
                 for i, uid in for_deletion.items():
-                    self.points.del_point_with_id(uid)  
+                    self.points.del_point_with_id(uid)
                     logging.debug(f'Removing dot {i} with id: {uid}')
                     self.view.canvas.delete(i)
             else:
@@ -561,7 +561,7 @@ class LoadImageApp(tk.Toplevel):
                 self.draw_dots(self.view.canvas, self.points)
 
     def _define_new_dot(self, raw, overhanging=False):
-        self.points.add_raw(raw[0], raw[1], self.image_state.image_center, self.image_state.radius, 
+        self.points.add_raw(raw[0], raw[1], self.image_state.image_center, self.image_state.radius,
                             self.image_state.image_azimuth_coords,
                             self.lens, overhanging)
 

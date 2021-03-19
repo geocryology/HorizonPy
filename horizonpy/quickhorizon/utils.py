@@ -29,7 +29,7 @@ azm_options['filetypes'] = [('all files', '.*'),
                             ("Azimuth files", ".azm.ini")]
 azm_options['initialdir'] = "."
 
-### 
+###
 # Plotting Styles
 ###
 

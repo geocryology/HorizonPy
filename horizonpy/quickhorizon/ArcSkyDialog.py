@@ -108,7 +108,7 @@ class ArcSkyDialog(tk.Toplevel):
     def open_outputfile(self):
         file = tkFileDialog.asksaveasfilename(defaultextension=".txt",
                                               filetypes=[('all files', '.*'),
-                                                          ('text files', '.txt')])
+                                                         ('text files', '.txt')])
         if file:
             self.outputfilename.set(file)
         else:
@@ -126,11 +126,11 @@ class ArcSkyDialog(tk.Toplevel):
             script = pkg_resources.resource_filename('horizonpy', 'arcsky.py')
             image = self.inputfilename.get()
             outfile = self.outputfilename.get()
-            id = self.skyid.get()
+            sky_id = self.skyid.get()
             S = subprocess.run(['python', script,
                                 "--sky", image ,
                                 "--out", outfile,
-                                "--id", str(id)])
+                                "--id", str(sky_id)])
             logging.info("ran command: {}".format(" ".join(S.args)))
             if S.returncode == 0:
                 tkMessageBox.showinfo("Success!", "Horizon points written to {}".format(outfile))

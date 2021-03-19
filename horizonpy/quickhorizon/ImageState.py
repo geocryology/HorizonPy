@@ -26,7 +26,7 @@ class ImageState:
     @property
     def image_azimuth(self):
         return self._image_azimuth
-    
+
     @image_azimuth.setter
     def image_azimuth(self, value):
         if (0 <= value <= 360 or value == self.DEFAULT_IMAGE_AZIMUTH):
@@ -48,18 +48,18 @@ class ImageState:
 
     def get_plottable_azimuth(self):
         return self.image_center, self.image_azimuth_coords
-        
+
     def update_azimuth(self, anchor):
-        self.image_azimuth = find_angle(self.image_center, anchor, 
+        self.image_azimuth = find_angle(self.image_center, anchor,
                                         (self.image_center[0] + self.radius, self.image_center[1]))
-        
+
         # Draw the field azimuth in reference to the anchor point
         rX = self.image_center[0] + int(self.radius * np.cos(np.radians(self.image_azimuth)))
         rY = self.image_center[1] + int(self.radius * np.sin(np.radians(self.image_azimuth)))
 
         # Store field azimuth coordinates (end point)
         self.image_azimuth_coords = (rX, rY)
-        
+
     def save_azimuth_config(self, f_name):
         C = configparser.ConfigParser()
         C.add_section("Azimuth")
@@ -79,7 +79,7 @@ class ImageState:
     def load_azimuth_config(self, f_name):
         C = configparser.ConfigParser()
         C.read(f_name)
-        
+
         center = (C.getint("Azimuth", "grid_centre_x"),
                   C.getint("Azimuth", "grid_centre_y"))
         radius = C.getint("Azimuth", "radius")
@@ -87,11 +87,11 @@ class ImageState:
 
         anchor = (C.getint("Azimuth", "anchor_x"),
                   C.getint("Azimuth", "anchor_y"))
-        
+
         self.field_azimuth = C.getfloat("Azimuth", "field_azimuth")
         self.image_azimuth = C.getfloat("Azimuth", "image_azimuth")
-        
-        self.set_grid(center, radius, spoke_spacing)      
+
+        self.set_grid(center, radius, spoke_spacing)
         self.set_anchor(anchor)
 
     def set_anchor(self, raw_coords):
@@ -157,7 +157,7 @@ class EventState:
     @property
     def tool(self):
         return self._tool
-    
+
     @tool.setter
     def tool(self, value):
         if value in self.TOOL_OPTIONS:
