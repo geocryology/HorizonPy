@@ -1,7 +1,7 @@
 from setuptools import setup
 
 
-version = open('VERSION').read().strip()
+version = open('horizonpy/VERSION').read().strip()
 
 setup(name='horizonpy',
       version=version,
