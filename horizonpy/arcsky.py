@@ -7,15 +7,18 @@ except ImportError:
     _has_gdal = False
 else:
     _has_gdal = True
-    
-    
-import re 
+
+
+import re
 import os
+import sys
+import argparse
 
 import numpy as np
 from math import atan2, sqrt
 from pandas import DataFrame
 from scipy.interpolate import interp1d
+
 
 class ArcSky(object):
     """ 
@@ -46,7 +49,6 @@ class ArcSky(object):
         for tmpfile in clean:
             if os.path.isfile(tmpfile):
                 os.remove(tmpfile)
-        
         
     def polygonize(self, vector_file=None):
         """ convert raster file to shapefile """
@@ -213,11 +215,8 @@ class ArcSky(object):
         hr_intrp.to_csv(output_file, index = False)
         print("Horizon written to {}".format(output_file))
 
-        
-# Command-line utility 
-if __name__ == "__main__":
-    import argparse
 
+def main():
     parser = argparse.ArgumentParser(
         description="Convert ArcGIS skyview raster to csv of horizon points",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -225,15 +224,24 @@ if __name__ == "__main__":
     parser.add_argument('--sky',  type=str, help="Path to ArcSky raster")
     parser.add_argument('--out', type=str, default=None, help="Path to output csv with file extension")
     parser.add_argument('--id', default=1, type=int, help="Value of sky patch in skyview raster.  ArcGIS default is: 1 = sky, -1 = ground, -3 = nodata")
-    
+
     args = parser.parse_args()
+
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+
     out_file = args.out
     in_file = args.sky
 
     if out_file is None:
         out_file = re.sub("\\..*$", ".csv", in_file)
-    
+
     AS = ArcSky()
     AS.setSkyClassValue(args.id)
     AS.open_new_file(in_file)
     AS.write_horizon_file(out_file)
+
+
+if __name__ == "__main__":
+    main()
