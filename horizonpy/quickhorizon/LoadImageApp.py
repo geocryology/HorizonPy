@@ -26,6 +26,7 @@ from horizonpy.quickhorizon.HorizonPoints import HorizonPoints
 from horizonpy.quickhorizon.ImageState import ImageState, EventState
 from horizonpy.quickhorizon.View import StatusBar, MainView, MainMenu
 from horizonpy.quickhorizon.utils import file_opt, csv_opt, azm_opt
+from horizonpy import __version__ as _version
 import horizonpy.quickhorizon.HorizonDecorators as hd
 import horizonpy.quickhorizon.LensCalibrations as lens
 
@@ -349,13 +350,13 @@ class LoadImageApp(tk.Toplevel):
 
     def about(self):
         tkMessageBox.showinfo("About QuickHorizon",
-                              """Contributors:\n
-                              Nick Brown (nick.brown@carleton.ca)
-                              Stephan Gruber (stephan.gruber@carleton.ca)
-                              Mark Empey
-                              More information:
-                              github.com/geocryology/horizonpy
-                              """
+                              (f"Version: {_version}\n"
+                               "\nContributors:\n"
+                               "Nick Brown (nick.brown@carleton.ca)\n"
+                               "Stephan Gruber (stephan.gruber@carleton.ca)\n"
+                               "Mark Empey\n"
+                               "\nMore information:\n"
+                               "github.com/geocryology/horizonpy")
                               )
 
     def delete_all(self):

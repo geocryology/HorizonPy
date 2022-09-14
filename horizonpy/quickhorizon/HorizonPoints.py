@@ -133,7 +133,7 @@ class HorizonPoints:
             azimuth = find_angle(center, image_azimuth_coords, (dot[0], dot[1]))
 
             dot_radius = np.sqrt(np.power(dot[0] - center[0], 2) + np.power(dot[1] - center[1], 2))
-            horizon = lens.horizon_from_radius(dot_radius, grid_radius) 
+            horizon = lens.horizon_from_radius(dot_radius, grid_radius)
 
             if dot[2] == -998 or dot[2] > 90:
                 if horizon == 0:  # if horizon is exactly 0, make it a 90 deg point

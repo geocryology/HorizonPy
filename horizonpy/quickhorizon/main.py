@@ -11,7 +11,8 @@ try:
 except ImportError:
     import tkinter as tk
 
-if __name__ == '__main__':
+
+def main():
     root = tk.Tk()
     root.title("QuickHorizon")
     icon = pkg_resources.resource_filename("horizonpy", path.join("quickhorizon", "assets", "QH.ico"))
@@ -24,3 +25,7 @@ if __name__ == '__main__':
     App = LoadImageApp(root)
 
     root.mainloop()
+
+
+if __name__ == '__main__':
+    main()
