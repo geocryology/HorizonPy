@@ -1,13 +1,5 @@
 # HorizonPy
-Tools for generating and manipulating horizon lines and sky view factors
-
-## Introduction
-HorizonPy has a number of submodules:
-### QuickHorizon
-This module is used to digitize horizon points from horizon camera images (fish-eye photographs)
-### ArcSky
-This module is used to transform ArcGIS sky plots into horizon points.
-
+HorizonPy is a collection of tools for defining horizon lines and calculating sky view factors to support models requiring information about the surface energy balance. **QuickHorizon** is a GUI that allows you to delineate horizon lines from fish-eye photographs. You can also calculate sky view factors for surfaces at specific orientations, making it suitable for calculating energy balances in non-horizontal terrain. **ArcSky** can transform an ArcGIS sky plot into textfiles of horizon elevations and azimuths, which can then be used to calculate sky view factors. Both ArcSky and the sky view factor calculations are accessible within the GUI and as standalone python modules.  
 
 ## Installation
 HorizonPy is tested with Python 3. We recommend using python 3.8. 

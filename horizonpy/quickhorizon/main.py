@@ -1,7 +1,5 @@
 import logging
-import os
 import pkg_resources
-import sys
 
 from os import path
 
@@ -20,22 +18,11 @@ def main():
     icon = pkg_resources.resource_filename("horizonpy", path.join("quickhorizon", "assets", "QH.ico"))
     root.iconbitmap(icon)
 
-    image_file = None
-
-    logging.basicConfig(level=logging.INFO,
+    logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s %(levelname)-8s %(message)s',
                     datefmt='%a, %d %b %Y %H:%M:%S')
 
-    if len(sys.argv) > 1:
-        if os.path.isfile(sys.argv[1]):
-            image_file = sys.argv[1]
-
-        else:
-            exit_string = "Image File " + sys.argv[1] + " doesn't exist!"
-            sys.exit(exit_string)
-
-
-    App = LoadImageApp(root,image_file)
+    App = LoadImageApp(root)
 
     root.mainloop()
 
