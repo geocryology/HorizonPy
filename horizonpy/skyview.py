@@ -316,7 +316,7 @@ def carte_to_horiz(x, y, z):
     Returns
     -------
     array
-        coordinates as azimuth-horizon pairs
+        (2,n) array of coordinates as azimuth-horizon pairs 
 
     Examples
     --------
@@ -353,7 +353,7 @@ def rotate_towards(azimuth, rot_angle):
     return(rotmat)
 
 
-def rotate_horizon(azimuth, horizon, aspect, dip):
+def rotate_horizon(azimuth, horizon, aspect, dip, oob='zero'):
     """
     Calculates rotated horizon angles relative to a plane
 
@@ -397,10 +397,15 @@ def rotate_horizon(azimuth, horizon, aspect, dip):
     # put back in spherical coordinates
     coords = carte_to_horiz(rot[0], rot[1], rot[2])
 
-
-    # put negative horizons at 0 degrees (Assume self-shading)
-    coords[1] = [x if x>=0 else 0 for x in coords[1]]
-
+    if oob == 'zero':  # put negative horizons at 0 degrees (Assume self-shading)
+        coords[1] = [x if x >= 0 else 0 for x in coords[1]]
+    
+    elif oob == 'omit':  # drop horizons below 0
+        coords = coords[:, np.where(coords[1] >= 0)[0]]
+    
+    else:
+        pass
+    
     return(coords)
 
 
@@ -479,11 +484,23 @@ def project_horizon_top_down(azimuth, horizon, r0=1, degrees=True):
 
 def add_sky_plot(figure, *args, **kwargs):
     ax = figure.add_subplot(*args, **kwargs, projection='polar')
+    configure_axes(ax)
+    return ax
+
+
+def configure_axes(ax):
     ax.set_theta_direction(1)
     ax.set_theta_zero_location('N')
     ax.yaxis.set_visible(False)
     ax.set_ylim(0, 1)
     return ax
+
+
+def skyplot_figure():
+    f, ax = plt.subplots(figsize=(5,5), dpi=100,
+                                   subplot_kw={'projection': 'polar'})
+    configure_axes(ax)
+    return f, ax
 
 
 def plot_rotated_points(azimuth, horizon, aspect, dip, ax):

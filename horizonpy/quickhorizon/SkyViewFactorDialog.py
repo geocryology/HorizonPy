@@ -100,7 +100,11 @@ class SkyViewFactorDialog(tk.Toplevel):
         if self.apply():
             # F_sky = SVF_discretized(self.pts_az, self.pts_hor, self.surface_asp, self.surface_dip, 1)
             self.redraw()
-            rotated_horizon = rotate_horizon(self.pts_az, self.pts_hor, self.surface_asp, self.surface_dip)
+            rotated_horizon = rotate_horizon(self.pts_az,
+                                             self.pts_hor,
+                                             self.surface_asp,
+                                             self.surface_dip,
+                                             oob="ignore")
             try:
                 F_sky = svf_steyn_1980(rotated_horizon[0], rotated_horizon[1], 72)
             except TopologicalError:
