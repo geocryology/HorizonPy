@@ -7,7 +7,7 @@ except ImportError:  # python 2
 class StatusBar:
 
     def __init__(self, root):
-        self.status = tk.Label(root, text="X,Y", bd=1, relief=tk.SUNKEN, 
+        self.status = tk.Label(root, text="X,Y", bd=1, relief=tk.SUNKEN,
                                anchor=tk.W)
         self.status.pack(side=tk.BOTTOM, fill=tk.X)
 
@@ -21,7 +21,7 @@ class StatusBar:
             output += "Field Azimuth = {:.1f}".format(field_azimuth).ljust(25)
 
         if img_value:
-            img_value_display = "({:03d}, {:03d}, {:03d})".format(*img_value) 
+            img_value_display = "({:03d}, {:03d}, {:03d})".format(*img_value)
         else:
             img_value_display = "(---, ---, ---)"
 

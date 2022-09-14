@@ -10,7 +10,7 @@ class HorizonPoints:
 
     def __init__(self):
         self.dots = list()  # list of digitized dots.  Columns contain X, Y, Elevation, Az
-    
+
     def import_horizon_csv(self, file):
         self.delete_all()
 
@@ -26,7 +26,7 @@ class HorizonPoints:
         finally:
             f.close()
 
-    def import_geotop_csv(): 
+    def import_geotop_csv():
         raise NotImplementedError
 
     def import_data(self, data_type="horizon"):
@@ -35,9 +35,9 @@ class HorizonPoints:
     def __get_import_method(self, data_type):
         pass
 
-    def export_to_geotop(self, f_name, delta): 
-        """ Save the horizon points to a geotop CSV file 
-        
+    def export_to_geotop(self, f_name, delta):
+        """ Save the horizon points to a geotop CSV file
+
         f_name : str
             file path
 
@@ -46,7 +46,7 @@ class HorizonPoints:
         """
         az = np.array([x[4] for x in self.get()])
         hor = np.array([x[2] for x in self.get()])
- 
+
         hor[hor >= 90] = 90
 
         az = az[np.argsort(az)]
@@ -68,8 +68,8 @@ class HorizonPoints:
         df.to_csv(f_name, index=False)
 
     def export_to_horizon_csv(self, f_name):
-        """ Save the dots to CSV file 
-        """                
+        """ Save the dots to CSV file
+        """
         df = pd.DataFrame(self.get())
         df.columns = ('X', 'Y', 'Horizon', 'Image Azimuth', 'True Azimuth')
         df.to_csv(f_name, index=False)
@@ -118,8 +118,8 @@ class HorizonPoints:
             return False
 
     def del_point_with_coordinates(self, coords):
-        """ Delete point with specified raw coordinates 
-        
+        """ Delete point with specified raw coordinates
+
         coords: tuple
             Raw (x,y) coordiantes of horizon point
         """
@@ -134,7 +134,7 @@ class HorizonPoints:
             azimuth = find_angle(center, image_azimuth_coords, (dot[0], dot[1]))
 
             dot_radius = np.sqrt(np.power(dot[0] - center[0], 2) + np.power(dot[1] - center[1], 2))
-            horizon = lens.horizon_from_radius(dot_radius, grid_radius) 
+            horizon = lens.horizon_from_radius(dot_radius, grid_radius)
 
             if dot[2] == -998 or dot[2] > 90:
                 if horizon == 0:  # if horizon is exactly 0, make it a 90 deg point

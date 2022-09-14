@@ -19,7 +19,7 @@ class ImageState:
         self.build_zoom_levels()
         self._show_grid = False
         self.viewport = self.DEFAULT_VIEWPORT  # Used for zoom and pan
-        
+
         self.image_azimuth_coords = (0,0)
         self.reset_image_azimuth()
         self.anchor = (-999, -999)  # Azimuth anchor
@@ -52,7 +52,7 @@ class ImageState:
         self._brightness_value = value
         logging.info('Image brightness changed from {:.2f} to {:.2f}'.format(
                      old, self._brightness_value))
-    
+
     @property
     def zoom_level(self):
         return self._zoom_level
@@ -61,10 +61,10 @@ class ImageState:
     def zoom_level(self, value):
         if not value >= self.MIN_ZOOM:
             raise ValueError("Attempted to set too small zoom value")
-            
+
         if not value <= self.MAX_ZOOM:
             raise ValueError("Attempted to set too large zoom value")
-        
+
         self._zoom_level = value
         logging.info("zoom level is {}".format(self._zoom_level))
 
@@ -93,7 +93,7 @@ class ImageState:
 
     def turn_on_grid(self):
         self._show_grid = True
-    
+
     @property
     def show_grid(self):
         return self._show_grid
@@ -118,10 +118,10 @@ class ImageState:
             rY = self.image_center[1] + int(self.radius * np.sin(np.radians(n)))
             pX, pY = self.to_window((rX, rY))
             spokes.append((wX, wY, pX, pY))
-        
+
         grid_data = {'oval': oval,
                      'spokes': spokes}
-        
+
         return grid_data
 
     def update_viewport(self, new_x, new_y, old_x, old_y):
@@ -134,7 +134,7 @@ class ImageState:
     @property
     def image_azimuth(self):
         return self._image_azimuth
-    
+
     @image_azimuth.setter
     def image_azimuth(self, value):
         if (0 <= value <= 360 or value == self.DEFAULT_IMAGE_AZIMUTH):
@@ -158,20 +158,20 @@ class ImageState:
         wX, wY = self.to_window(self.image_center)
         pX, pY = self.to_window(self.image_azimuth_coords)
         azimuth_data = (wX, wY, pX, pY)
-        
+
         return azimuth_data
-        
+
     def update_azimuth(self, anchor):
-        self.image_azimuth = find_angle(self.image_center, anchor, 
+        self.image_azimuth = find_angle(self.image_center, anchor,
                                         (self.image_center[0] + self.radius, self.image_center[1]))
-        
+
         # Draw the field azimuth in reference to the anchor point
         rX = self.image_center[0] + int(self.radius * np.cos(np.radians(self.image_azimuth)))
         rY = self.image_center[1] + int(self.radius * np.sin(np.radians(self.image_azimuth)))
 
         # Store field azimuth coordinates (end point)
         self.image_azimuth_coords = (rX, rY)
-        
+
     def save_azimuth_config(self, f_name):
         C = configparser.ConfigParser()
         C.add_section("Azimuth")
@@ -220,7 +220,7 @@ class ImageState:
         (vx, vy) = self.viewport
         raw_x = int((x + vx) / self.zoomcoefficient)
         raw_y = int((y + vy) / self.zoomcoefficient)
-        
+
         return (raw_x, raw_y)
 
     def to_window(self, p):
@@ -229,9 +229,9 @@ class ImageState:
         (vx, vy) = self.viewport
         window_x = int(x * self.zoomcoefficient) - vx
         window_y = int(y * self.zoomcoefficient) - vy
-        
+
         return (window_x, window_y)
-    
+
     def scale_image(self):
         # Resize image
         raw_x, raw_y = self.raw_image.size

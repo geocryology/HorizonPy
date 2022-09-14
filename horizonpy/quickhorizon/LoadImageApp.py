@@ -47,7 +47,7 @@ class LoadImageApp(tk.Toplevel):
         self.points = HorizonPoints()
         self.image_state.imageFile = image_file  # TODO: remove?
         self.tool = "move"
-  
+
         # File associations
         self.file_opt = options = {}
         options['defaultextension'] = '.gif'
@@ -148,7 +148,7 @@ class LoadImageApp(tk.Toplevel):
         imagemenu.add_command(label="Decrease Brightness <w>",
                               command=self.decrease_brightness)
         menubar.add_cascade(label="Image", menu=imagemenu)
-        
+
         helpmenu = tk.Menu(menubar, tearoff=0)
         helpmenu.add_command(label="Show Point Coordinates",
                              command=self.show_dots)
@@ -182,9 +182,9 @@ class LoadImageApp(tk.Toplevel):
 
     def set_file_locations(self, image_dir):
         name = os.path.splitext(os.path.basename(self.image_state.imageFile))[0]
-        
+
         self.file_opt['initialdir'] = image_dir
-       
+
         self.csv_opt['initialdir'] = image_dir
         self.csv_opt['initialfile'] = name + self.csv_opt['defaultextension']
 
@@ -226,7 +226,7 @@ class LoadImageApp(tk.Toplevel):
         self.image_state.raw_image = self.apply_enhancement(self.image_state.orig_img,
                                                 ImageEnhance.Contrast,
                                                 self.image_state.contrast_value)
-       
+
         self.image_state.raw_image = self.apply_enhancement(self.image_state.raw_image,
                                                 ImageEnhance.Brightness,
                                                 self.image_state.brightness_value)
@@ -239,7 +239,7 @@ class LoadImageApp(tk.Toplevel):
     def adjust_contrast(self, increment, *args):
         self.image_state.contrast_value += increment
         self.reload_image()
-        
+
     def increase_contrast(self, event=None, increment=0.1):
         self.adjust_contrast(increment)
 
@@ -330,7 +330,7 @@ class LoadImageApp(tk.Toplevel):
         canvas.delete("azimuth")
         canvas.create_line(wX, wY, pX, pY, tag="azimuth",
                            fill="green", width=3)
-    
+
     def draw_azimuth(self, canvas):
         azimuth_data = self.image_state.get_plottable_azimuth()
         self.plot_azimuth_data(canvas, azimuth_data)
@@ -379,7 +379,7 @@ class LoadImageApp(tk.Toplevel):
 
         if not file:
             file = tkFileDialog.askopenfilename(**self.csv_opt)
-        
+
         if file:
             self.points.import_horizon_csv(file)
             self.draw_dots(self.canvas, self.points)
@@ -397,7 +397,7 @@ class LoadImageApp(tk.Toplevel):
         if file:
             self.points.import_geotop_csv(file)
             self.draw_dots(self.canvas, self.points)
-            
+
         else:
             logging.info('No file selected')
 
@@ -406,7 +406,7 @@ class LoadImageApp(tk.Toplevel):
     def save_csv(self):
         # Save the dots to CSV file
         self.points.update_field_azimuth(self.image_state.field_azimuth)
-        
+
         try:
             f_name = tkFileDialog.asksaveasfilename(**self.csv_opt)
             if f_name:
@@ -447,7 +447,7 @@ class LoadImageApp(tk.Toplevel):
 
         if f_name:
             self.image_state.save_azimuth_config(f_name)
-            
+
     def load_azimuth(self, f_name=None):
         if not f_name:
             f_name = tkFileDialog.askopenfilename(**self.azm_opt)
@@ -457,7 +457,7 @@ class LoadImageApp(tk.Toplevel):
             self.image_state.grid_set = True
             self.draw_azimuth(self.canvas)
             self.image_state.turn_on_grid()
-        
+
     def exit_app(self):
         self.parent.destroy()
 
@@ -514,7 +514,7 @@ class LoadImageApp(tk.Toplevel):
     def toggle_grid(self, *args):
         if not self.image_state.raw_image:
             return
-            
+
         if self.image_state.show_grid:
             self.image_state.turn_off_grid()
             self.canvas.delete("grid")
@@ -546,13 +546,13 @@ class LoadImageApp(tk.Toplevel):
 
     def warn_dots(self):
         if self.points.any_defined():
-            dialog = tkMessageBox.askokcancel("Warning!", 
-                                              """Are you sure you want to 
-                                              change this parameter? calculated 
-                                              azimuth values will be affected.  
+            dialog = tkMessageBox.askokcancel("Warning!",
+                                              """Are you sure you want to
+                                              change this parameter? calculated
+                                              azimuth values will be affected.
                                               Click OK to continue.""")
             return(dialog)
-        
+
         else:
             return(True)
 
@@ -567,7 +567,7 @@ class LoadImageApp(tk.Toplevel):
             self.image_state.zoom_level += 1
             self.image_state.scale_image()
             self.display_region(self.canvas)
-        
+
         except ValueError:
             logging.info("Max zoom reached!")
 
@@ -577,7 +577,7 @@ class LoadImageApp(tk.Toplevel):
             self.image_state.zoom_level -= 1
             self.image_state.scale_image()
             self.display_region(self.canvas)
-        
+
         except ValueError:
             logging.info("Min zoom reached!")
 
@@ -595,10 +595,10 @@ class LoadImageApp(tk.Toplevel):
     #######################################################
     # Mouse options
     #######################################################
-    
+
     def store_xy_selection(self, event):
         self.select_X, self.select_Y = event.x, event.y
-        
+
     def zoom_wheel(self, event):
 
         if self.image_state.raw_image:
@@ -610,7 +610,7 @@ class LoadImageApp(tk.Toplevel):
                 increment = -1
             else:
                 return
-            
+
             try:
                 self.image_state.zoom_level += increment
             except ValueError:
@@ -628,7 +628,7 @@ class LoadImageApp(tk.Toplevel):
         logging.debug('b1down() at ({},{})'.format(event.x, event.y))
         self.store_xy_selection(event)
         self.event_state.button_1 = "down"
-        
+
         if self.image_state.raw_image:
             if self.tool == "dot":
                 raw = self.image_state.to_raw((event.x, event.y))
@@ -638,10 +638,10 @@ class LoadImageApp(tk.Toplevel):
             else:
                 if self.tool == "azimuth":
                     self.draw_grid(self.canvas)
-                                      
+
                     self.image_state.set_anchor(event)
                     self.draw_azimuth(self.canvas)
-    
+
     def select_dots_from_rectangle(self, event):
         items = event.widget.find_enclosed(self.select_X, self.select_Y,
                                            event.x, event.y)
@@ -652,10 +652,10 @@ class LoadImageApp(tk.Toplevel):
 
         selected = [x for x in items if event.widget.gettags(x)[0] == 'dot']
         return selected
-        
+
     def b1up(self, event):
         self.event_state.button_1 = "up"
-        logging.debug('b1up()-> tool = %s at (%d, %d)', 
+        logging.debug('b1up()-> tool = %s at (%d, %d)',
                       self.tool, event.x, event.y)
         if not self.image_state.raw_image:
             return
@@ -676,7 +676,7 @@ class LoadImageApp(tk.Toplevel):
             self.draw_dots(self.canvas, self.points)
             if self.image_state.field_azimuth == -1:
                 self.define_field_azimuth()
-    
+
     def delete_dots(self, selected_dots):
         to_delete = {}
         for i in selected_dots:
@@ -700,9 +700,9 @@ class LoadImageApp(tk.Toplevel):
 
             else:
                 logging.info('Dot deletion cancelled!')
-            
+
         self.display_region(self.canvas)
-                
+
     def b2down(self, event):
         self.event_state.button_2 = "down"
 
@@ -720,26 +720,26 @@ class LoadImageApp(tk.Toplevel):
                 self.draw_dots(self.canvas, self.points)
 
     def _define_new_dot(self, raw, overhanging=False):
-        self.points.add_raw(raw[0], raw[1], self.image_state.image_center, self.image_state.radius, 
+        self.points.add_raw(raw[0], raw[1], self.image_state.image_center, self.image_state.radius,
                             self.image_state.image_azimuth_coords,
                             self.lens, overhanging)
 
     def b3up(self, event):
         pass
-    
+
     def pan(self, event):
         xold, yold = self.event_state.old_event
         self.image_state.update_viewport(event.x, event.y,
                                          xold, yold)
         self.display_region(self.canvas)
-        
+
     # Handles mouse
     def motion(self, event):
 
         # Button 2 pans no matter what
         if self.image_state.raw_image and self.event_state.button_2 == "down":
             self.pan(event)
-            
+
         # Conditional on button 1 depressed
         if self.image_state.raw_image and self.event_state.button_1 == "down":
             if self.tool == "move":     # Panning
@@ -747,29 +747,29 @@ class LoadImageApp(tk.Toplevel):
 
             elif self.tool == "select":
                 self.update_selection_rectangle(event)
-                                                  
+
         self.event_state.store_event(event.x, event.y)
         self.update_status_bar(event)
-    
+
     def update_selection_rectangle(self, event):
         rect = event.widget.find_withtag("selection_rectangle")
         if rect:
             event.widget.delete(rect)
         event.widget.create_rectangle(self.select_X, self.select_Y,
                                       event.x, event.y, fill="",
-                                      dash=(4, 2), 
+                                      dash=(4, 2),
                                       tag="selection_rectangle")
 
     def update_status_bar(self, event):
         cursor_loc = self.image_state.to_raw((event.x, event.y))
- 
+
         try:
             img_value = self.image_state.raw_image.getpixel(cursor_loc)
         except (IndexError, AttributeError):
             img_value = None
-        
+
         self.status_bar.display(cursor_loc, self.image_state.image_azimuth, self.image_state.field_azimuth, img_value)
-        
+
     def resize_window(self, event):
         if self.image_state.zoomed_image:
             self.display_region(self.canvas)
