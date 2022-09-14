@@ -45,6 +45,7 @@ def SVF_discretized(azimuth, horizon, aspect, dip, increment=2):
 
     return(F_sky)
 
+
 def svf_helbig_2009(f, delta_phi=1):
     """Calculate sky view factor by integrating over all azimuths
 
@@ -124,9 +125,6 @@ def annulus(r_in, r_out):
     return C2.difference(C1)
 
 
-
-
-# Steyn -
 def svf_steyn_1980(azimuth, horizon, n=36):
     """ Calculate sky view factor using method of annuli
 
@@ -219,6 +217,7 @@ def rotation_matrix(axis, theta):
                     [2*(bc-ad), aa+cc-bb-dd, 2*(cd+ab)],
                     [2*(bd+ac), 2*(cd-ab), aa+dd-bb-cc]])
 
+
 def sphr_to_carte(theta, phi, r):
     """ Convert from spherical coordinates to cartesian coordinates
 
@@ -257,6 +256,7 @@ def sphr_to_carte(theta, phi, r):
     coords = np.array((x,y,z))
     return(coords)
 
+
 def carte_to_sphr(x, y, z, degrees=True):
     """
     Convert from cartesian coordinates to spherical coordinates
@@ -286,6 +286,7 @@ def carte_to_sphr(x, y, z, degrees=True):
     coords = np.array((theta, phi, r))
     return(coords)
 
+
 def horiz_to_carte(azimuth, horizon):
     """
     returns cartesian coordinates from a horizon angle and azimuth
@@ -301,6 +302,7 @@ def horiz_to_carte(azimuth, horizon):
     phi = 90 - horizon
     coords = sphr_to_carte(theta, phi, r)
     return(coords)
+
 
 def carte_to_horiz(x, y, z):
     """
@@ -334,6 +336,7 @@ def carte_to_horiz(x, y, z):
 
     return(coords)
 
+
 def rotate_towards(azimuth, rot_angle):
     """
     returns cartesian axis of rotation for azimuthal dip direction
@@ -348,6 +351,7 @@ def rotate_towards(azimuth, rot_angle):
     # Calculate rotation matrix
     rotmat = rotation_matrix(ax, np.radians(rot_angle))
     return(rotmat)
+
 
 def rotate_horizon(azimuth, horizon, aspect, dip):
     """
@@ -399,6 +403,7 @@ def rotate_horizon(azimuth, horizon, aspect, dip):
 
     return(coords)
 
+
 def project_horizon_to_equirectangular(azimuth, horizon, r0=1, degrees=True):
     """ Project azimuth and horizon onto x,y plane using equirectangular projection
 
@@ -436,6 +441,7 @@ def project_horizon_to_equirectangular(azimuth, horizon, r0=1, degrees=True):
 
     return x,y
 
+
 def project_horizon_top_down(azimuth, horizon, r0=1, degrees=True):
     """ Project azimuth and horizon onto x,y plane
 
@@ -470,6 +476,7 @@ def project_horizon_top_down(azimuth, horizon, r0=1, degrees=True):
 
     return x,y
 
+
 def add_sky_plot(figure, *args, **kwargs):
     ax = figure.add_subplot(*args, **kwargs, projection='polar')
     ax.set_theta_direction(1)
@@ -477,6 +484,7 @@ def add_sky_plot(figure, *args, **kwargs):
     ax.yaxis.set_visible(False)
     ax.set_ylim(0, 1)
     return ax
+
 
 def plot_rotated_points(azimuth, horizon, aspect, dip, ax):
 
@@ -488,6 +496,7 @@ def plot_rotated_points(azimuth, horizon, aspect, dip, ax):
     p = ax.plot(azimuth, r, 'r-')
 
     return p
+
 
 def test_overhang(theta, horiz):
     """
@@ -548,7 +557,6 @@ def test_overhang(theta, horiz):
             ohang.append(False)
 
     return(np.array(ohang))
-
 
 
 def test_obscured(theta, horiz, increment):
