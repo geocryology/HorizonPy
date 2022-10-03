@@ -5,6 +5,7 @@ from shapely.geometry import LineString, Polygon, LinearRing, Point
 from warnings import warn
 
 import matplotlib.pyplot as plt
+from matplotlib.patches import Polygon as MatPoly
 
 try: # Python 3.x
     izip = zip
@@ -505,13 +506,14 @@ def skyplot_figure():
 
 def plot_rotated_points(azimuth, horizon, aspect, dip, ax):
 
-    rt = rotate_horizon(azimuth, horizon, aspect, dip)
+    rt = rotate_horizon(azimuth, horizon, aspect, dip, oob='ignore')
 
     x,y = project_horizon_to_equirectangular(rt[0], rt[1])
     r = np.sqrt(x**2 + y**2)
     azimuth = np.mod(np.arctan2(x,y), 2 * np.pi)
     p = ax.plot(azimuth, r, 'r-')
-
+    poly = MatPoly(xy=list(zip(azimuth,r)), facecolor='blue', alpha=0.2)
+    ax.add_patch(poly)
     return p
 
 
