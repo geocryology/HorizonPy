@@ -154,7 +154,7 @@ class HorizonPoints:
 
     def update_field_azimuth(self, field_azimuth):
         """ Recalculate true azimuth for all dots """
-        self.dots = [x + [calculate_true_azimuth(x[3], field_azimuth), x[4]] for x in self.get()]
+       self.dots = [x[0:3] + (calculate_true_azimuth(x[3], field_azimuth), x[4])  for x in self.get()]
 
 
 class HorizonPoint:
