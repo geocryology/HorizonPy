@@ -14,6 +14,9 @@ import logging
 import matplotlib as mpl
 import numpy as np
 import os
+import pkg_resources
+
+from functools import partial
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
@@ -86,7 +89,7 @@ class LoadImageApp(tk.Toplevel):
         menubar = self.menu.menubar
 
         filemenu = tk.Menu(menubar, tearoff=0)
-        filemenu.add_command(label="Open Image", command=self.open_file)
+        filemenu.add_command(label="Open Image", command=self.open_file_dialog)
         exportmenu = tk.Menu(menubar, tearoff=0)
         filemenu.add_cascade(label="Export", menu=exportmenu)
         exportmenu.add_command(label="Export CSV", command=self.save_csv)
@@ -150,6 +153,12 @@ class LoadImageApp(tk.Toplevel):
         helpmenu.add_command(label="Show Point Coordinates",
                              command=self.show_dots)
         helpmenu.add_command(label="About QuickHorizon", command=self.about)
+        demomenu = tk.Menu(menubar, tearoff=0)
+        helpmenu.add_cascade(label="Demo", menu=demomenu)
+        demomenu.add_command(label="Example 1", command=partial(self._open_ex, filename="Horizon_1.JPG"))
+        demomenu.add_command(label="Example 2", command=partial(self._open_ex, filename="Horizon_2.jpeg"))
+        demomenu.add_command(label="Example 3", command=partial(self._open_ex, filename="Horizon_3.JPG"))
+        
 
         menubar.add_cascade(label="Help", menu=helpmenu)
 
@@ -227,15 +236,22 @@ class LoadImageApp(tk.Toplevel):
     # Menu options
     ########################################################
 
-    def open_file(self):
+    def open_file_dialog(self):
         file = tkFileDialog.askopenfilename(**file_opt)
 
         if not file:
             return
 
+        self.open_file(file)
+
+    def open_file(self, file):
         # Initialize the canvas with an image file
         self.init_canvas(self.view.canvas, file)
         self.open_metadata()
+    
+    def _open_ex(self, filename):
+        file = pkg_resources.resource_filename("horizonpy", f"quickhorizon/SampleHorizonImages/{filename}")
+        self.open_file(file)
 
     def open_metadata(self):
         default_azm = os.path.join(azm_opt['initialdir'], azm_opt['initialfile'])
