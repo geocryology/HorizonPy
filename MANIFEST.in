@@ -1,0 +1,9 @@
+# Include all files in the assets directory
+recursive-include horizonpy/quickhorizon/assets *
+
+# Include all files in SampleHorizonImages
+recursive-include horizonpy/quickhorizon/SampleHorizonImages *
+
+# Optionally include other non-Python files like README, LICENSE, etc.
+include README.md
+include LICENSE

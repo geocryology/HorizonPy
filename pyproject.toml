@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "horizonpy"
+version = "0.1"  # This will be overridden with the content from the VERSION file
+description = "Calculating sky view factors"
+readme = "README.md"
+authors = [
+    {name = "Nick Brown"}
+]
+requires-python = ">=3.6"
+dependencies = [
+    "numpy",
+    "pandas",
+
+]
+
+[project.urls]
+Homepage = "http://github.com/geocryology/horizonpy"
+Repository = "http://github.com/geocryology/horizonpy"
+Issues = "http://github.com/geocryology/horizonpy/issues"
+
+[project.scripts]
+quickhorizon = "horizonpy.quickhorizon.main:main"
+arcsky = "horizonpy.arcsky:main"
+
+[project.optional-dependencies]
+gui = ["Pillow", 
+       "matplotlib",
+       "scipy",
+       "shapely"]
+       
+full = ["Pillow",
+        "matplotlib",
+        "scipy",
+        "gdal",
+        "shapely"]
+
+[tool.setuptools]
+packages = ["horizonpy"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+"horizonpy" = ["horizonpy/quickhorizon/SampleHorizonImages", "horizonpy/quickhorizon/assets"]
+
+# read the version from a file
+[tool.setuptools.dynamic]
+version = {file = "horizonpy/VERSION"}
