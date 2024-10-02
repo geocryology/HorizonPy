@@ -21,6 +21,10 @@ This installs all necessary sub-modules for using the GUI. For a basic installat
 
 If you plan to be editing the code, use `pip install -e .[gui]` instead
 
+## Running quickhorizon and arcsky
+* Enter `quickhorizon` from the command line to run the app.
+* Enter `arcsky` from the command line to use the arcsky command-line tool
+
 ### Special Requirements
 
 #### Shapely.
