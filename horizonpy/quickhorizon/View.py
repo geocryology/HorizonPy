@@ -185,7 +185,7 @@ class MainView:
         new_h = int(raw_y * self.zoomcoefficient)
 
         self.scaled_image = self.raw_image.resize((new_w, new_h),
-                                                  Image.ANTIALIAS)
+                                                  Image.LANCZOS)
 
         self._old_zoom_level = self.zoom_level
 

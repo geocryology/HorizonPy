@@ -117,8 +117,8 @@ class ImageState:
 
         # Image larger than 1000 pixels, resize to 800 x 600
         if (width > 1000) or (height > 1000):
-            self.orig_image.thumbnail((800, 600), Image.ANTIALIAS)
-            self.raw_image.thumbnail((800, 600), Image.ANTIALIAS)
+            self.orig_image.thumbnail((800, 600), Image.LANCZOS)
+            self.raw_image.thumbnail((800, 600), Image.LANCZOS)
             (width, height) = self.raw_image.size
             logging.info("Resizing image to {} x {}".format(width, height))
 
